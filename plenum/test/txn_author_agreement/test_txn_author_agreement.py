@@ -144,6 +144,129 @@ def test_txn_author_agreement_update_ratification_fails(looper, set_txn_author_a
                                       ratified=ratified + ratified_offset)
 
 
+@pytest.mark.parametrize('retired_offset', [300, -300, -900])
+@pytest.mark.parametrize('pass_text', [True, False])
+@pytest.mark.parametrize('pass_ratification', [True, False])
+def test_txn_author_agreement_retire_non_latest(looper, set_txn_author_agreement_aml,
+                                                sdk_pool_handle, sdk_wallet_trustee,
+                                                retired_offset, pass_text, pass_ratification):
+    version_1, text_1, ratified_1 = randomString(16), randomString(1024), get_utc_epoch() - 600
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                  version=version_1,
+                                  text=text_1,
+                                  ratified=ratified_1)
+
+    version_2, text_2, ratified_2 = randomString(16), randomString(1024), get_utc_epoch() - 600
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                  version=version_2,
+                                  text=text_2,
+                                  ratified=ratified_2)
+
+    retired_1 = get_utc_epoch() + retired_offset
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version=version_1,
+                                  text=text_1 if pass_text else None,
+                                  ratified=ratified_1 if pass_ratification else None,
+                                  retired=retired_1)
+
+    # Make sure old TAA is retired
+    rep = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version=version_1)[1]
+    assert rep[OP_FIELD_NAME] == REPLY
+    taa = rep['result'][DATA]
+    assert taa[TXN_AUTHOR_AGREEMENT_VERSION] == version_1
+    assert taa[TXN_AUTHOR_AGREEMENT_TEXT] == text_1
+    assert taa[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS] == ratified_1
+    assert taa[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] == retired_1
+
+    # Make sure new TAA is not retired
+    rep = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version=version_2)[1]
+    assert rep[OP_FIELD_NAME] == REPLY
+    taa = rep['result'][DATA]
+    assert taa[TXN_AUTHOR_AGREEMENT_VERSION] == version_2
+    assert taa[TXN_AUTHOR_AGREEMENT_TEXT] == text_2
+    assert taa[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS] == ratified_2
+    assert TXN_AUTHOR_AGREEMENT_RETIREMENT_TS not in taa
+
+    # Make sure latest TAA is not changed
+    rep = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version=version_2)[1]
+    assert rep[OP_FIELD_NAME] == REPLY
+    assert taa == rep['result'][DATA]
+
+
+@pytest.mark.parametrize('retired_offset', [300, -300, -900])
+@pytest.mark.parametrize('pass_text', [True, False])
+@pytest.mark.parametrize('pass_ratification', [True, False])
+def test_txn_author_agreement_retire_latest_fails(looper, set_txn_author_agreement_aml,
+                                                  sdk_pool_handle, sdk_wallet_trustee,
+                                                  retired_offset, pass_text, pass_ratification):
+    # Write random TAA
+    version, text, ratified = randomString(16), randomString(1024), get_utc_epoch() - 600
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                  version=version,
+                                  text=text,
+                                  ratified=ratified)
+
+    # Make sure we cannot retire it
+    with pytest.raises(RequestRejectedException):
+        sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                      version=version,
+                                      text=text if pass_text else None,
+                                      ratified=ratified if pass_ratification else None,
+                                      retired=get_utc_epoch() + retired_offset)
+
+
+@pytest.mark.parametrize('retired_offset', [300, -300, -900])
+@pytest.mark.parametrize('updated_retired_offset', [300, -300, -900, None])
+def text_txn_author_agreement_can_change_retirement(looper, set_txn_author_agreement_aml,
+                                                      sdk_pool_handle, sdk_wallet_trustee,
+                                                      retired_offset, updated_retired_offset):
+    version_1, text_1, ratified_1 = randomString(16), randomString(1024), get_utc_epoch() - 600
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                  version=version_1,
+                                  text=text_1,
+                                  ratified=ratified_1)
+
+    version_2, text_2, ratified_2 = randomString(16), randomString(1024), get_utc_epoch() - 600
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                  version=version_2,
+                                  text=text_2,
+                                  ratified=ratified_2)
+
+    retired_1 = get_utc_epoch() + retired_offset
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version=version_1,
+                                  retired=retired_1)
+
+    updated_retired_1 = get_utc_epoch() + updated_retired_offset if updated_retired_offset is not None else None
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version=version_1,
+                                  retired=retired_1)
+
+    # Make sure old TAA is retired
+    rep = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version=version_1)[1]
+    assert rep[OP_FIELD_NAME] == REPLY
+    taa = rep['result'][DATA]
+    assert taa[TXN_AUTHOR_AGREEMENT_VERSION] == version_1
+    assert taa[TXN_AUTHOR_AGREEMENT_TEXT] == text_1
+    assert taa[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS] == ratified_1
+    if updated_retired_1 is None:
+        assert TXN_AUTHOR_AGREEMENT_RETIREMENT_TS not in taa
+    else:
+        assert taa[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] == updated_retired_1
+
+    # Make sure new TAA is not retired
+    rep = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version=version_2)[1]
+    assert rep[OP_FIELD_NAME] == REPLY
+    taa = rep['result'][DATA]
+    assert taa[TXN_AUTHOR_AGREEMENT_VERSION] == version_2
+    assert taa[TXN_AUTHOR_AGREEMENT_TEXT] == text_2
+    assert taa[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS] == ratified_2
+    assert TXN_AUTHOR_AGREEMENT_RETIREMENT_TS not in taa
+
+    # Make sure latest TAA is not changed
+    rep = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, version=version_2)[1]
+    assert rep[OP_FIELD_NAME] == REPLY
+    assert taa == rep['result'][DATA]
+
+
+
 def test_send_valid_txn_author_agreement_without_enough_privileges_fails(
         looper, set_txn_author_agreement_aml, txnPoolNodeSet,
         sdk_pool_handle, sdk_wallet_steward, random_taa
