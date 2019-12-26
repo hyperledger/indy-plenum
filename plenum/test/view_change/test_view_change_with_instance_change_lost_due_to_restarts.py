@@ -34,7 +34,8 @@ def test_view_change_with_instance_change_lost_due_to_restarts(looper, txnPoolNo
 
     def check_ic_delivery():
         for node in txnPoolNodeSet:
-            assert all(node.view_changer.instance_changes.
+            vct_service = node.master_replica._view_change_trigger_service
+            assert all(vct_service._instance_changes.
                        has_inst_chng_from(current_view_no + 1, sender.name)
                        for sender in some_nodes)
     looper.run(eventually(check_ic_delivery))

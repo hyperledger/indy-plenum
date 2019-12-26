@@ -81,24 +81,23 @@ class Remote:
         sock.identity = localPubKey
         set_keepalive(sock, self.config)
         set_zmq_internal_queue_size(sock, self.queue_size)
-        addr = '{protocol}://{bind_ip}:0;{}:{}'.format(*self.ha, bind_ip=self.bind_ip,
-                                                       protocol=ZMQ_NETWORK_PROTOCOL)
-        logger.trace('connecting socket {} to remote {}, addr: {}'.
-                     format(sock.FD, self, addr))
+        addr = '{protocol}://{bind_ip}:0;{}:{}'.format(*self.ha, bind_ip=self.bind_ip, protocol=ZMQ_NETWORK_PROTOCOL)
+        logger.trace('connecting socket {} to remote {}, addr: {}'.format(sock.FD, self, addr))
         sock.connect(addr)
         self.socket = sock
+
+    def close_monitor_socket(self):
+        if self.socket._monitor_socket:
+            self.socket._monitor_socket.linger = 0
+            self.socket.monitor(None, 0)
+            self.socket._monitor_socket = None
 
     def disconnect(self):
         logger.debug('disconnecting remote {}'.format(self))
         if self.socket:
+            logger.trace('{} closing monitor socket'.format(self))
+            self.close_monitor_socket()
             logger.trace('disconnecting socket {}'.format(self.socket.FD))
-
-            if self.socket._monitor_socket:
-                logger.trace('{} closing monitor socket'.format(self))
-                self.socket._monitor_socket.linger = 0
-                self.socket.monitor(None, 0)
-                self.socket._monitor_socket = None
-                # self.socket.disable_monitor()
             self.socket.close(linger=0)
             self.socket = None
         else:
@@ -117,8 +116,7 @@ class Remote:
         events = self._lastSocketEvents()
 
         if events:
-            logger.trace('Remote {} has monitor events: {}'.
-                         format(self, events))
+            logger.trace('Remote {} has monitor events: {}'.format(self, events))
 
         # noinspection PyUnresolvedReferences
         if zmq.EVENT_DISCONNECTED in events or zmq.EVENT_CLOSED in events:
@@ -135,9 +133,10 @@ class Remote:
 
             connected = eventIndex(zmq.EVENT_CONNECTED)
             delayed = eventIndex(zmq.EVENT_CONNECT_DELAYED)
-            disconnected = min(eventIndex(zmq.EVENT_DISCONNECTED),
-                               eventIndex(zmq.EVENT_CLOSED))
+            disconnected = min(eventIndex(zmq.EVENT_DISCONNECTED), eventIndex(zmq.EVENT_CLOSED))
             if disconnected < connected and disconnected < delayed:
+                logger.trace('{} connection to remote lost, closing monitor socket'.format(self))
+                self.close_monitor_socket()
                 return True
 
         return False

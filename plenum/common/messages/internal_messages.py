@@ -1,6 +1,8 @@
 from typing import NamedTuple, List, Any, Optional
 
 from plenum.common.exceptions import SuspiciousNode
+from plenum.common.startable import Status
+from plenum.server.suspicion_codes import Suspicion
 
 # General recommendation for (naming) internal messages is follows:
 # - internal messages are basically events, not commands
@@ -8,6 +10,10 @@ from plenum.common.exceptions import SuspiciousNode
 # - in some cases message names may indicate that "something needs to happen"
 # - avoid names that tell "do something", messages are not commands
 # - avoid names that are just nouns, messages are not "things"
+
+NodeStatusUpdated = NamedTuple('NodeStatusUpdated',
+                               [('old_status', Status),
+                                ('new_status', Status)])
 
 RequestPropagates = NamedTuple('RequestPropagates',
                                [('bad_requests', List)])
@@ -38,6 +44,14 @@ MissingMessage = NamedTuple('MissingMessage',
                              ('dst', List[str]),
                              ('stash_data', Optional[tuple])])
 
+# TODO: This should be merged with RaisedSuspicion
+VoteForViewChange = NamedTuple('VoteForViewChange', [('suspicion', Suspicion)])
+
+# TODO: This is a kind of hack to make Node process NeedViewChange before replicas
+#  Possible solution to this (and some other hacks) would be adding separate node internal bus
+#  to which such messages are sent, processed, and then forwarded to replicas buses if needed
+NodeNeedViewChange = NamedTuple('NodeNeedViewChange', [('view_no', int)])
+
 # by default view_no for StartViewChange is None meaning that we move to the next view
 NeedViewChange = NamedTuple('NeedViewChange',
                             [('view_no', int)])
@@ -58,7 +72,7 @@ NewViewCheckpointsApplied = NamedTuple('NewViewCheckpointsApplied',
                                         ('checkpoint', object),
                                         ('batches', list)])
 
-ReOrderedInNewView = NamedTuple('ReOrderedInNewView', [])
+ReAppliedInNewView = NamedTuple('ReAppliedInNewView', [])
 
 CatchupFinished = NamedTuple('CatchupFinished', [('last_caught_up_3PC', tuple),
                                                  ('master_last_ordered', tuple)])
@@ -66,4 +80,8 @@ CatchupFinished = NamedTuple('CatchupFinished', [('last_caught_up_3PC', tuple),
 CatchupCheckpointsApplied = NamedTuple('CatchupCheckpointsApplied', [('last_caught_up_3PC', tuple),
                                                                      ('master_last_ordered', tuple)])
 
-StartViewChange = NamedTuple('StartViewChange', [('view_no', int)])
+PrimarySelected = NamedTuple('PrimarySelected', [])
+
+PrimaryDisconnected = NamedTuple('PrimaryDisconnected', [('inst_id', int)])
+
+MasterReorderedAfterVC = NamedTuple('MasterReorderedAfterVC', [])

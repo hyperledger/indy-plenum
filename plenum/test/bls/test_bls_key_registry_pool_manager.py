@@ -1,10 +1,10 @@
-import base58
 import pytest
+
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.bls.bls_key_register_pool_manager import BlsKeyRegisterPoolManager
 from plenum.common.constants import NODE, BLS_KEY, DATA
 from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.txn_util import get_type, get_payload_data
-from plenum.common.util import randomString
 from plenum.test.bls.helper import sdk_change_bls_key
 
 nodeCount = 4
@@ -40,7 +40,7 @@ def test_get_key_for_current_root(bls_key_register_ledger, txnPoolNodeSet, pool_
         bls_key = bls_key_register_ledger.get_key_by_name(
             txnPoolNodeSet[i].name)
         assert bls_key
-        assert bls_key == get_payload_data(pool_node_txns[i])[DATA][BLS_KEY]
+        assert IndyCryptoBlsUtils.bls_to_str(bls_key) == get_payload_data(pool_node_txns[i])[DATA][BLS_KEY]
 
 
 def test_get_key_for_current_root_explicitly(bls_key_register_ledger, txnPoolNodeSet, pool_node_txns):
@@ -48,7 +48,7 @@ def test_get_key_for_current_root_explicitly(bls_key_register_ledger, txnPoolNod
         bls_key = bls_key_register_ledger.get_key_by_name(txnPoolNodeSet[i].name,
                                                           bls_key_register_ledger.get_pool_root_hash_committed())
         assert bls_key
-        assert bls_key == get_payload_data(pool_node_txns[i])[DATA][BLS_KEY]
+        assert IndyCryptoBlsUtils.bls_to_str(bls_key) == get_payload_data(pool_node_txns[i])[DATA][BLS_KEY]
 
 
 def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
@@ -79,9 +79,9 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
     bls_key = bls_key_register_ledger.get_key_by_name(node.name,
                                                       old_pool_root_hash)
     assert bls_key
-    assert bls_key == old_bls_key
+    assert IndyCryptoBlsUtils.bls_to_str(bls_key) == old_bls_key
 
     bls_key = bls_key_register_ledger.get_key_by_name(node.name,
                                                       new_pool_root_hash)
     assert bls_key
-    assert bls_key == new_bls_key
+    assert IndyCryptoBlsUtils.bls_to_str(bls_key) == new_bls_key

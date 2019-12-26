@@ -8,7 +8,7 @@ from plenum.common.messages.internal_messages import CheckpointStabilized, NeedB
 from plenum.common.messages.node_messages import Checkpoint, Ordered, PrePrepare
 from plenum.common.util import getMaxFailures
 from plenum.server.consensus.checkpoint_service import CheckpointService
-from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
+from plenum.server.consensus.utils import preprepare_to_batch_id
 from plenum.test.checkpoints.conftest import chkFreqPatched
 from plenum.test.checkpoints.helper import cp_digest, cp_key
 from plenum.test.helper import create_pre_prepare_params

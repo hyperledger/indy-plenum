@@ -12,6 +12,7 @@ from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.message_request.message_handlers import PreprepareHandler, PrepareHandler, CommitHandler, \
     ViewChangeHandler, NewViewHandler
+from plenum.server.consensus.utils import replica_name_to_node_name
 from stp_core.common.log import getlogger
 
 
@@ -68,7 +69,7 @@ class MessageReqService:
                 f.MSG_TYPE.nm: msg_type,
                 f.PARAMS.nm: msg.params,
                 f.MSG.nm: resp
-            }), dst=[frm.split(":")[0], ])
+            }), dst=[replica_name_to_node_name(frm), ])
 
     @measure_time(MetricsName.PROCESS_MESSAGE_REP_TIME)
     def process_message_rep(self, msg: MessageRep, frm):

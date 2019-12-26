@@ -13,9 +13,12 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.txn_util import get_type
 from plenum.server.client_authn import CoreAuthNr
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
+from plenum.server.consensus.monitoring.primary_connection_monitor_service import PrimaryConnectionMonitorService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.checkpoint_service import CheckpointService
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.consensus.view_change_service import ViewChangeService
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.node_bootstrap import NodeBootstrap
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import GET_BUY
@@ -139,7 +142,7 @@ class TestNodeCore(StackedTester):
 
     def newViewChanger(self):
         view_changer = self.view_changer if self.view_changer is not None \
-            else create_view_changer(self, TestViewChanger)
+            else create_view_changer(self, ViewChanger)
         # TODO: This is a hack for tests compatibility, do something better
         view_changer.node = self
         return view_changer
@@ -279,8 +282,6 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.forward,
                  Node.send,
                  Node.checkPerformance,
-                 Node.lost_master_primary,
-                 Node.propose_view_change,
                  Node.getReplyFromLedger,
                  Node.getReplyFromLedgerForRequest,
                  Node.recordAndPropagate,
@@ -296,8 +297,7 @@ node_spyables = [Node.handleOneNodeMsg,
                  Node.request_propagates,
                  Node.transmitToClient,
                  Node.has_ordered_till_last_prepared_certificate,
-                 Node.on_inconsistent_3pc_state,
-                 Node.sendToViewChanger, ]
+                 Node.on_inconsistent_3pc_state]
 
 class TestNodeBootstrap(NodeBootstrap):
 
@@ -328,7 +328,7 @@ class TestNode(TestNodeCore, Node):
             kwargs['bootstrap_cls'] = TestNodeBootstrap
 
         Node.__init__(self, *args, **kwargs)
-        self.view_changer = create_view_changer(self, TestViewChanger)
+        self.view_changer = create_view_changer(self, ViewChanger)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
@@ -370,18 +370,6 @@ class TestNode(TestNodeCore, Node):
         self.clientstack.restart()
 
 
-view_changer_spyables = [
-    ViewChanger.sendInstanceChange,
-    ViewChanger.process_instance_change_msg,
-    ViewChanger.start_view_change
-]
-
-
-@spyable(methods=view_changer_spyables)
-class TestViewChanger(ViewChanger):
-    pass
-
-
 replica_stasher_spyables = [
     StashingRouter._stash,
     StashingRouter._process,
@@ -396,7 +384,7 @@ class TestStashingRouter(StashingRouter):
 
 replica_spyables = [
     replica.Replica.revert_unordered_batches,
-    replica.Replica._send_ordered,
+    replica.Replica._send_ordered
 ]
 
 
@@ -443,6 +431,26 @@ class TestReplica(replica.Replica):
                                      network=self._external_bus,
                                      stasher=self.stasher,
                                      primaries_selector=self.node.primaries_selector)
+
+    def _init_view_change_trigger_service(self) -> Optional[ViewChangeTriggerService]:
+        if not self.isMaster:
+            return
+
+        return TestViewChangeTriggerService(data=self._consensus_data,
+                                            timer=self.node.timer,
+                                            bus=self.internal_bus,
+                                            network=self._external_bus,
+                                            db_manager=self.node.db_manager,
+                                            stasher=self.stasher,
+                                            is_master_degraded=self.node.monitor.isMasterDegraded,
+                                            metrics=self.metrics)
+
+    def _init_primary_connection_monitor_service(self) -> PrimaryConnectionMonitorService:
+        return TestPrimaryConnectionMonitorService(data=self._consensus_data,
+                                                   timer=self.node.timer,
+                                                   bus=self.internal_bus,
+                                                   network=self._external_bus,
+                                                   metrics=self.metrics)
 
     def _init_message_req_service(self) -> MessageReqService:
         return TestMessageReqService(data=self._consensus_data,
@@ -520,6 +528,27 @@ view_change_service_spyables = [
 
 @spyable(methods=view_change_service_spyables)
 class TestViewChangeService(ViewChangeService):
+    pass
+
+
+view_change_trigger_service_spyables = [
+    ViewChangeTriggerService.process_instance_change,
+    ViewChangeTriggerService._send_instance_change
+]
+
+
+@spyable(methods=view_change_trigger_service_spyables)
+class TestViewChangeTriggerService(ViewChangeTriggerService):
+    pass
+
+
+primary_connection_monitor_service_spyables = [
+    PrimaryConnectionMonitorService._primary_disconnected
+]
+
+
+@spyable(methods=primary_connection_monitor_service_spyables)
+class TestPrimaryConnectionMonitorService(PrimaryConnectionMonitorService):
     pass
 
 
@@ -1034,7 +1063,7 @@ def getAllReplicas(nodes: Iterable[TestNode], instId: int = 0) -> \
 def get_master_primary_node(nodes):
     node = next(iter(nodes))
     if node.replicas[0].primaryName is not None:
-        nm = TestReplica.getNodeName(node.replicas[0].primaryName)
+        nm = replica_name_to_node_name(node.replicas[0].primaryName)
         return nodeByName(nodes, nm)
     raise AssertionError('No primary found for master')
 

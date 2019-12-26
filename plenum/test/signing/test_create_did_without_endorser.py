@@ -19,7 +19,7 @@ NEW_ROLE = None
 @pytest.fixture(scope='module')
 def patch_nym_validation(txnPoolNodeSet):
     # Disabling validation for only steward
-    def patched_dynamic_validation(self, request):
+    def patched_dynamic_validation(self, request, req_pp_time):
         self._validate_request_type(request)
         identifier, req_id, operation = get_request_data(request)
         error = None

@@ -1,4 +1,5 @@
 from _sha256 import sha256
+from typing import Optional
 
 from common.serializers.serialization import domain_state_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID
@@ -20,7 +21,7 @@ class BuyHandler(WriteRequestHandler):
     def static_validation(self, request: Request):
         self._validate_request_type(request)
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
 
     def update_state(self, txn, prev_result, request, is_committed=False):

@@ -18,7 +18,7 @@ def sdk_ensure_pool_functional(looper, nodes, sdk_wallet, sdk_pool,
                                          sdk_wallet,
                                          num_reqs,
                                          num_batches)
-    ensure_all_nodes_have_same_data(looper, nodes)
+    ensure_all_nodes_have_same_data(looper, nodes, custom_timeout=30)
 
 
 def get_node_by_name(txnPoolNodeSet, name):

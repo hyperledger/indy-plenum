@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 
 from plenum.common.constants import TXN_TYPE, DATA, CONFIG_LEDGER_ID
 from plenum.common.request import Request
@@ -20,7 +21,7 @@ class WriteConfHandler(WriteRequestHandler):
                          txn_type=WRITE_CONF,
                          ledger_id=CONFIG_LEDGER_ID)
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         pass
 
     def static_validation(self, request: Request):

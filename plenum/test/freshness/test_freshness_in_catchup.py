@@ -35,5 +35,4 @@ def test_freshness_in_catchup(looper,
         lagging_node.start_catchup()
         looper.runFor(tconf.ACCEPTABLE_FRESHNESS_INTERVALS_COUNT * tconf.STATE_FRESHNESS_UPDATE_INTERVAL + 5)
 
-    print(lagging_node.view_changer.instance_changes._cache)
-    assert not lagging_node.view_changer.instance_changes.has_inst_chng_from(view_no + 1, lagging_node.name)
+    assert not lagging_node.master_replica._view_change_trigger_service._instance_changes.has_inst_chng_from(view_no + 1, lagging_node.name)
