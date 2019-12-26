@@ -286,14 +286,12 @@ def testZStackSendHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):
     prepStacks(looper, *(alpha, beta), connect=True, useKeys=True)
 
     stat = alpha.send(msg, beta.name)
-    assert stat[0] is False
-    assert 'exceeded allowed limit of {}'.format(
-        tconf.MSG_LEN_LIMIT) in stat[1]
+    assert stat[0] is True
 
     looper.runFor(5)
 
     assert betaHandlers[0] is False
-    assert betaHandlers[1] is False
+    assert betaHandlers[1] is True
 
 
 def testZStackRecvHugeDataOverLimit(set_info_log_level, tdir, looper, tconf):

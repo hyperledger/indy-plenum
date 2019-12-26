@@ -1,6 +1,10 @@
 from functools import lru_cache
+from typing import Optional
+
+from indy_crypto.bls import ProofOfPossession, VerKey
 
 from common.serializers.serialization import pool_state_serializer
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.constants import POOL_LEDGER_ID, NODE, DATA, BLS_KEY, \
     BLS_KEY_PROOF, TARGET_NYM, DOMAIN_LEDGER_ID, NODE_IP, \
     NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, VERKEY
@@ -58,7 +62,7 @@ class NodeHandler(WriteRequestHandler):
         node_nym = get_payload_data(txn).get(TARGET_NYM)
         return node_nym.encode()
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
         node_nym = request.operation.get(TARGET_NYM)
         if self.get_from_state(node_nym, is_committed=False):
@@ -101,11 +105,8 @@ class NodeHandler(WriteRequestHandler):
     def _auth_error_while_updating_node(self, request):
         # Check if steward of the node is updating it and its data does not
         # conflict with any existing node's data
-        origin = request.identifier
         operation = request.operation
         node_nym = operation.get(TARGET_NYM)
-        if not self._is_steward_of_node(origin, node_nym, is_committed=False):
-            return "{} is not a steward of node {}".format(origin, node_nym)
 
         data = operation.get(DATA, {})
         return self._data_error_while_validating_update(data, node_nym)
@@ -202,6 +203,9 @@ class NodeHandler(WriteRequestHandler):
                    "request data {}. Error: {}".format(data, error)
 
     def _verify_bls_key_proof_of_possession(self, key_proof, pk):
-        return True if self.bls_crypto_verifier is None else \
-            self.bls_crypto_verifier.verify_key_proof_of_possession(key_proof,
-                                                                    pk)
+        if self.bls_crypto_verifier is None:
+            return True
+        key_proof_bls = IndyCryptoBlsUtils.bls_from_str(key_proof, cls=ProofOfPossession)
+        pk_bls = IndyCryptoBlsUtils.bls_from_str(pk, cls=VerKey)
+        return self.bls_crypto_verifier.verify_key_proof_of_possession(key_proof_bls,
+                                                                       pk_bls)

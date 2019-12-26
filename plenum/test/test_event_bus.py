@@ -8,6 +8,7 @@ from plenum.common.util import randomString
 SomeMessage = NamedTuple('SomeMessage', [('int_field', int), ('str_field', str)])
 OtherMessage = NamedTuple('OtherMessage', [('float_field', float)])
 NoParamsMessage = NamedTuple('NoParamsMessage', [])
+OtherNoParamsMessage = NamedTuple('OtherNoParamsMessage', [])
 
 
 def create_some_message() -> SomeMessage:
@@ -38,6 +39,25 @@ def test_event_bus_routes_no_params_message():
     bus.send(message)
 
     handler.assert_called_once_with(message)
+
+
+def test_event_bus_understands_different_no_params_messages():
+    a = NoParamsMessage()
+    b = OtherNoParamsMessage()
+    handler_a = Mock()
+    handler_b = Mock()
+
+    bus = InternalBus()
+    bus.subscribe(NoParamsMessage, handler_a)
+    bus.subscribe(OtherNoParamsMessage, handler_b)
+
+    bus.send(b)
+    handler_a.assert_not_called()
+    handler_b.assert_called_once_with(b)
+
+    bus.send(a)
+    handler_a.assert_called_once_with(a)
+    handler_b.assert_called_once_with(b)
 
 
 def test_internal_bus_doesnt_route_unregistered_message():
@@ -134,3 +154,69 @@ def test_external_bus_forwards_received_messages_to_subscribers():
     bus.process_incoming(message, 'other_node')
 
     handler.assert_called_once_with(message, 'other_node')
+
+
+def test_external_bus_notifies_about_connection_changes():
+    connected = Mock()
+    disconnected = Mock()
+
+    bus = ExternalBus(Mock())
+    bus.subscribe(bus.Connected, connected)
+    bus.subscribe(bus.Disconnected, disconnected)
+
+    # Initial state
+    assert bus.connecteds == set()
+    connected.assert_not_called()
+    disconnected.assert_not_called()
+
+    # Add connections
+    bus.update_connecteds({'a', 'b'})
+    assert bus.connecteds == {'a', 'b'}
+    connected.assert_has_calls([call(bus.Connected(), 'a'),
+                                call(bus.Connected(), 'b')],
+                               any_order=True)
+    disconnected.assert_not_called()
+    connected.reset_mock()
+
+    # Add more connections
+    bus.update_connecteds({'a', 'b', 'c'})
+    assert bus.connecteds == {'a', 'b', 'c'}
+    connected.assert_called_once_with(bus.Connected(), 'c')
+    disconnected.assert_not_called()
+    connected.reset_mock()
+
+    # Change connections
+    bus.update_connecteds({'b', 'd', 'e'})
+    assert bus.connecteds == {'b', 'd', 'e'}
+    connected.assert_has_calls([call(bus.Connected(), 'd'),
+                                call(bus.Connected(), 'e')],
+                               any_order=True)
+    disconnected.assert_has_calls([call(bus.Disconnected(), 'a'),
+                                   call(bus.Disconnected(), 'c')],
+                                  any_order=True)
+    connected.reset_mock()
+    disconnected.reset_mock()
+
+    # Disconnect everything and reconnect to a
+    bus.update_connecteds({'a'})
+    assert bus.connecteds == {'a'}
+    connected.assert_called_once_with(bus.Connected(), 'a')
+    disconnected.assert_has_calls([call(bus.Disconnected(), 'b'),
+                                   call(bus.Disconnected(), 'd'),
+                                   call(bus.Disconnected(), 'e')],
+                                  any_order=True)
+    connected.reset_mock()
+    disconnected.reset_mock()
+
+    # Disconnect
+    bus.update_connecteds(set())
+    assert bus.connecteds == set()
+    connected.assert_not_called()
+    disconnected.assert_called_once_with(bus.Disconnected(), 'a')
+    disconnected.reset_mock()
+
+    # Disconnect again
+    bus.update_connecteds(set())
+    assert bus.connecteds == set()
+    connected.assert_not_called()
+    disconnected.assert_not_called()

@@ -101,6 +101,7 @@ def test_reconnect_long(looper, connected_stacks, connection_timeout,
                            disconnect_first_stack)
 
 
+@pytest.mark.skip(reason='INDY-2289: if zeroMQ auto reconnect works some of the use cases do not make sense anymore')
 def test_recreate_sockets_after_ping_retry(looper, tconf, connected_stacks,
                                            connection_timeout,
                                            disconnect_first_stack):

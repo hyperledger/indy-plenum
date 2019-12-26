@@ -5,7 +5,7 @@ from typing import Any, Iterable, Optional, Callable
 
 from plenum.common.event_bus import ExternalBus
 from plenum.common.timer import TimerService
-from plenum.server.replica_helper import getNodeName
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.test.simulation.sim_random import SimRandom
 
 
@@ -19,8 +19,8 @@ class SimNetwork:
         self._serialize_deserialize = serialize_deserialize \
             if serialize_deserialize is not None \
             else lambda x: x
-        self._min_latency = 1
-        self._max_latency = 500
+        self._min_latency = 0.01
+        self._max_latency = 0.5
         self._filters = {}
         self._logger = getLogger()
         self._peers = OrderedDict()  # type: OrderedDict[str, ExternalBus]
@@ -66,7 +66,7 @@ class SimNetwork:
 
     def _send_message(self, frm: str, msg: Any, dst: ExternalBus.Destination):
         if dst is None:
-            dst = [name for name in self._peers if name != getNodeName(frm)]
+            dst = [name for name in self._peers if name != replica_name_to_node_name(frm)]
         elif isinstance(dst, str):
             dst = [dst]
         elif isinstance(dst, Iterable):
@@ -86,7 +86,7 @@ class SimNetwork:
                 self._logger.debug("Discard {} for {} because it filtered by SimNetwork".format(msg, name))
                 continue
 
-            self._timer.schedule(self._random.integer(self._min_latency, self._max_latency),
+            self._timer.schedule(self._random.float(self._min_latency, self._max_latency),
                                  partial(peer.process_incoming, msg, frm))
 
     def _is_filtered(self, msg, name):

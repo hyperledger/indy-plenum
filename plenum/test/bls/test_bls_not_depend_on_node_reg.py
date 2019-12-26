@@ -3,6 +3,7 @@ from copy import deepcopy
 from crypto.bls.bls_multi_signature import MultiSignature
 
 from common.serializers.base58_serializer import Base58Serializer
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 
 from plenum.test.pool_transactions.helper import demote_node
 from plenum.test.test_node import TestNode, checkNodesConnected, ensureElectionsDone, ensure_node_disconnected
@@ -24,10 +25,10 @@ def test_bls_not_depend_on_node_reg(looper, txnPoolNodeSet,
     last_pre_prepare = \
         node.master_replica._ordering_service.prePrepares[node.master_replica.last_ordered_3pc]
 
-    bls = getattr(last_pre_prepare, f.BLS_MULTI_SIG.nm)
+    bls = getattr(last_pre_prepare, f.BLS_MULTI_SIGS.nm)
 
     # Get random participant
-    node_name = next(iter(bls[1]))
+    node_name = next(iter(bls[0][1]))
 
     # We've removed one of the nodes from another node's log
     HA = deepcopy(node.nodeReg[node_name])
@@ -73,7 +74,9 @@ def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
                                          sdk_pool_handle, sdk_wallet_client, 1, 1)
 
     def get_current_bls_keys(node):
-        return node.master_replica._bls_bft_replica._bls_bft.bls_key_register._current_bls_keys
+        bls_keys_raw_dict = node.master_replica._bls_bft_replica._bls_bft.bls_key_register._current_bls_keys
+        return {node_nane: IndyCryptoBlsUtils.bls_to_str(bls_key_raw) for node_nane, bls_key_raw in
+                bls_keys_raw_dict.items()}
 
     assert get_current_bls_keys(restarted_node) == get_current_bls_keys(primary_node)
 
@@ -81,6 +84,6 @@ def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
 def get_last_ordered_state_root_hash(node):
     last_pre_prepare = \
         node.master_replica._ordering_service.prePrepares[node.master_replica.last_ordered_3pc]
-    multi_sig = MultiSignature.from_list(*last_pre_prepare.blsMultiSig)
+    multi_sig = MultiSignature.from_list(*last_pre_prepare.blsMultiSigs[0])
     state_root_hash = serializer.deserialize(multi_sig.value.pool_state_root_hash)
     return state_root_hash

@@ -9,6 +9,12 @@ Consensus Protocol
    :width: 100% 
 
 
+View Change
+------------------
+
+.. image:: pbft-view-change.png
+   :width: 100%
+
 Write Requests
 ------------------
 

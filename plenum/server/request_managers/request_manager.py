@@ -10,10 +10,6 @@ class AbstractRequestManager(metaclass=ABCMeta):
     def static_validation(self, request: Request):
         pass
 
-    @abstractmethod
-    def dynamic_validation(self, request: Request):
-        pass
-
 
 class RequestManager(AbstractRequestManager):
 

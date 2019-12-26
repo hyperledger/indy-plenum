@@ -4,6 +4,7 @@ import re
 
 import time
 
+from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.constants import GET_TXN
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
 from plenum.test.helper import sdk_send_random_and_check
@@ -32,7 +33,7 @@ def test_validator_info_file_did_field_valid(info):
 
 
 def test_validator_info_file_bls_field_valid(info, node):
-    assert info['Node_info']['BLS_key'] == node.bls_bft.bls_crypto_signer.pk
+    assert info['Node_info']['BLS_key'] == IndyCryptoBlsUtils.bls_to_str(node.bls_bft.bls_crypto_signer.pk)
 
 
 def test_validator_info_file_response_version_field_valid(info):

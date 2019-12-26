@@ -30,7 +30,8 @@ def test_freshness_instance_changes_are_sent_continuosly(looper, tconf, txnPoolN
         looper.run(eventually(check_instance_change_messages, 3, timeout=FRESHNESS_TIMEOUT * 5))
 
         for node in txnPoolNodeSet:
-            all_instance_changes = node.view_changer.spylog.getAll('sendInstanceChange')
+            all_instance_changes = node.master_replica.\
+                _view_change_trigger_service.spylog.getAll('_send_instance_change')
             freshness_instance_changes = [ic for ic in all_instance_changes
                                           if ic.params['suspicion'].code == 43]
 

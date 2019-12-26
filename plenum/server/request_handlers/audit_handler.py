@@ -1,3 +1,5 @@
+from typing import Optional
+
 from plenum.common.constants import AUDIT_LEDGER_ID, AUDIT
 from plenum.common.exceptions import InvalidClientRequest
 from plenum.common.request import Request
@@ -15,7 +17,7 @@ class AuditTxnHandler(WriteRequestHandler):
         raise InvalidClientRequest(request.identifier, request.reqId,
                                    "External audit requests are not allowed")
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         pass
 
     def update_state(self, txn, prev_result, request, is_committed=False):

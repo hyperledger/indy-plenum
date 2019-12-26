@@ -235,7 +235,7 @@ overriddenConfigValues = {
     "INITIAL_PROPOSE_VIEW_CHANGE_TIMEOUT": 60,
     "ToleratePrimaryDisconnection": 2,
     "UPDATE_STATE_FRESHNESS": True,
-
+    "Max3PCBatchWait": 0.5
 }
 
 

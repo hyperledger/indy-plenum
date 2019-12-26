@@ -1,7 +1,7 @@
+from plenum.common.messages.node_messages import InstanceChange
 from stp_core.loop.eventually import eventually
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test import waits
-from plenum.test.helper import checkDiscardMsg, waitForViewChange
+from plenum.test.helper import waitForViewChange, checkMasterReplicaDiscardMsg
 
 
 # noinspection PyIncorrectDocstring
@@ -14,14 +14,14 @@ def testDiscardInstChngMsgFrmPastView(txnPoolNodeSet, looper, ensureView):
     curViewNo = ensureView
 
     # Send an instance change for an old instance message to all nodes
-    icMsg = txnPoolNodeSet[0].view_changer._create_instance_change_msg(curViewNo, 0)
+    icMsg = InstanceChange(viewNo=curViewNo, reason=0)
     txnPoolNodeSet[0].send(icMsg)
 
     # ensure every node but Alpha discards the invalid instance change request
     timeout = waits.expectedPoolViewChangeStartedTimeout(len(txnPoolNodeSet))
 
     # Check that that message is discarded.
-    looper.run(eventually(checkDiscardMsg, txnPoolNodeSet, icMsg,
+    looper.run(eventually(checkMasterReplicaDiscardMsg, txnPoolNodeSet, icMsg,
                           'which is not more than its view no',
                           txnPoolNodeSet[0], timeout=timeout))
 
@@ -41,12 +41,12 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
 
     # Count sent instance changes of all nodes
     sentInstChanges = {}
-    instChngMethodName = ViewChanger.sendInstanceChange.__name__
     for n in txnPoolNodeSet:
-        sentInstChanges[n.name] = n.view_changer.spylog.count(instChngMethodName)
+        vct_service = n.master_replica._view_change_trigger_service
+        sentInstChanges[n.name] = vct_service.spylog.count(vct_service._send_instance_change)
 
     # Send an instance change message to all nodes
-    icMsg = txnPoolNodeSet[0].view_changer._create_instance_change_msg(curViewNo, 0)
+    icMsg = InstanceChange(viewNo=curViewNo, reason=0)
     txnPoolNodeSet[0].send(icMsg)
 
     # Check that that message is discarded.
@@ -54,5 +54,6 @@ def testDoNotSendInstChngMsgIfMasterDoesntSeePerformanceProblem(
     # No node should have sent a view change and thus must not have called
     # `sendInstanceChange`
     for n in txnPoolNodeSet:
-        assert n.spylog.count(instChngMethodName) == \
+        vct_service = n.master_replica._view_change_trigger_service
+        assert vct_service.spylog.count(vct_service._send_instance_change) == \
                sentInstChanges.get(n.name, 0)

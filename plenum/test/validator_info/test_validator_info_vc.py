@@ -65,9 +65,9 @@ def test_instance_change_before_vc(looper,
     def has_inst_chng_in_validator_info():
         for node in txnPoolNodeSet:
             latest_info = node._info_tool.info
-            assert expected_view_no in latest_info['Node_info']['View_change_status']['IC_queue']
-            assert latest_info['Node_info']['View_change_status']['IC_queue'][expected_view_no]["Voters"][
-                       panic_node.name]['reason'] == Suspicions.PRIMARY_DEGRADED.code
+            ic_queue = latest_info['Node_info']['View_change_status']['IC_queue']
+            assert expected_view_no in ic_queue
+            assert ic_queue[expected_view_no]["Voters"][panic_node.name]['reason'] == Suspicions.PRIMARY_DEGRADED.code
 
     looper.run(eventually(has_inst_chng_in_validator_info))
 

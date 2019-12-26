@@ -1,4 +1,5 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
+from plenum.common.messages.internal_messages import NodeNeedViewChange
 from plenum.common.messages.node_messages import Prepare, Commit, PrePrepare
 from plenum.common.util import get_utc_epoch
 
@@ -36,7 +37,7 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
     node.master_replica._consensus_data.view_no = 0
     node.master_replica.primaryName = 'Alpha'
     """Initiate view_change procedure"""
-    node.view_changer.start_view_change(1)
+    node.master_replica.internal_bus.send(NodeNeedViewChange(1))
     # We don't use a view_change_strategy anymore
     assert len(node.nodeInBox) == 0
     """

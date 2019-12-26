@@ -20,3 +20,4 @@ class PlenumTransactions(Transactions):
     TXN_AUTHOR_AGREEMENT_AML = "5"
     GET_TXN_AUTHOR_AGREEMENT = "6"
     GET_TXN_AUTHOR_AGREEMENT_AML = "7"
+    TXN_AUTHOR_AGREEMENT_DISABLE = "8"

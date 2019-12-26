@@ -16,7 +16,7 @@ from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode
 from plenum.common.message_processor import MessageProcessor
 from plenum.common.messages.internal_messages import NeedBackupCatchup, RaisedSuspicion, NewViewAccepted, \
-    CheckpointStabilized
+    CheckpointStabilized, NodeStatusUpdated
 from plenum.common.messages.node_messages import Ordered
 from plenum.common.metrics_collector import NullMetricsCollector, MetricsCollector, MetricsName
 from plenum.common.request import ReqKey
@@ -25,6 +25,8 @@ from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.checkpoint_service import CheckpointService
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.monitoring.primary_connection_monitor_service import PrimaryConnectionMonitorService
+from plenum.server.consensus.view_change_trigger_service import ViewChangeTriggerService
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.view_change_service import ViewChangeService
@@ -148,7 +150,7 @@ class Replica(HasActionQueue, MessageProcessor):
                                                    self.node.poolManager.node_names_ordered_by_rank(),
                                                    self.instId,
                                                    self.isMaster)
-        self._internal_bus = InternalBus()
+        self._internal_bus = self._init_internal_bus()
         self._external_bus = ExternalBus(send_handler=self.send)
         self.stasher = self._init_replica_stasher()
         self._subscription = Subscription()
@@ -159,11 +161,13 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service = self._init_ordering_service()
         self._message_req_service = self._init_message_req_service()
         self._view_change_service = self._init_view_change_service()
+        self._view_change_trigger_service = self._init_view_change_trigger_service()
+        self._primary_connection_monitor_service = self._init_primary_connection_monitor_service()
         for ledger_id in self.ledger_ids:
             self.register_ledger(ledger_id)
 
     @property
-    def internal_bus(self):
+    def internal_bus(self) -> InternalBus:
         return self._internal_bus
 
     def cleanup(self):
@@ -190,6 +194,9 @@ class Replica(HasActionQueue, MessageProcessor):
         self._ordering_service.cleanup()
         self._checkpointer.cleanup()
         self._view_change_service.cleanup()
+        if self._view_change_trigger_service is not None:
+            self._view_change_trigger_service.cleanup()
+        self._primary_connection_monitor_service.cleanup()
         self._subscription.unsubscribe_all()
         self.stasher.unsubscribe_from_all()
 
@@ -221,12 +228,16 @@ class Replica(HasActionQueue, MessageProcessor):
     def _process_new_view_accepted(self, msg: NewViewAccepted):
         self.clear_requests_and_fix_last_ordered()
 
+    def _process_node_status_updated(self, msg: NodeStatusUpdated):
+        self._consensus_data.node_status = msg.new_status
+
     def _subscribe_to_internal_msgs(self):
         self._subscription.subscribe(self.internal_bus, Ordered, self._send_ordered)
         self._subscription.subscribe(self.internal_bus, NeedBackupCatchup, self._caught_up_backup)
         self._subscription.subscribe(self.internal_bus, ReqKey, self.readyFor3PC)
         self._subscription.subscribe(self.internal_bus, RaisedSuspicion, self._process_suspicious_node)
         self._subscription.subscribe(self.internal_bus, NewViewAccepted, self._process_new_view_accepted)
+        self._subscription.subscribe(self.internal_bus, NodeStatusUpdated, self._process_node_status_updated)
 
     def register_ledger(self, ledger_id):
         # Using ordered set since after ordering each PRE-PREPARE,
@@ -298,10 +309,6 @@ class Replica(HasActionQueue, MessageProcessor):
                 # already has ':'. This should be fixed.
                 return nodeName
         return "{}:{}".format(nodeName, instId)
-
-    @staticmethod
-    def getNodeName(replicaName: str):
-        return replicaName.split(":")[0]
 
     @property
     def isPrimary(self):
@@ -651,10 +658,13 @@ class Replica(HasActionQueue, MessageProcessor):
     def set_primaries_batch_needed(self, value):
         self._ordering_service.primaries_batch_needed = value
 
-    def update_connecteds(self, connecteds: dict):
+    def update_connecteds(self, connecteds: set):
         self._external_bus.update_connecteds(connecteds)
 
-    def _init_replica_stasher(self):
+    def _init_internal_bus(self) -> InternalBus:
+        return InternalBus()
+
+    def _init_replica_stasher(self) -> StashingRouter:
         return StashingRouter(self.config.REPLICA_STASH_LIMIT,
                               buses=[self.internal_bus, self._external_bus],
                               unstash_handler=self._add_to_inbox)
@@ -702,6 +712,26 @@ class Replica(HasActionQueue, MessageProcessor):
                                  network=self._external_bus,
                                  stasher=self.stasher,
                                  primaries_selector=self.node.primaries_selector)
+
+    def _init_view_change_trigger_service(self) -> Optional[ViewChangeTriggerService]:
+        if not self.isMaster:
+            return None
+
+        return ViewChangeTriggerService(data=self._consensus_data,
+                                        timer=self.node.timer,
+                                        bus=self.internal_bus,
+                                        network=self._external_bus,
+                                        db_manager=self.node.db_manager,
+                                        stasher=self.stasher,
+                                        metrics=self.metrics,
+                                        is_master_degraded=self.node.monitor.isMasterDegraded)
+
+    def _init_primary_connection_monitor_service(self) -> PrimaryConnectionMonitorService:
+        return PrimaryConnectionMonitorService(data=self._consensus_data,
+                                               timer=self.node.timer,
+                                               bus=self.internal_bus,
+                                               network=self._external_bus,
+                                               metrics=self.metrics)
 
     def _add_to_inbox(self, message):
         self.inBox.append(message)

@@ -21,7 +21,7 @@ def test_taa_acceptance_dynamic_validation(taa_handler, taa_aml_handler, write_m
     taa_aml_handler._update_txn_author_agreement_acceptance_mechanisms(req['operation'], 1, 1)
     taa_aml_handler.authorize = lambda req: 0
     with pytest.raises(InvalidClientRequest) as e:
-        write_manager.dynamic_validation(Request(**req))
+        write_manager.dynamic_validation(Request(**req), 0)
     assert e.match('Version of TAA AML must be unique and it cannot be modified')
 
 
@@ -29,4 +29,4 @@ def test_taa_acceptance_pass_validation(taa_aml_handler, write_manager, taa_aml_
     taa_aml_handler.authorize = lambda req: 0
     req = Request(**json.loads(taa_aml_request))
     write_manager.static_validation(req)
-    write_manager.dynamic_validation(req)
+    write_manager.dynamic_validation(req, 0)
