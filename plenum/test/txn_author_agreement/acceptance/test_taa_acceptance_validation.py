@@ -4,22 +4,30 @@ import pytest
 import json
 from random import randint
 
-from plenum.common.types import f
-from plenum.common.request import Request
-from plenum.common.constants import AML, DOMAIN_LEDGER_ID
+from indy.ledger import build_txn_author_agreement_request
 
-from plenum.test.txn_author_agreement.helper import calc_taa_digest
+from plenum.common.util import get_utc_epoch
+from plenum.test.delayers import cDelay
+
+from plenum.common.types import f
+from plenum.common.constants import AML, DOMAIN_LEDGER_ID
+from plenum.test.helper import sdk_sign_and_submit_req
+from plenum.test.stasher import delay_rules
+
+from plenum.test.txn_author_agreement.helper import calc_taa_digest, sdk_send_txn_author_agreement_disable, \
+    gen_random_txn_author_agreement
+from stp_core.loop.eventually import eventually
 
 SEC_PER_DAY = 24 * 60 * 60
-
+TAA_ACCEPTANCE_TIME_BEFORE_AND_AFTER = 3
 
 # make tests stricter
 @pytest.fixture(scope="module")
 def tconf(tconf):
     old_lower = tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
     old_upper = tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME
-    tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME = 1
-    tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME = 1
+    tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME = TAA_ACCEPTANCE_TIME_BEFORE_AND_AFTER
+    tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME = TAA_ACCEPTANCE_TIME_BEFORE_AND_AFTER
     yield tconf
     tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME = old_lower
     tconf.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_AFTER_PP_TIME = old_upper
@@ -73,12 +81,7 @@ def test_taa_acceptance_digest_non_latest(
     with pytest.raises(
         validation_error,
         match=(
-            "Txn Author Agreement acceptance digest is invalid or non-latest:"
-            " provided {}, expected {}"
-            .format(
-                taa_digest,
-                calc_taa_digest(latest_taa.text, latest_taa.version)
-            )
+            "Incorrect Txn Author Agreement"
         )
     ):
         validate_taa_acceptance(request_dict)
@@ -217,22 +220,28 @@ def test_taa_acceptance_uses_pp_time_instead_of_current_time(
     ):
         validate_taa_acceptance(request_dict)
 
-
-def test_taa_acceptance_uses_too_precise_time(
-    tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
-    turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
-    request_dict, latest_taa, monkeypatch
-):
-    validate_taa_acceptance(request_dict)
-    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] += 1
-    with pytest.raises(
-        validation_error,
-        match=(
-            "Txn Author Agreement acceptance time {} is too precise and is a privacy "
-            "risk.".format(request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm])
-        )
-    ):
-        validate_taa_acceptance(request_dict)
+#
+#
+# @pytest.mark.parametrize('taa_time', [0,
+#                                       - TAA_ACCEPTANCE_TIME_BEFORE_AND_AFTER / 2,
+#                                       TAA_ACCEPTANCE_TIME_BEFORE_AND_AFTER / 2,
+#                                       TAA_ACCEPTANCE_TIME_BEFORE_AND_AFTER / 2,
+#                                       ])
+# def test_taa_acceptance_uses_too_precise_time(
+#     tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
+#     turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
+#     request_dict, latest_taa, monkeypatch, taa_time
+# ):
+#     validate_taa_acceptance(request_dict)
+#     request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] += 1
+#     with pytest.raises(
+#         validation_error,
+#         match=(
+#             "Txn Author Agreement acceptance time {} is too precise and is a privacy "
+#             "risk.".format(request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm])
+#         )
+#     ):
+#         validate_taa_acceptance(request_dict)
 
 
 def test_taa_acceptance_valid(
@@ -241,11 +250,38 @@ def test_taa_acceptance_valid(
     validate_taa_acceptance(request_dict)
 
 
-def test_taa_acceptance_not_allowed_when_disabled(
+def test_taa_acceptance_valid_on_uncommitted(
+        validate_taa_acceptance_func_api,
+        txnPoolNodeSet, looper, sdk_wallet_trustee, sdk_pool_handle,
+        add_taa_acceptance
+):
+    text, version = gen_random_txn_author_agreement()
+    old_pp_seq_no = txnPoolNodeSet[0].master_replica.last_ordered_3pc[1]
+
+    with delay_rules([n.nodeIbStasher for n in txnPoolNodeSet], cDelay()):
+        req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet_trustee[1],
+                                                                                text, version,
+                                                                                ratification_ts=get_utc_epoch() - 600))
+        req = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet_trustee, req)
+
+        def check():
+            assert old_pp_seq_no + 1 == txnPoolNodeSet[0].master_replica._consensus_data.preprepared[-1].pp_seq_no
+        looper.run(eventually(check))
+        request_json = add_taa_acceptance(
+            taa_text=text,
+            taa_version=version,
+            taa_a_time=get_utc_epoch() // SEC_PER_DAY * SEC_PER_DAY
+        )
+        request_dict = dict(**json.loads(request_json))
+
+        validate_taa_acceptance_func_api(request_dict)
+
+
+def test_taa_acceptance_allowed_when_disabled(
     validate_taa_acceptance,
     validation_error,
     set_txn_author_agreement,
-    add_taa_acceptance
+    add_taa_acceptance, looper, sdk_pool_handle, sdk_wallet_trustee
 ):
     taa_data = set_txn_author_agreement()
     request_json = add_taa_acceptance(
@@ -258,7 +294,7 @@ def test_taa_acceptance_not_allowed_when_disabled(
     validate_taa_acceptance(request_dict)
 
     # disable TAA acceptance
-    taa_data = set_txn_author_agreement("")
+    sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet_trustee)
 
     # formally valid TAA acceptance
     request_json = add_taa_acceptance(
@@ -268,14 +304,7 @@ def test_taa_acceptance_not_allowed_when_disabled(
     )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 1
-    with pytest.raises(
-        validation_error,
-        match=(
-            r"Txn Author Agreement acceptance is disabled"
-            " and not allowed in requests"
-        )
-    ):
-        validate_taa_acceptance(request_dict)
+    validate_taa_acceptance(request_dict)
 
     # some invalid TAA acceptance
     request_json = add_taa_acceptance(
@@ -285,11 +314,25 @@ def test_taa_acceptance_not_allowed_when_disabled(
     )
     request_dict = dict(**json.loads(request_json))
     request_dict[f.REQ_ID.nm] += 2
+    validate_taa_acceptance(request_dict)
+
+
+@pytest.mark.skip(reason="Need to fix these fixtures!")
+def test_taa_acceptance_retired(
+        validate_taa_acceptance, validation_error,
+        turn_off_freshness_state_update,
+        request_dict, latest_taa,
+        looper, sdk_pool_handle, sdk_wallet_trustee, set_txn_author_agreement
+):
+    # Create new txn author agreement
+    set_txn_author_agreement()
+    # Retire previous txn author agreement
+    taa_data = set_txn_author_agreement(latest_taa.text, latest_taa.version, retired=1)
+    # Check that request with original author agreement is discarded
     with pytest.raises(
-        validation_error,
-        match=(
-            r"Txn Author Agreement acceptance is disabled"
-            " and not allowed in requests"
-        )
+            validation_error,
+            match=("Txn Author Agreement is retired: version {}".format(latest_taa.version))
     ):
         validate_taa_acceptance(request_dict)
+    # TODO: Check that transaction is accepted when sent with a new TAA accepted
+    # validate_taa_acceptance(request_dict)

@@ -709,6 +709,11 @@ class ProtocolVersionField(FieldBase):
 class BatchIDField(FieldBase):
     _base_types = (list, tuple, dict)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._validate_non_negative_number_field = NonNegativeNumberField().validate
+        self._validate_non_empty_string_field = NonEmptyStringField().validate
+
     def _specific_validation(self, val):
         if len(val) != 4:
             return 'should have size of 4'
@@ -719,11 +724,11 @@ class BatchIDField(FieldBase):
         else:
             bid = BatchID(*val)
 
-        for validator, value in ((NonNegativeNumberField().validate, bid.view_no),
-                                 (NonNegativeNumberField().validate, bid.pp_view_no),
-                                 (NonNegativeNumberField().validate, bid.pp_seq_no),
-                                 (NonEmptyStringField().validate, bid.pp_digest)):
-            err = validator(value)
+        for validate, value in ((self._validate_non_negative_number_field, bid.view_no),
+                                (self._validate_non_negative_number_field, bid.pp_view_no),
+                                (self._validate_non_negative_number_field, bid.pp_seq_no),
+                                (self._validate_non_empty_string_field, bid.pp_digest)):
+            err = validate(value)
             if err:
                 return err
 

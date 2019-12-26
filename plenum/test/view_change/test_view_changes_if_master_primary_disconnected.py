@@ -1,6 +1,5 @@
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
-from plenum.test.spy_helpers import getAllReturnVals
-from plenum.test.view_change.helper import start_stopped_node
+from plenum.test.view_change.helper import start_stopped_node, view_change_completed_count
 from stp_core.loop.eventually import eventually
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -36,6 +35,8 @@ def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, sdk
     # changed and new primary has been elected
     waitForViewChange(looper, remaining_nodes, old_view_no + 1)
     ensure_all_nodes_have_same_data(looper, nodes=remaining_nodes)
+    for node in remaining_nodes:
+        assert view_change_completed_count(node) > 0
     new_pr_node = get_master_primary_node(remaining_nodes)
     assert old_pr_node != new_pr_node
 
@@ -50,8 +51,6 @@ def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, sdk
                           txnPoolNodeSet, old_view_no + 1, timeout=tconf.NEW_VIEW_TIMEOUT))
 
     # After node catches up it set view_no from audit ledger and do not need to do view_change
-    assert len(getAllReturnVals(old_pr_node.view_changer,
-                                old_pr_node.view_changer.start_view_change,
-                                compare_val_to=True)) == 0
+    assert view_change_completed_count(old_pr_node) == 0
 
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

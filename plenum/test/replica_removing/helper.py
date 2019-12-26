@@ -67,8 +67,8 @@ def do_test_replica_removing_with_backup_degraded(looper,
                                              txnPoolNodeSet,
                                              sdk_pool_handle,
                                              sdk_wallet_client,
-                                             num_reqs=10,
-                                             num_batches=5)
+                                             num_reqs=30,
+                                             num_batches=15)
 
         # check that replicas were removed
         def check_replica_removed_on_all_nodes(inst_id=instance_to_remove):

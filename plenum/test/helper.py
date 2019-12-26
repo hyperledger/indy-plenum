@@ -9,7 +9,7 @@ from functools import partial
 from itertools import permutations, combinations
 from shutil import copyfile
 from sys import executable
-from time import sleep
+from time import sleep, perf_counter
 from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union, Callable
 
 import base58
@@ -18,19 +18,19 @@ from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
 from crypto.bls.bls_factory import BlsFactoryCrypto
-from plenum.common.event_bus import ExternalBus
+from plenum.common.event_bus import ExternalBus, InternalBus
 from plenum.common.member.member import Member
 from plenum.common.member.steward import Steward
 from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
-from plenum.common.timer import QueueTimer
+from plenum.common.timer import QueueTimer, TimerService
 from plenum.config import Max3PCBatchWait
 from psutil import Popen
 import json
 import asyncio
 
 from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_node_request, \
-    build_pool_config_request, multi_sign_request
+    multi_sign_request
 from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
@@ -46,7 +46,6 @@ from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.request import Request
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.node import Node
-from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.constants import BUY
 from plenum.test.msgs import randomMsg
@@ -406,6 +405,18 @@ def checkDiscardMsg(processors, discardedMsg,
         exclude = []
     for p in filterNodeSet(processors, exclude):
         last = p.spylog.getLastParams(p.discard, required=False)
+        assert last
+        assert last['msg'] == discardedMsg
+        assert reasonRegexp in last['reason']
+
+
+def checkMasterReplicaDiscardMsg(processors, discardedMsg,
+                           reasonRegexp, *exclude):
+    if not exclude:
+        exclude = []
+    for p in filterNodeSet(processors, exclude):
+        stasher = p.master_replica.stasher
+        last = stasher.spylog.getLastParams(stasher.discard, required=False)
         assert last
         assert last['msg'] == discardedMsg
         assert reasonRegexp in last['reason']
@@ -1236,11 +1247,13 @@ def create_pre_prepare_params(state_root,
               pool_state_root or generate_state_root(),
               audit_txn_root or generate_state_root()]
     if bls_multi_sig:
-        params.append(bls_multi_sig.as_list())
-    if bls_multi_sigs is not None:
-        params.append([sig.as_list() for sig in bls_multi_sigs])
-    elif bls_multi_sig:
+        # Pass None for backward compatibility
+        params.append(None)
         params.append([bls_multi_sig.as_list()])
+    elif bls_multi_sigs is not None:
+        # Pass None for backward compatibility
+        params.append(None)
+        params.append([sig.as_list() for sig in bls_multi_sigs])
     return params
 
 
@@ -1267,14 +1280,17 @@ def create_commit_no_bls_sig(req_key, inst_id=0):
 def create_commit_with_bls_sig(req_key, bls_sig):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
-    params.append(bls_sig)
+    #  Use ' ' as BLS_SIG for backward-compatibility as BLS_SIG in COMMIT is optional but not Nullable
+    params.append(' ')
+    params.append({DOMAIN_LEDGER_ID: bls_sig})
     return Commit(*params)
 
 
 def create_commit_with_bls_sigs(req_key, bls_sig, lid):
     view_no, pp_seq_no = req_key
     params = create_commit_params(view_no, pp_seq_no)
-    params.append(bls_sig)
+    #  Use ' ' as BLS_SIG for backward-compatibility as BLS_SIG in COMMIT is optional but not Nullable
+    params.append(' ')
     params.append({str(lid): bls_sig})
     return Commit(*params)
 
@@ -1363,6 +1379,7 @@ class MockTimer(QueueTimer):
         Update time and run scheduled callbacks afterwards
         """
         self._ts.value = value
+        self._log_time()
         self.service()
 
     def sleep(self, seconds):
@@ -1380,6 +1397,7 @@ class MockTimer(QueueTimer):
 
         event = self._pop_event()
         self._ts.value = event.timestamp
+        self._log_time()
         event.callback()
 
     def advance_until(self, value):
@@ -1396,7 +1414,7 @@ class MockTimer(QueueTimer):
         """
         self.advance_until(self._ts.value + seconds)
 
-    def wait_for(self, condition: Callable[[], bool], timeout: Optional = None, max_iterations: int = 500000):
+    def wait_for(self, condition: Callable[[], bool], timeout: Optional = None, max_iterations: int = 10000):
         """
         Advance time in steps until condition is reached, running scheduled callbacks in process
         Throws TimeoutError if fail to reach condition (under required timeout if defined)
@@ -1415,12 +1433,44 @@ class MockTimer(QueueTimer):
             else:
                 raise TimeoutError("Failed to reach condition in {} iterations".format(max_iterations))
 
-    def run_to_completion(self):
+    def run_to_completion(self, max_iterations: int = 10000):
         """
         Advance time in steps until nothing is scheduled
         """
-        while self._events:
+        counter = 0
+        while self._events and counter < max_iterations:
             self.advance()
+            counter += 1
+
+        if self._events:
+            raise TimeoutError("Failed to complete in {} iterations".format(max_iterations))
+
+    def _log_time(self):
+        # TODO: Probably better solution would be to replace real time in logs with virtual?
+        logger.info("Virtual time: {}".format(self._ts.value))
+
+
+class TestStopwatch:
+    def __init__(self, timer: Optional[TimerService] = None):
+        self._get_current_time = timer.get_current_time if timer else perf_counter
+        self._start_time = self._get_current_time()
+
+    def start(self):
+        self._start_time = self._get_current_time()
+
+    def has_elapsed(self, expected_delay: float, tolerance: float = 0.1) -> bool:
+        elapsed = self._get_current_time() - self._start_time
+        return abs(expected_delay - elapsed) <= expected_delay * tolerance
+
+
+class TestInternalBus(InternalBus):
+    def __init__(self):
+        super().__init__()
+        self.sent_messages = []
+
+    def send(self, message: Any, *args):
+        self.sent_messages.append(message)
+        super().send(message, *args)
 
 
 class MockNetwork(ExternalBus):
@@ -1430,6 +1480,12 @@ class MockNetwork(ExternalBus):
 
     def _send_message(self, msg: Any, dst: ExternalBus.Destination):
         self.sent_messages.append((msg, dst))
+
+    def connect(self, name: str):
+        self.update_connecteds(self.connecteds.union({name}))
+
+    def disconnect(self, name: str):
+        self.update_connecteds(self.connecteds.difference({name}))
 
 
 def get_handler_by_type_wm(write_manager, h_type):
@@ -1515,7 +1571,7 @@ def create_pool_txn_data(node_names: List[str],
     return data
 
 
-def get_pp_seq_no(nodes: list) -> int:
-    los = set([n.master_replica.last_ordered_3pc[1] for n in nodes])
+def get_pp_seq_no(nodes: list, inst_id=0) -> int:
+    los = set([n.replicas._replicas[inst_id].last_ordered_3pc[1] for n in nodes])
     assert len(los) == 1
     return los.pop()

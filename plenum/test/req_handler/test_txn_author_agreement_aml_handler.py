@@ -60,7 +60,7 @@ def test_static_validation_with_empty_aml(txn_author_agreement_aml_handler, aml_
 
 
 def test_dynamic_validation(txn_author_agreement_aml_handler, aml_request):
-    txn_author_agreement_aml_handler.dynamic_validation(aml_request)
+    txn_author_agreement_aml_handler.dynamic_validation(aml_request, 0)
 
 
 def test_dynamic_validation_with_not_unique_aml(txn_author_agreement_aml_handler, aml_request):
@@ -68,7 +68,7 @@ def test_dynamic_validation_with_not_unique_aml(txn_author_agreement_aml_handler
     txn_author_agreement_aml_handler.state.set(StaticTAAHelper.state_path_taa_aml_version(version), "{}")
     with pytest.raises(InvalidClientRequest,
                        match="Version of TAA AML must be unique and it cannot be modified"):
-        txn_author_agreement_aml_handler.dynamic_validation(aml_request)
+        txn_author_agreement_aml_handler.dynamic_validation(aml_request, 0)
 
 
 def test_dynamic_validation_from_steward(txn_author_agreement_aml_handler, domain_state, aml_request):
@@ -77,7 +77,7 @@ def test_dynamic_validation_from_steward(txn_author_agreement_aml_handler, domai
     aml_request._identifier = identifier
     with pytest.raises(UnauthorizedClientRequest,
                        match="Only trustee can update transaction author agreement and AML"):
-        txn_author_agreement_aml_handler.dynamic_validation(aml_request)
+        txn_author_agreement_aml_handler.dynamic_validation(aml_request, 0)
 
 
 def test_update_state(txn_author_agreement_aml_handler, domain_state, aml_request):

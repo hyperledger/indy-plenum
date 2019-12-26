@@ -35,5 +35,5 @@ def test_start_view_change_ts_set(looper, create_node_and_not_start):
     node_info = node._info_tool.info
     assert "Last_view_change_started_at" in node_info["Node_info"]["View_change_status"]
     assert datetime.datetime.utcfromtimestamp(
-        node.view_changer.start_view_change_ts) == parser.parse(
+        node.start_view_change_ts) == parser.parse(
         node_info["Node_info"]["View_change_status"]["Last_view_change_started_at"])

@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewCheckpointsApplied
-from plenum.server.consensus.consensus_shared_data import preprepare_to_batch_id
+from plenum.server.consensus.utils import preprepare_to_batch_id
 from plenum.test.delayers import cDelay, pDelay
 from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
 from plenum.test.node_catchup.helper import waitNodeDataEquality

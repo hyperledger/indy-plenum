@@ -22,7 +22,7 @@ def prepare(_pre_prepare):
 @pytest.fixture(scope='function', params=['Primary', 'Non-Primary'])
 def o(orderer_with_requests, request):
     orderer_with_requests._data.primary_name == PRIMARY_NAME
-    if request == 'Primary':
+    if request.param == 'Primary':
         orderer_with_requests.name = PRIMARY_NAME
     else:
         orderer_with_requests.name = OTHER_NON_PRIMARY_NAME
@@ -63,7 +63,15 @@ def test_validate_duplicate_prepare(o, pre_prepare, prepare):
                                                                 prepare)))
 
 
-def test_validate_prepare_no_preprepare(o, prepare):
+def test_validate_prepare_no_preprepare_before_prep_cert(o, prepare):
+    o._data.prev_view_prepare_cert = prepare.ppSeqNo
+    # must stash Prepare regardless if this is Primary if Prepare is for batches in re-ordering phase (less than prep_cert)
+    o._validate_prepare(prepare, NON_PRIMARY_NAME)
+    assert (prepare, NON_PRIMARY_NAME) in o.preparesWaitingForPrePrepare[prepare.viewNo, prepare.ppSeqNo]
+
+
+def test_validate_prepare_no_preprepare_after_prep_cert(o, prepare):
+    o._data.prev_view_prepare_cert = prepare.ppSeqNo - 1
     # must sent PrePrepare before processing the Prepare
     if o.name == PRIMARY_NAME:
         handler = Mock()
