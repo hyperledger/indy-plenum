@@ -1,12 +1,11 @@
 from plenum.common.constants import NEW_VIEW, STEWARD_STRING, VALIDATOR, POOL_LEDGER_ID
 from plenum.common.util import randomString
-from plenum.test.delayers import nv_delay, msg_rep_delay, req_delay, ppgDelay
+from plenum.test.delayers import nv_delay, msg_rep_delay, ppgDelay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_add_new_node
-from plenum.test.stasher import delay_rules_without_processing, delay_rules
+from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import ensureElectionsDone, TestNode, getPrimaryReplica
-from plenum.test.view_change.helper import add_new_node
 from plenum.test.view_change_service.helper import trigger_view_change
 from plenum.test.view_change_with_delays.helper import check_view_change_done
 from stp_core.loop.eventually import eventually
@@ -86,15 +85,8 @@ def test_view_change_add_one_node_uncommitted(looper, tdir, tconf, allPluginsPat
         looper.run(eventually(check_node_txn_applied, fast_nodes, old_state_root_hash))
         check_node_txn_not_applied(slow_nodes, old_state_root_hash)
 
-        # assert slow_nodes[0].master_replica._consensus_data.waiting_for_new_view
-        # assert slow_nodes[0].master_replica._consensus_data.waiting_for_new_view
-
-        # assert 3 in fast_nodes[0].write_manager.node_reg_handler.node_reg_at_beginning_of_view
-        # assert 3 in fast_nodes[1].write_manager.node_reg_handler.node_reg_at_beginning_of_view
-
     # Trigger view change to view=4, and make sure it's finished properly
     trigger_view_change(txnPoolNodeSet)
     waitForViewChange(looper, txnPoolNodeSet, 4)
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=35)
-    # sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
-    assert False
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
