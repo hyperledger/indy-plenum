@@ -120,12 +120,17 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
                                        "Changing ratification date of existing "
                                        "transaction author agreement is forbidden")
 
-        # check the latest TAA
-        if TXN_AUTHOR_AGREEMENT_RETIREMENT_TS in request.operation:
-            last_taa_digest = StaticTAAHelper.get_latest_taa(self.state)
-            if last_taa_digest == digest:
-                raise InvalidClientRequest(request.identifier, request.reqId,
-                                           "The latest transaction author agreement cannot be retired.")
-            if last_taa_digest is None:
-                raise InvalidClientRequest(request.identifier, request.reqId,
-                                           "Retirement date cannot be changed when TAA enforcement is disabled.")
+        # TODO: Following code assumes that the only reason for updating TAA is changing its retirement date.
+        #   If this is no longer the case this needs to be changed. Also this cries for adding separate transaction
+        #   for TAA retirement
+
+        # check if TAA enforcement is disabled
+        last_taa_digest = StaticTAAHelper.get_latest_taa(self.state)
+        if last_taa_digest is None:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "Retirement date cannot be changed when TAA enforcement is disabled.")
+
+        # check if we are trying to modify latest TAA
+        if last_taa_digest == digest:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "The latest transaction author agreement cannot be retired.")

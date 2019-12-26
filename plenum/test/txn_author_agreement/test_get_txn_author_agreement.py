@@ -42,7 +42,6 @@ def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml,
     TIMESTAMP_V2 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
     sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, V1, retired=TIMESTAMP_V1)
-    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, V2, TEXT_V2)
     return txnPoolNodeSet
 
 
