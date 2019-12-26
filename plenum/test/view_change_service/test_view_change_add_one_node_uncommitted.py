@@ -1,4 +1,4 @@
-from plenum.common.constants import NEW_VIEW, STEWARD_STRING, VALIDATOR
+from plenum.common.constants import NEW_VIEW, STEWARD_STRING, VALIDATOR, POOL_LEDGER_ID
 from plenum.common.util import randomString
 from plenum.test.delayers import nv_delay, msg_rep_delay
 from plenum.test.helper import waitForViewChange
@@ -11,9 +11,9 @@ from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 
 
-def check_has_pre_prepares(nodes):
+def check_node_txn_applied(nodes, old_pool_state_root_hash):
     for n in nodes:
-        assert len(n.master_replica._consensus_data.preprepared) > 0
+        assert n.stateRootHash(ledgerId=POOL_LEDGER_ID, isCommitted=False) != old_pool_state_root_hash
 
 
 def test_view_change_add_one_node_uncommitted(looper, tdir, tconf, allPluginsPath,
@@ -46,6 +46,8 @@ def test_view_change_add_one_node_uncommitted(looper, tdir, tconf, allPluginsPat
         assert slow_nodes[0].master_replica._consensus_data.waiting_for_new_view
         assert slow_nodes[0].master_replica._consensus_data.waiting_for_new_view
 
+        old_state_root_hash = fast_nodes[0].stateRootHash(ledgerId=POOL_LEDGER_ID, isCommitted=False)
+
         # Add Node5 (it will be applied to Node4 and Node1 only)
         new_node = sdk_add_new_node(
             looper,
@@ -61,12 +63,16 @@ def test_view_change_add_one_node_uncommitted(looper, tdir, tconf, allPluginsPat
             services=[VALIDATOR],
             wait_till_added=False)
 
-        # wait till fast nodes finish re-ordering
-        looper.run(eventually(check_has_pre_prepares, fast_nodes))
-        # assert 4 in fast_nodes[0].write_manager.node_reg_handler.node_reg_at_beginning_of_view
+        # wait till fast nodes apply the Node txn
+        looper.run(eventually(check_node_txn_applied, fast_nodes, old_state_root_hash))
+        assert slow_nodes[0].master_replica._consensus_data.waiting_for_new_view
+        assert slow_nodes[0].master_replica._consensus_data.waiting_for_new_view
+
+        # assert 3 in fast_nodes[0].write_manager.node_reg_handler.node_reg_at_beginning_of_view
         # assert 3 in fast_nodes[1].write_manager.node_reg_handler.node_reg_at_beginning_of_view
 
     trigger_view_change(txnPoolNodeSet)
     waitForViewChange(looper, txnPoolNodeSet, 4)
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=35)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    # sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    assert False
