@@ -18,9 +18,10 @@ def check_vcd_msgs(node, expected_count, expected_view_no):
 
 
 def check_no_ic_msgs(node, expected_view_no, nodes):
-    assert node.view_changer.instance_changes.has_view(expected_view_no)
+    instance_changes = node.master_replica._view_change_trigger_service._instance_changes
+    assert instance_changes.has_view(expected_view_no)
     for n in nodes:
-        assert not node.view_changer.instance_changes.has_inst_chng_from(expected_view_no, n)
+        assert not instance_changes.has_inst_chng_from(expected_view_no, n)
 
 
 def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet):

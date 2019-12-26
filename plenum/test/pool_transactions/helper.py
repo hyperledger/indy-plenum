@@ -461,10 +461,6 @@ def disconnectPoolNode(poolNodes: Iterable,
                              'is not found in the passed pool node list {}'
                              .format(disconnect, poolNodes))
 
-    for node in poolNodes:
-        if node.name != disconnect:
-            node.nodestack.disconnectByName(disconnect)
-
 
 def reconnectPoolNode(looper: Looper,
                       poolNodes: Iterable,

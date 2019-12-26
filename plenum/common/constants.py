@@ -1,4 +1,5 @@
 # inter-node communication
+from collections import defaultdict
 from enum import IntEnum, unique
 
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
@@ -154,8 +155,14 @@ AUDIT = PlenumTransactions.AUDIT.value
 GET_TXN = PlenumTransactions.GET_TXN.value
 TXN_AUTHOR_AGREEMENT = PlenumTransactions.TXN_AUTHOR_AGREEMENT.value
 TXN_AUTHOR_AGREEMENT_AML = PlenumTransactions.TXN_AUTHOR_AGREEMENT_AML.value
+TXN_AUTHOR_AGREEMENT_DISABLE = PlenumTransactions.TXN_AUTHOR_AGREEMENT_DISABLE.value
 GET_TXN_AUTHOR_AGREEMENT = PlenumTransactions.GET_TXN_AUTHOR_AGREEMENT.value
 GET_TXN_AUTHOR_AGREEMENT_AML = PlenumTransactions.GET_TXN_AUTHOR_AGREEMENT_AML.value
+
+CURRENT_TXN_PAYLOAD_VERSIONS = defaultdict(lambda: "1")
+CURRENT_TXN_PAYLOAD_VERSIONS[TXN_AUTHOR_AGREEMENT] = "2"
+
+CURRENT_TXN_VERSION = "1"
 
 # TXN
 # TODO: manye of these constants will be replaced
@@ -164,6 +171,7 @@ TXN_PAYLOAD = "txn"
 TXN_PAYLOAD_TYPE = "type"
 TXN_PAYLOAD_PROTOCOL_VERSION = "protocolVersion"
 TXN_PAYLOAD_DATA = "data"
+TXN_PAYLOAD_VERSION = "ver"
 TXN_PAYLOAD_METADATA = "metadata"
 TXN_PAYLOAD_METADATA_FROM = "from"
 TXN_PAYLOAD_METADATA_ENDORSER = "endorser"
@@ -185,6 +193,9 @@ TXN_SIGNATURE_VALUE = "value"
 
 TXN_AUTHOR_AGREEMENT_TEXT = "text"
 TXN_AUTHOR_AGREEMENT_VERSION = "version"
+TXN_AUTHOR_AGREEMENT_DIGEST = "digest"
+TXN_AUTHOR_AGREEMENT_RETIREMENT_TS = "retirement_ts"
+TXN_AUTHOR_AGREEMENT_RATIFICATION_TS = "ratification_ts"
 
 GET_TXN_AUTHOR_AGREEMENT_VERSION = "version"
 GET_TXN_AUTHOR_AGREEMENT_DIGEST = "digest"

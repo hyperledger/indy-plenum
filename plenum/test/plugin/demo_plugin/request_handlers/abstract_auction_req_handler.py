@@ -1,4 +1,5 @@
 from abc import ABCMeta
+from typing import Optional
 
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.constants import TXN_TYPE, DATA
@@ -6,11 +7,9 @@ from plenum.common.exceptions import InvalidClientRequest, \
     UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data
-from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
-from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AUCTION_END, \
-    AUCTION_START, GET_BAL, AMOUNT, AUCTION_LEDGER_ID
+from plenum.test.plugin.demo_plugin.constants import AUCTION_LEDGER_ID
 
 
 class AbstractAuctionReqHandler(WriteRequestHandler, metaclass=ABCMeta):
@@ -34,7 +33,7 @@ class AbstractAuctionReqHandler(WriteRequestHandler, metaclass=ABCMeta):
             msg = '{} attribute is missing or not in proper format'.format(DATA)
             raise InvalidClientRequest(identifier, req_id, msg)
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
         operation = request.operation
         data = operation.get(DATA)

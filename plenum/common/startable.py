@@ -29,13 +29,6 @@ class Status(IntEnum):
         return cls.starting, cls.started_hungry, cls.started
 
     @classmethod
-    def hungry(cls):
-        """
-        Return a tuple of starting and started_hungry
-        """
-        return cls.starting, cls.started_hungry
-
-    @classmethod
     def ready(cls):
         """
         Return a tuple of started_hungry and started
@@ -55,12 +48,6 @@ class Mode(IntEnum):
     syncing = 400         # catching up on domain txn ledger
     synced = 410          # caught up with domain txn ledger
     participating = 500   # caught up completely and chosen primary
-
-    @classmethod
-    def is_done_discovering(cls, mode):
-        if mode is None:
-            return False
-        return mode >= cls.discovered
 
     @classmethod
     def is_done_syncing(cls, mode):

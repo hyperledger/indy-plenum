@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pytest
 import time
 
@@ -12,7 +14,7 @@ from common.exceptions import LogicError
 from plenum.common.request import Request
 from plenum.common.util import randomString
 from plenum.common.constants import TARGET_NYM, NODE, DOMAIN_LEDGER_ID, TXN_PAYLOAD, TXN_PAYLOAD_TYPE, \
-    TXN_METADATA_TIME, TXN_METADATA
+    TXN_METADATA_TIME, TXN_METADATA, TXN_TYPE, CURRENT_TXN_PAYLOAD_VERSIONS, TXN_VERSION
 
 from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
 from plenum.server.request_handlers.node_handler import NodeHandler
@@ -39,7 +41,7 @@ def write_req_manager(db):
     # We do not need to check request handler workability
     handler = manager.request_handlers[NODE][0]
     handler.static_validation = lambda request: 1
-    handler.dynamic_validation = lambda request: 1
+    handler.dynamic_validation = lambda request, req_pp_time: 1
     handler.update_state = lambda txn, updated_state, request, is_committed: 1
     handler.apply_request = lambda request, batch_ts, prev_result: (1, 1, 1)
     handler.apply_forced_request = lambda request: 1
@@ -84,7 +86,7 @@ def test_write_request_manager_fails_to_handle(write_req_manager: WriteRequestMa
         write_req_manager.static_validation(node_req)
 
     with pytest.raises(LogicError):
-        write_req_manager.dynamic_validation(node_req)
+        write_req_manager.dynamic_validation(node_req, 0)
 
     with pytest.raises(LogicError):
         write_req_manager.update_state(reqToTxn(node_req))
@@ -102,7 +104,7 @@ def test_write_request_manager_fails_to_handle(write_req_manager: WriteRequestMa
 def test_write_request_manager_handles_request(write_req_manager: WriteRequestManager,
                                                node_req):
     write_req_manager.static_validation(node_req)
-    write_req_manager.dynamic_validation(node_req)
+    write_req_manager.dynamic_validation(node_req, 0)
     write_req_manager.update_state(reqToTxn(node_req))
     write_req_manager.apply_request(node_req, None)
     write_req_manager.apply_forced_request(node_req)
@@ -216,7 +218,7 @@ def test_write_request_manager_restore_state(write_req_manager: WriteRequestMana
         def static_validation(self, request: Request):
             pass
 
-        def dynamic_validation(self, request: Request):
+        def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
             pass
 
         def update_state(self, txn, prev_result, request, is_committed=False):
@@ -225,7 +227,8 @@ def test_write_request_manager_restore_state(write_req_manager: WriteRequestMana
     handler_current = MockHandler()
     handler_prev_version = MockHandler()
     version = "version1"
-    txn = {TXN_PAYLOAD: {TXN_PAYLOAD_TYPE: txn_type},
+    txn = {TXN_PAYLOAD: {TXN_PAYLOAD_TYPE: txn_type,
+                         TXN_VERSION: CURRENT_TXN_PAYLOAD_VERSIONS[txn_type]},
            TXN_METADATA: {TXN_METADATA_TIME: 0}}
     write_req_manager.register_req_handler(handler_current)
     write_req_manager.register_req_handler_with_version(handler_prev_version, version)
@@ -235,7 +238,7 @@ def test_write_request_manager_restore_state(write_req_manager: WriteRequestMana
     assert handler_prev_version.last_update_state_call is None
 
     handler_current.last_update_state_call = None
-    db.set_txn_version_controller(FakeSomething(get_version=lambda a: version,
+    db.set_txn_version_controller(FakeSomething(get_pool_version=lambda a: version,
                                                 update_version=lambda a: None))
 
     write_req_manager.restore_state(txn, ledger_id)

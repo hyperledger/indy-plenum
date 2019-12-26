@@ -1,8 +1,9 @@
 import base58
 import pytest
+from indy_crypto.bls import VerKey, SignKey, ProofOfPossession
 
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, \
-    BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto
+    BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto, IndyCryptoBlsUtils
 from indy_crypto import IndyCryptoError
 from indy_crypto.error import ErrorCode
 
@@ -54,11 +55,11 @@ def test_default_params(default_params):
 def test_generate_keys_no_seed(default_params, bls_verifier):
     sk, pk, key_proof = BlsCryptoSignerIndyCrypto.generate_keys(default_params)
     assert sk
-    assert isinstance(sk, str)
+    assert isinstance(sk, SignKey)
     assert pk
-    assert isinstance(pk, str)
+    assert isinstance(pk, VerKey)
     assert key_proof
-    assert isinstance(key_proof, str)
+    assert isinstance(key_proof, ProofOfPossession)
     assert sk != pk
     assert bls_verifier.verify_key_proof_of_possession(key_proof, pk)
 
@@ -72,10 +73,12 @@ def seed(request):
 def test_generate_keys_str_seed(default_params, seed, bls_verifier):
     sk, pk, key_proof = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed)
     assert sk
-    assert isinstance(sk, str)
+    assert isinstance(sk, SignKey)
     assert pk
-    assert isinstance(pk, str)
+    assert isinstance(pk, VerKey)
     assert sk != pk
+    assert key_proof
+    assert isinstance(key_proof, ProofOfPossession)
     assert bls_verifier.verify_key_proof_of_possession(key_proof, pk)
 
 
@@ -89,8 +92,8 @@ def test_generate_keys_with_incorrect_seed(default_params):
 
 def test_verify_incorrect_keys(default_params, seed, bls_verifier):
     seed = seed.encode()
-    sk, pk, key_proof = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed)
-    key_proof = key_proof.upper()
+    sk, pk, _ = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seed)
+    _, _, key_proof = BlsCryptoSignerIndyCrypto.generate_keys(default_params, "1" * len(seed))
     assert not bls_verifier.verify_key_proof_of_possession(key_proof, pk)
 
 
@@ -106,7 +109,6 @@ def test_generate_keys_str_seed_32bit_for_nodes(default_params):
     for i in range(nodes_count):
         sk, pk, _ = BlsCryptoSignerIndyCrypto.generate_keys(default_params, seeds[i])
         pks.add(pk)
-        print(pk)
 
     assert len(pks) == nodes_count
 
@@ -172,13 +174,13 @@ def test_verify_non_base58_pk(bls_signer1, bls_verifier, message):
     sig = bls_signer1.sign('Hello!')
     assert not bls_verifier.verify_sig(sig,
                                        message,
-                                       'Incorrect pk 1')
+                                       IndyCryptoBlsUtils.bls_pk_from_str('Incorrect pk 1'))
 
 
 def test_verify_non_base58_sig_and_pk(bls_verifier, message):
     assert not bls_verifier.verify_sig('Incorrect Signature 1',
                                        message,
-                                       'Incorrect pk 1')
+                                       IndyCryptoBlsUtils.bls_pk_from_str('Incorrect pk 1'))
 
 
 def invalid_values(valid_value):
@@ -190,6 +192,10 @@ def invalid_values(valid_value):
         valid_value + base58.b58encode(b'somefake').decode("utf-8"),
         base58.b58encode(b'somefakevaluesomefakevalue').decode("utf-8")
     ]
+
+
+def invalid_pks(invalid_vals):
+    return [IndyCryptoBlsUtils.bls_pk_from_str(val) for val in invalid_vals]
 
 
 def invalid_short_values(valid_value):
@@ -224,7 +230,7 @@ def test_verify_invalid_pk(bls_signer1, bls_verifier, message):
     pk = bls_signer1.pk
     sig = bls_signer1.sign(message)
 
-    for invalid_pk in invalid_values(pk):
+    for invalid_pk in invalid_pks(invalid_values(IndyCryptoBlsUtils.bls_to_str(pk))):
         assert not bls_verifier.verify_sig(sig,
                                            message, invalid_pk)
 
@@ -242,7 +248,7 @@ def test_verify_invalid_short_pk(bls_signer1, bls_verifier, message):
     pk = bls_signer1.pk
     sig = bls_signer1.sign(message)
 
-    for invalid_pk in invalid_short_values(pk):
+    for invalid_pk in invalid_pks(invalid_short_values(IndyCryptoBlsUtils.bls_to_str(pk))):
         assert not bls_verifier.verify_sig(sig,
                                            message, invalid_pk)
 
@@ -256,7 +262,7 @@ def test_verify_invalid_long_signature(bls_signer1, bls_verifier, message):
 
 def test_verify_invalid_long_pk(bls_signer1, bls_verifier, message):
     sig = bls_signer1.sign(message)
-    for invalid_pk in invalid_long_values():
+    for invalid_pk in invalid_pks(invalid_long_values()):
         assert not bls_verifier.verify_sig(sig,
                                            message, invalid_pk)
 
@@ -310,13 +316,14 @@ def test_verify_non_base_58_pk_multi_signature(bls_signer1, bls_signer2, bls_ver
 
     multi_sig = bls_verifier.create_multi_sig(sigs)
 
-    pks = [pk1, 'Incorrect multi signature 1']
+    pks = [pk1, IndyCryptoBlsUtils.bls_from_str('Incorrect pk 1', cls=VerKey)]
     assert not bls_verifier.verify_multi_sig(multi_sig, message, pks)
 
-    pks = ['Incorrect multi signature 1', pk2]
+    pks = [IndyCryptoBlsUtils.bls_from_str('Incorrect pk 1', cls=VerKey), pk2]
     assert not bls_verifier.verify_multi_sig(multi_sig, message, pks)
 
-    pks = ['Incorrect multi signature 1', 'Incorrect multi signature 2']
+    pks = [IndyCryptoBlsUtils.bls_from_str('Incorrect pk 1', cls=VerKey),
+           IndyCryptoBlsUtils.bls_from_str('Incorrect pk 2', cls=VerKey)]
     assert not bls_verifier.verify_multi_sig(multi_sig, message, pks)
 
 
@@ -375,18 +382,18 @@ def test_verify_multi_signature_invalid_pk(bls_signer1, bls_signer2, bls_verifie
 
     multi_sig = bls_verifier.create_multi_sig(sigs)
 
-    for invalid_pk2 in invalid_values(pk2):
-        pks = [pk1, invalid_pk2]
+    for invalid_pk in invalid_pks(invalid_values(IndyCryptoBlsUtils.bls_to_str(pk2))):
+        pks = [pk1, invalid_pk]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
 
-    for invalid_pk1 in invalid_values(pk1):
-        pks = [invalid_pk1, pk2]
+    for invalid_pk in invalid_pks(invalid_values(IndyCryptoBlsUtils.bls_to_str(pk1))):
+        pks = [invalid_pk, pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
 
-    for invalid_pk1, invalid_pk2 in zip(invalid_values(pk1),
-                                        invalid_values(pk2)):
+    for invalid_pk1, invalid_pk2 in zip(invalid_pks(invalid_values(IndyCryptoBlsUtils.bls_to_str(pk1))),
+                                        invalid_pks(invalid_values(IndyCryptoBlsUtils.bls_to_str(pk2)))):
         pks = [invalid_pk1, invalid_pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
@@ -402,18 +409,18 @@ def test_verify_multi_signature_invalid_short_pk(bls_signer1, bls_signer2, bls_v
 
     multi_sig = bls_verifier.create_multi_sig(sigs)
 
-    for invalid_pk2 in invalid_short_values(pk2):
-        pks = [pk1, invalid_pk2]
+    for invalid_pk in invalid_pks(invalid_short_values(IndyCryptoBlsUtils.bls_to_str(pk2))):
+        pks = [pk1, invalid_pk]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
 
-    for invalid_pk1 in invalid_short_values(pk1):
-        pks = [invalid_pk1, pk2]
+    for invalid_pk in invalid_pks(invalid_short_values(IndyCryptoBlsUtils.bls_to_str(pk1))):
+        pks = [invalid_pk, pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
 
-    for invalid_pk1, invalid_pk2 in zip(invalid_short_values(pk1),
-                                        invalid_short_values(pk2)):
+    for invalid_pk1, invalid_pk2 in zip(invalid_pks(invalid_short_values(IndyCryptoBlsUtils.bls_to_str(pk1))),
+                                        invalid_pks(invalid_short_values(IndyCryptoBlsUtils.bls_to_str(pk2)))):
         pks = [invalid_pk1, invalid_pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
@@ -429,18 +436,18 @@ def test_verify_multi_signature_invalid_long_pk(bls_signer1, bls_signer2, bls_ve
 
     multi_sig = bls_verifier.create_multi_sig(sigs)
 
-    for invalid_pk2 in invalid_long_values():
+    for invalid_pk2 in invalid_pks(invalid_long_values()):
         pks = [pk1, invalid_pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
 
-    for invalid_pk1 in invalid_long_values():
+    for invalid_pk1 in invalid_pks(invalid_long_values()):
         pks = [invalid_pk1, pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)
 
-    for invalid_pk1, invalid_pk2 in zip(invalid_long_values(),
-                                        invalid_long_values()):
+    for invalid_pk1, invalid_pk2 in zip(invalid_pks(invalid_long_values()),
+                                        invalid_pks(invalid_long_values())):
         pks = [invalid_pk1, invalid_pk2]
         assert not bls_verifier.verify_multi_sig(multi_sig,
                                                  message, pks)

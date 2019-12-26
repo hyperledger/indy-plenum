@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 
 from crypto.bls.bls_bft import BlsBft
 from crypto.bls.bls_bft_replica import BlsBftReplica
-from crypto.bls.bls_crypto import BlsGroupParamsLoader, BlsCryptoSigner, BlsCryptoVerifier
+from crypto.bls.bls_crypto import BlsGroupParamsLoader, BlsCryptoSigner, BlsCryptoVerifier, GroupParams
 from crypto.bls.bls_key_manager import BlsKeyManager, LoadBLSKeyError
 from crypto.bls.bls_key_register import BlsKeyRegister
 from plenum.bls.bls_store import BlsStore
@@ -12,10 +12,10 @@ logger = getlogger()
 
 
 class BlsFactoryCrypto(metaclass=ABCMeta):
+
+    @abstractmethod
     def generate_bls_keys(self, seed=None) -> (str, str, str):
-        return self._get_bls_crypto_signer_class().generate_keys(
-            self._load_group_params(),
-            seed)
+        pass
 
     def generate_and_store_bls_keys(self, seed=None) -> (str, str):
         bls_key_manager = self._create_key_manager(self._load_group_params())
@@ -35,6 +35,11 @@ class BlsFactoryCrypto(metaclass=ABCMeta):
         group_params = self._load_group_params()
         return self._create_bls_crypto_verifier(group_params)
 
+    def _generate_raw_bls_keys(self, seed=None) -> (object, object, object):
+        return self._get_bls_crypto_signer_class().generate_keys(
+            self._load_group_params(),
+            seed)
+
     def _load_group_params(self):
         return self._create_group_params_loader().load_group_params()
 
@@ -51,7 +56,7 @@ class BlsFactoryCrypto(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def _create_bls_crypto_signer(self, sk, pk, group_params) -> BlsCryptoSigner:
+    def _create_bls_crypto_signer(self, sk: str, pk: str, group_params: GroupParams) -> BlsCryptoSigner:
         pass
 
     @abstractmethod

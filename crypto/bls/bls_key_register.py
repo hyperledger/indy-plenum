@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 
 class BlsKeyRegister(metaclass=ABCMeta):
     @abstractmethod
-    def get_key_by_name(self, node_name, pool_state_root_hash=None):
+    def get_key_by_name(self, node_name, pool_state_root_hash=None) -> object:
         '''
         Gets Public BLS key for a node with the specified name.
         The key is associated with a state of a pool as defined by pool_state_root_hash.
