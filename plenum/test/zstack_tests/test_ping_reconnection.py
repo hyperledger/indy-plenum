@@ -2,6 +2,7 @@ import pytest
 
 heartbeat_freq = 2
 
+
 @pytest.fixture(scope="module")
 def tconf(tconf):
     tconf.UseZStack = True
@@ -16,4 +17,5 @@ def test_ping_reconnection(tconf, looper, txnPoolNodeSet):
         node2.nodestack.sendPingPong(node2.nodestack._remotes['Alpha'])
     looper.runFor(6 * heartbeat_freq)
     socket_after = node1.nodestack._remotes['Beta'].socket
-    assert socket_before != socket_after
+    # reconnection by pings is disabled now
+    assert socket_before == socket_after

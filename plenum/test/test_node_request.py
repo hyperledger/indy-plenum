@@ -7,8 +7,7 @@ from plenum.common.messages.node_messages import \
     PrePrepare, Prepare, Commit
 from plenum.test import waits
 from plenum.test.greek import genNodeNames
-from plenum.test.helper import assertLength, addNodeBack, \
-    sdk_send_random_and_check
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.test_node import TestNode, TestNodeSet, \
     checkPoolReady, genNodeReg, prepareNodeSet
 

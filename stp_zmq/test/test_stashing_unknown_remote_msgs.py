@@ -41,7 +41,6 @@ def test_stashing_unknown_remote_msgs(looper, tdir, tconf):
     assert not beta.isConnectedTo(alpha.name)
 
     def check_unknown_remote_msg():
-        assert len(alpha._stashed_to_disconnected) == 0
         assert len(beta._stashed_unknown_remote_msgs) == len(sent_msgs)
         for index, item in enumerate(sent_msgs):
             assert item == beta._stashed_unknown_remote_msgs[index][0]
