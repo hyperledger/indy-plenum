@@ -8,7 +8,7 @@ from plenum.common.constants import PreVCStrategies
 from plenum.common.messages.node_messages import Prepare, Commit
 from plenum.common.util import compare_3PC_keys
 from plenum.server.view_change.view_changer import ViewChanger
-from plenum.test.delayers import vcd_delay, nv_delay
+from plenum.test.delayers import nv_delay
 from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.test_node import TestNode
 from plenum.test.view_change.helper import ensure_view_change

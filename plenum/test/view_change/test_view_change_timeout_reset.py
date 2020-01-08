@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.delayers import vcd_delay
+from plenum.test.delayers import nv_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
@@ -21,7 +21,7 @@ def test_view_change_timeout_reset_on_next_view(txnPoolNodeSet, looper, tconf):
     assert all(n.viewNo == 0 for n in txnPoolNodeSet)
 
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
-    with delay_rules(stashers, vcd_delay()):
+    with delay_rules(stashers, nv_delay()):
         # Start first view change
         for n in txnPoolNodeSet:
             n.view_changer.on_master_degradation()
