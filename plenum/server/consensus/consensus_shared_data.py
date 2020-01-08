@@ -93,6 +93,9 @@ class ConsensusSharedData:
         # Timestamp of last ordered batch, used for freshness checks
         self.last_batch_timestamp = None
 
+        # Flag to mark that master reordered after VC
+        self._master_reordered_after_vc = True
+
     @property
     def name(self) -> str:
         return self._name

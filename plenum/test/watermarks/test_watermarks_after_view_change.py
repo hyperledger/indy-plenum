@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test import waits
-from plenum.test.delayers import cDelay, chk_delay, icDelay, vcd_delay, nv_delay
+from plenum.test.delayers import cDelay, chk_delay, icDelay, nv_delay
 from plenum.test.helper import sdk_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules

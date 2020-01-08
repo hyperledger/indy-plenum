@@ -8,7 +8,7 @@ from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 from plenum.common.constants import NYM, VERKEY, ROLE, TARGET_NYM, ALIAS, NODE, \
     DATA, CLIENT_IP, CLIENT_PORT, NODE_IP, \
-    NODE_PORT, SERVICES, BLS_KEY, VALIDATOR, TRUSTEE, STEWARD, BLS_KEY_PROOF
+    NODE_PORT, SERVICES, BLS_KEY, VALIDATOR, TRUSTEE, STEWARD, BLS_KEY_PROOF, CURRENT_TXN_PAYLOAD_VERSIONS
 from plenum.common.test_network_setup import TestNetworkSetup
 from plenum.common.txn_util import getTxnOrderedFields, get_seq_no, get_txn_id, get_payload_data, get_type, get_version, \
     get_protocol_version

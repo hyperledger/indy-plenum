@@ -81,7 +81,7 @@ class ZStack(NetworkInterface):
         self.msgRejectHandler = msgRejectHandler or self.__defaultMsgRejectHandler
 
         self._node_mode = None
-        self._stash_unknown_remote_msgs = deque(maxlen=self.config.ZMQ_STASH_UNKNOWN_REMOTE_MSGS_QUEUE_SIZE)
+        self._stashed_unknown_remote_msgs = deque(maxlen=self.config.ZMQ_STASH_UNKNOWN_REMOTE_MSGS_QUEUE_SIZE)
 
         self.metrics = metrics
         self.mt_incoming_size = mt_incoming_size
@@ -134,7 +134,6 @@ class ZStack(NetworkInterface):
 
         self.last_heartbeat_at = None
 
-        self._stashed_to_disconnected = {}
         self._stashed_pongs = set()
         self._received_pings = set()
         self._client_message_provider = ClientMessageProvider(self.name,
@@ -618,7 +617,7 @@ class ZStack(NetworkInterface):
                 if self._node_mode != Mode.participating:
                     logger.info('{} not yet caught-up, stashing message from unknown remote'
                                 .format(self, z85_to_friendly(ident)))
-                    self._stash_unknown_remote_msgs.append((msg, ident))
+                    self._stashed_unknown_remote_msgs.append((msg, ident))
                 else:
                     logger.warning('{} received message from unknown remote {}'
                                    .format(self, z85_to_friendly(ident)))
@@ -781,35 +780,16 @@ class ZStack(NetworkInterface):
             if msg == self.pongMessage:
                 if ident in self.remotesByKeys:
                     self.remotesByKeys[ident].setConnected()
-                    self._resend_to_disconnected(frm, ident)
                 logger.trace('{} got pong from {}'.format(self, z85_to_friendly(frm)))
             return True
         return False
 
-    def _can_resend_to_disconnected(self, to, ident):
-        if to not in self._stashed_to_disconnected:
-            return False
-        if ident not in self.remotesByKeys:
-            return False
-        if not self.remotesByKeys[ident].isConnected:
-            return False
-        return True
-
-    def _resend_to_disconnected(self, to, ident):
-        if not self._can_resend_to_disconnected(to, ident):
-            return
-        logger.trace('{} resending stashed messages to {}'.format(self, z85_to_friendly(to)))
-        msgs = self._stashed_to_disconnected[to]
-        while msgs:
-            msg = msgs.popleft()
-            ZStack.send(self, msg, to)
-
     def process_unknown_remote_msgs(self):
         logger.info('Processing messages from previously unknown remotes.')
-        for msg in self._stash_unknown_remote_msgs:
+        for msg in self._stashed_unknown_remote_msgs:
             self.rxMsgs.append(msg)
 
-        self._stash_unknown_remote_msgs.clear()
+        self._stashed_unknown_remote_msgs.clear()
         self.processReceived(limit=sys.maxsize)
 
     def send_heartbeats(self):
@@ -868,12 +848,9 @@ class ZStack(NetworkInterface):
             if remote.isConnected or msg in self.healthMessages:
                 self.metrics.add_event(self.mt_outgoing_size, len(msg))
             else:
-                logger.warning('Remote {} is not connected - message will not be sent immediately.'
-                               'If this problem does not resolve itself - check your firewall settings'
-                               .format(z85_to_friendly(uid)))
-                self._stashed_to_disconnected \
-                    .setdefault(uid, deque(maxlen=self.config.ZMQ_STASH_TO_NOT_CONNECTED_QUEUE_SIZE)) \
-                    .append(msg)
+                logger.debug('Remote {} is not connected - message will not be sent immediately.'
+                             'If this problem does not resolve itself - check your firewall settings'
+                             .format(z85_to_friendly(uid)))
 
             return True, err_str
         except zmq.Again:
@@ -1045,7 +1022,6 @@ class ZStack(NetworkInterface):
 
     def prepare_to_send(self, msg: Any):
         msg_bytes = self.serializeMsg(msg)
-        self.msgLenVal.validate(msg_bytes)
         return msg_bytes
 
     @staticmethod

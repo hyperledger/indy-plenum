@@ -5,7 +5,7 @@ In BFT protocols you can lose no more than a certain number of messages. In Plen
 - A node discarded messages because it was unable to process it.
 - A node disconnected for a short time.
 
-In plenum there are classes `MessageReq` for message requests and `MessageRep` for replies. `MessageReqProcessor` manages receiving, sending and processing request and reply messages.
+In plenum there are classes `MessageReq` for message requests and `MessageRep` for replies. `MessageReqService` manages receiving, sending and processing request and reply messages.
 
 ###Three-phase commit messages
 
@@ -28,3 +28,13 @@ Lost messages may delay catchup for a long time. The node message requests mecha
 - With the first message request for a ConsistencyProof the node is scheduling a new message request in config.ConsistencyProofTimeout for case the answer to the first request is not received.
 
 If the node has the quorum(n - f - 1) of LedgerStatuses or the quorum(f + 1) of ConsistencyProofs, scheduled request will be canceled.
+
+###ViewChange messages
+
+Lost NewView message will prevent view change from finishing successfully. A node requests NewView messages from all nodes in NEW_VIEW_TIMEOUT after a view change started. 
+- If an answer is received from expected primary node uses it and finishes the view change.
+- Otherwise it uses a quorum (f+1) of NewView responses from other nodes, finishes the view change and starts catchup.
+
+Lost ViewChange message can prevent view change from finishing successfully. A node requests missing ViewChange messages from all nodes after receiving a NewView message.  
+- If an answer is received from an owner of requested ViewChange the node uses it and finishes the view change. 
+- Otherwise it uses a quorum (f+1) of ViewChange responses from other nodes and finishes the view change.

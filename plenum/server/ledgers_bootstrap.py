@@ -22,6 +22,7 @@ from plenum.server.request_handlers.get_txn_author_agreement_handler import GetT
 from plenum.server.request_handlers.node_handler import NodeHandler
 from plenum.server.request_handlers.nym_handler import NymHandler
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
+from plenum.server.request_handlers.txn_author_agreement_disable_handler import TxnAuthorAgreementDisableHandler
 from plenum.server.request_handlers.txn_author_agreement_handler import TxnAuthorAgreementHandler
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
@@ -141,11 +142,13 @@ class LedgersBootstrap:
     def _register_config_req_handlers(self):
         taa_aml_handler = TxnAuthorAgreementAmlHandler(database_manager=self.db_manager)
         taa_handler = TxnAuthorAgreementHandler(database_manager=self.db_manager)
+        taa_disable_handler = TxnAuthorAgreementDisableHandler(database_manager=self.db_manager)
         get_taa_aml_handler = GetTxnAuthorAgreementAmlHandler(database_manager=self.db_manager)
         get_taa_handler = GetTxnAuthorAgreementHandler(database_manager=self.db_manager)
 
         self.write_manager.register_req_handler(taa_aml_handler)
         self.write_manager.register_req_handler(taa_handler)
+        self.write_manager.register_req_handler(taa_disable_handler)
 
         self.read_manager.register_req_handler(get_taa_aml_handler)
         self.read_manager.register_req_handler(get_taa_handler)

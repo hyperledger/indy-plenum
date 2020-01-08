@@ -1,3 +1,5 @@
+from typing import Optional
+
 from common.serializers.serialization import pool_state_serializer, config_state_serializer
 from plenum.common.constants import CONFIG_LEDGER_ID, TXN_AUTHOR_AGREEMENT_AML, AML, AML_VERSION
 from plenum.common.exceptions import InvalidClientRequest
@@ -22,7 +24,7 @@ class TxnAuthorAgreementAmlHandler(WriteRequestHandler):
                                        "TXN_AUTHOR_AGREEMENT_AML request "
                                        "must contain at least one acceptance mechanism")
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
         self.authorize(request)
         operation, identifier, req_id = request.operation, request.identifier, request.reqId

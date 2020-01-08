@@ -1,6 +1,7 @@
 from common.serializers.serialization import domain_state_serializer, config_state_serializer
 from plenum.common.constants import DOMAIN_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT
 from plenum.common.txn_util import get_req_id, get_from, get_txn_time, get_payload_data
+from plenum.common.util import get_utc_epoch
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import GET_BUY
@@ -52,7 +53,8 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
 
 
 def create_random_taa():
-    return gen_random_txn_author_agreement()
+    text, version = gen_random_txn_author_agreement()
+    return version, text
 
 
 def test_fill_ts_store_for_config_after_catchup(txnPoolNodeSet,
@@ -63,18 +65,16 @@ def test_fill_ts_store_for_config_after_catchup(txnPoolNodeSet,
                                                 tdir,
                                                 allPluginsPath,
                                                 set_txn_author_agreement_aml):
-    sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa()
-    )
+    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa(),
+                                  ratified=get_utc_epoch() - 600)
     node_to_disconnect = txnPoolNodeSet[-1]
 
     disconnect_node_and_ensure_disconnected(looper,
                                             txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
-    sdk_reply = sdk_send_txn_author_agreement(
-        looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa()
-    )
+    sdk_reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa(),
+                                              ratified=get_utc_epoch() - 600)
 
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
                                             tdir, allPluginsPath)

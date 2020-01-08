@@ -1,11 +1,8 @@
-from numbers import Rational
-
-import math
 import pytest
 import sys
 
 from plenum.common.constants import CHECKPOINT, COMMIT
-from plenum.test.delayers import cDelay, chk_delay, lsDelay, vcd_delay
+from plenum.test.delayers import cDelay, chk_delay
 from plenum.test.helper import sdk_send_random_requests, \
     sdk_get_and_check_replies, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data

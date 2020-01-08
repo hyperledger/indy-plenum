@@ -14,9 +14,6 @@ class ReadRequestManager(RequestManager):
             raise LogicError
         handler.static_validation(request)
 
-    def dynamic_validation(self, request: Request):
-        pass
-
     def register_req_handler(self, handler: ReadRequestHandler, ledger_id=None):
         if not isinstance(handler, ReadRequestHandler):
             raise LogicError

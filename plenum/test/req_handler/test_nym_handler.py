@@ -1,17 +1,15 @@
 import pytest as pytest
 
-from common.serializers.serialization import domain_state_serializer
-from plenum.common.constants import ROLE, STEWARD, NYM, TARGET_NYM, TXN_TYPE
+from plenum.common.constants import ROLE, STEWARD, NYM, TXN_TYPE
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.request import Request
-from plenum.common.txn_util import get_payload_data, reqToTxn, get_reply_nym
+from plenum.common.txn_util import get_payload_data, get_reply_nym
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.nym_handler import NymHandler
-from plenum.server.request_handlers.utils import get_nym_details, get_role, is_steward, nym_to_state_key
+from plenum.server.request_handlers.utils import get_nym_details, get_role, is_steward
 from plenum.test.req_handler.helper import create_nym_txn, update_nym
 from plenum.test.testing_utils import FakeSomething
 from state.pruning_state import PruningState
-from state.state import State
 from storage.kv_in_memory import KeyValueStorageInMemory
 
 
@@ -32,7 +30,7 @@ def test_dynamic_validation(nym_handler):
     request = Request(identifier=identifier,
                       operation={TXN_TYPE: NYM,
                                  ROLE: ""})
-    nym_handler.dynamic_validation(request)
+    nym_handler.dynamic_validation(request, 0)
 
 
 def test_dynamic_validation_msg_from_not_steward(nym_handler):
@@ -43,7 +41,7 @@ def test_dynamic_validation_msg_from_not_steward(nym_handler):
                           TXN_TYPE: NYM, ROLE: ""})
 
     with pytest.raises(UnauthorizedClientRequest) as e:
-        nym_handler.dynamic_validation(request)
+        nym_handler.dynamic_validation(request, 0)
     assert "Only Steward is allowed to do these transactions" \
            in e._excinfo[1].args[0]
 
@@ -54,7 +52,7 @@ def test_dynamic_validation_steward_create_steward_before_limit(nym_handler):
     request = Request(identifier=identifier,
                       operation={TXN_TYPE: NYM,
                                  ROLE: STEWARD})
-    nym_handler.dynamic_validation(request)
+    nym_handler.dynamic_validation(request, 0)
 
 
 def test_dynamic_validation_steward_create_steward_after_limit(nym_handler):
@@ -69,7 +67,7 @@ def test_dynamic_validation_steward_create_steward_after_limit(nym_handler):
                                  ROLE: STEWARD})
 
     with pytest.raises(UnauthorizedClientRequest) as e:
-        nym_handler.dynamic_validation(request)
+        nym_handler.dynamic_validation(request, 0)
     assert "New stewards cannot be added by other stewards as there are already" \
            in e._excinfo[1].args[0]
 
