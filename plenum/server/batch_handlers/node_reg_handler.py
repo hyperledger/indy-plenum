@@ -73,7 +73,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         three_pc_batch_view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
         if three_pc_batch_view_no > self._committed_view_no:
             self.node_reg_at_beginning_of_view[three_pc_batch_view_no] = list(self.committed_node_reg)
-        self._committed_view_no = three_pc_batch_view_no
+            self._committed_view_no = three_pc_batch_view_no
 
         # make sure that we have node reg for the current and previous view (which can be less than the current for more than 1)
         # Ex.: node_reg_at_beginning_of_view has views {0, 3, 5, 7, 11, 13), committed is now 7, so we need to keep all uncommitted (11, 13),
