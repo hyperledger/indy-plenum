@@ -530,9 +530,19 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param ppTime: PrePrepare request time
         :param reqs_keys: requests keys to be committed
         """
+        current_view_no = self.viewNo
+        node_count_changed = False
         committed_txns = self.default_executer(three_pc_batch)
         for txn in committed_txns:
-            self.poolManager.onPoolMembershipChange(txn)
+            node_count_changed |= self.poolManager.onPoolMembershipChange(txn)
+
+        # Start View Change immediately unless this is re-ordering of txns from the last view
+        if node_count_changed and three_pc_batch.original_view_no == current_view_no:
+            # send Instance Change (to current_view_no + 1) first, and only then start the View Change
+            # otherwise Instance Change would be sent to current_view_no + 2
+            self.view_changer.on_node_count_changed()
+            self.master_replica._internal_bus.send(NodeNeedViewChange(current_view_no + 1))
+
         return committed_txns
 
     def execute_domain_txns(self, three_pc_batch) -> List:
@@ -1220,7 +1230,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setPoolParams()
         self.adjustReplicas(old_required_number_of_instances,
                             self.requiredNumberOfInstances)
-        self.select_primaries_if_needed(old_required_number_of_instances)
 
     def nodeLeft(self, txn_data):
         logger.display("{} node left by txn {}".format(self, txn_data))
@@ -1228,22 +1237,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.setPoolParams()
         self.adjustReplicas(old_required_number_of_instances,
                             self.requiredNumberOfInstances)
-        self.select_primaries_if_needed(old_required_number_of_instances, txn_data)
-
-    def select_primaries_if_needed(self, old_required_number_of_instances, txn_data=None):
-        # This function mainly used in nodeJoined and nodeLeft functions
-        leecher = self.ledgerManager._node_leecher._leechers[POOL_LEDGER_ID]
-        alias = ""
-        if txn_data and DATA in txn_data:
-            alias = txn_data[DATA].get(ALIAS, alias)
-        # If number of nodes changed, we need to do a view change.
-        if not self.view_changer.view_change_in_progress \
-                and leecher.state == LedgerState.synced:
-            # We can call nodeJoined function during usual ordering or during catchup
-            # We need to do a view change only during usual ordering. Because
-            # if this is usual catchup, then, we will apply primaries from audit,
-            # after catchup finish.
-            self.view_changer.on_node_count_changed()
 
     @property
     def clientStackName(self):
