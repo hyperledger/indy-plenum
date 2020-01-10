@@ -226,13 +226,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.nodeInBox = deque()
         self.clientInBox = deque()
 
-        # 3PC state consistency watchdog based on network events
-        self.network_i3pc_watcher = NetworkInconsistencyWatcher(self.on_inconsistent_3pc_state_from_network)
-
-        self.setPoolParams()
-
-        self.network_i3pc_watcher.connect(self.name)
-
         self.clientBlacklister = SimpleBlacklister(
             self.name + CLIENT_BLACKLISTER_SUFFIX)  # type: Blacklister
 
@@ -252,6 +245,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.monitor_init(pluginPaths)
         self.replicas = self.create_replicas()
 
+        self.requiredNumberOfInstances = 0
         # Any messages that are intended for protocol instances not created.
         # Helps in cases where a new protocol instance have been added by a
         # majority of nodes due to joining of a new node, but some slow nodes
@@ -259,8 +253,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO is it possible for messages with current view number?
         self.msgsForFutureReplicas = {}
 
+        # 3PC state consistency watchdog based on network events
+        self.network_i3pc_watcher = NetworkInconsistencyWatcher(self.on_inconsistent_3pc_state_from_network)
+
         # do it after all states and BLS stores are created
-        self.adjustReplicas(0, self.requiredNumberOfInstances)
+        self.setPoolParams()
+        self.network_i3pc_watcher.connect(self.name)
 
         self.perfCheckFreq = self.config.PerfCheckFreq
         self.nodeRequestSpikeMonitorData = {
@@ -541,7 +539,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # send Instance Change (to current_view_no + 1) first, and only then start the View Change
             # otherwise Instance Change would be sent to current_view_no + 2
             self.view_changer.on_node_count_changed()
-            self.master_replica._internal_bus.send(NodeNeedViewChange(current_view_no + 1))
+            # self.master_replica._internal_bus.send(NodeNeedViewChange(current_view_no + 1))
 
         return committed_txns
 
@@ -758,7 +756,15 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # noinspection PyAttributeOutsideInit
     def setPoolParams(self):
         # TODO should be always called when nodeReg is changed - automate
-        self.allNodeNames = set(self.nodeReg.keys())
+        # TODO: the node reg in a new view is not committed yet, so we had to use uncommitted_node_reg which
+        # may be incorrect if we have uncommitted batches in new view
+        # Perform this after node reg in new view is committed
+        old_required_number_of_instances = self.requiredNumberOfInstances
+        self.allNodeNames = set(self.write_manager.node_reg_handler.uncommitted_node_reg)
+        if len(self.allNodeNames) == 0:
+            # Take it from the ledger if catch-up is not finished yet
+            # TODO: unify this logic
+            self.allNodeNames = set(self.nodeReg.keys())
         self.network_i3pc_watcher.set_nodes(self.allNodeNames)
         self.totalNodes = len(self.allNodeNames)
         self.f = getMaxFailures(self.totalNodes)
@@ -772,6 +778,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self, self.f, self.totalNodes,
                 self.allNodeNames, self.requiredNumberOfInstances,
                 self.minimumNodes, self.quorums))
+
+        self.adjustReplicas(old_required_number_of_instances,
+                            self.requiredNumberOfInstances)
+        for r in self.replicas.values():
+            # We set new list of validators for every replica,
+            # cause cdp for every replica need to be independent
+            r.set_validators(self.allNodeNames)
 
     def build_ledger_status(self, ledger_id):
         ledger = self.getLedger(ledger_id)
@@ -1224,20 +1237,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def send_ledger_status_to_newly_connected_node(self, node_name):
         self.sendLedgerStatus(node_name, POOL_LEDGER_ID)
 
-    def nodeJoined(self, txn_data):
-        logger.display("{} new node joined by txn {}".format(self, txn_data))
-        old_required_number_of_instances = self.requiredNumberOfInstances
-        self.setPoolParams()
-        self.adjustReplicas(old_required_number_of_instances,
-                            self.requiredNumberOfInstances)
-
-    def nodeLeft(self, txn_data):
-        logger.display("{} node left by txn {}".format(self, txn_data))
-        old_required_number_of_instances = self.requiredNumberOfInstances
-        self.setPoolParams()
-        self.adjustReplicas(old_required_number_of_instances,
-                            self.requiredNumberOfInstances)
-
     @property
     def clientStackName(self):
         return self.getClientStackNameOfNode(self.name)
@@ -1288,10 +1287,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.replicas.remove_replica(replica_num)
 
         pop_keys(self.msgsForFutureReplicas, lambda inst_id: inst_id < new_required_number_of_instances)
-
-        # TODO: This is not moved from PoolManager to setPoolParams because setPoolParams is called
-        #  before number of replicas is adjusted. This needs cleanup.
-        self.poolManager.set_validators_for_replicas()
 
     def _dispatch_stashed_msg(self, msg, frm):
         # TODO DRY, in normal (non-stashed) case it's managed
@@ -1865,13 +1860,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.view_changer.previous_view_no = self.viewNo
             self.viewNo = get_payload_data(audit_ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
 
-        # 2. select primaries
+        # 2. Adjust pool params and replicas
+        self.setPoolParams()
+
+        # 3. select primaries
         self.primaries = self.get_primaries_for_current_view()
         if len(self.replicas) != len(self.primaries):
             logger.warning('Audit ledger has inconsistent number of nodes. '
                            'Node primaries = {}'.format(self.primaries))
 
-        # 3. process primary selection by replicas
+        # 4. process primary selection by replicas
         for instance_id, replica in list(self.replicas.items()):
             # can participate
             if instance_id == 0:
@@ -1891,13 +1889,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                extra={"cli": "ANNOUNCE",
                                       "tags": ["node-election"]})
 
-        # 4. Notify replica, that we need to send batch with new primaries
+        # 5. Notify replica, that we need to send batch with new primaries
         # do it only if audit ledger is empty yet to write primaries there
         if self.viewNo != 0 and len(audit_ledger) == 0:
             for r in self.replicas.values():
                 r.set_primaries_batch_needed(True)
 
-        # 5. Restore backup Primaries
+        # 6. Restore backup Primaries
         last_sent_pp_seq_no_restored = False
         if self.view_changer.previous_view_no == 0:
             last_sent_pp_seq_no_restored = \
@@ -1905,7 +1903,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if not last_sent_pp_seq_no_restored:
             self.last_sent_pp_store_helper.erase_last_sent_pp_seq_no()
 
-        # 6. Emulate view_change ending
+        # 7. Emulate view_change ending
         for replica in self.replicas.values():
             # TODO: combine with CatchupFinished processing
             replica.on_view_propagated_after_catchup()
@@ -3228,6 +3226,11 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 # ToDo: This line should be changed to sending internal message
                 #  instead of setting attr directly
                 replica._consensus_data._master_reordered_after_vc = True
+
+        # TODO: the node reg in a new view is not committed yet, so we had to use uncommitted_node_reg which
+        # may be incorrect if we have uncommitted batches in new view
+        # Perform this after node reg in new view is committed
+        self.setPoolParams()
 
     def _process_node_need_view_change(self, msg: NodeNeedViewChange):
         self.on_view_change_start()

@@ -1469,7 +1469,7 @@ class OrderingService:
         Try to order if the Commit message is ready to be ordered.
         """
         if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo) and \
-                self._data.prev_view_prepare_cert == commit.ppSeqNo:
+                self._data.prev_view_prepare_cert + 1 == commit.ppSeqNo:
             self._bus.send(MasterReorderedAfterVC())
 
         canOrder, reason = self._can_order(commit)
@@ -1554,7 +1554,7 @@ class OrderingService:
     def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
-        if self._data.prev_view_prepare_cert == pp_seq_no:
+        if self._data.prev_view_prepare_cert + 1 == pp_seq_no:
             self._bus.send(MasterReorderedAfterVC())
 
     def _get_primaries_for_ordered(self, pp):

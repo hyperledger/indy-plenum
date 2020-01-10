@@ -103,6 +103,10 @@ class ViewChangeService:
                                                        self._data.view_no + 1))
             self._propose_view_change(Suspicions.INCORRECT_NEW_PRIMARY)
 
+        logger.info("{} started view change to view {}. Expected Primaries: {}".format(self._data.name,
+                                                                                       self._data.view_no,
+                                                                                       self._data.primaries))
+
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()
 
@@ -244,18 +248,23 @@ class ViewChangeService:
     def _send_new_view_if_needed(self):
         confirmed_votes = self.view_change_votes.confirmed_votes
         if not self._data.quorums.view_change.is_reached(len(confirmed_votes)):
+            logger.debug("{} can not send NEW_VIEW: no quorum. Has {}, expects {} votes".format(
+                self._data.name, len(confirmed_votes), self._data.quorums.view_change.value))
             return
 
         view_changes = [self.view_change_votes.get_view_change(*v) for v in confirmed_votes]
         cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None:
+            logger.info("{} can not send NEW_VIEW: can not calculate Checkpoint".format(self._data.name))
             return
 
         batches = self._new_view_builder.calc_batches(cp, view_changes)
         if batches is None:
+            logger.info("{} can not send NEW_VIEW: can not calculate Batches".format(self._data.name))
             return
 
         if cp not in self._data.checkpoints:
+            logger.info("{} can not send NEW_VIEW: does not have Checkpoint {}.".format(self._data.name, str(cp)))
             return
 
         nv = NewView(

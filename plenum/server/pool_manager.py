@@ -197,7 +197,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             node_reg_changed = _updateNode(txn_data)
             self._set_node_services_in_cache(nodeNym, txn_data[DATA].get(SERVICES, None))
 
-        self.set_validators_for_replicas()
         return node_reg_changed
 
     def addNewNodeAndConnect(self, txn_data):
@@ -212,7 +211,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                    txn_data[DATA][CLIENT_PORT])
         else:
             self.connectNewRemote(txn_data, nodeName, self.node, nodeName != self.name)
-        self.node.nodeJoined(txn_data)
 
     def node_about_to_be_disconnected(self, nodeName):
         if self.node.master_primary_name == nodeName:
@@ -300,7 +298,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                                                                       node_info[CLIENT_PORT])
 
             self.updateNodeTxns({DATA: node_info, }, txn_data)
-            self.node.nodeJoined(txn_data)
 
             if self.name != nodeName:
                 self.connectNewRemote({DATA: node_info,
@@ -314,7 +311,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             # If validator service is disabled
             del self.node.nodeReg[nodeName]
             del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
-            self.node.nodeLeft(txn_data)
 
             if self.name != nodeName:
                 try:
@@ -436,12 +432,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if name == node_name:
                 return nym
         return None
-
-    def set_validators_for_replicas(self):
-        for r in self.node.replicas.values():
-            # We set new list of validators for every replica,
-            # cause cdp for every replica need to be independent
-            r.set_validators(self.node_names_ordered_by_rank())
 
     def get_node_ids(self):
         return self._ordered_node_ids

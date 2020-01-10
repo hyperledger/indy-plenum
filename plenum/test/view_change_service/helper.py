@@ -4,9 +4,9 @@ from plenum.test.delayers import cDelay, ppDelay, msg_rep_delay, old_view_pp_rep
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.stasher import delay_rules_without_processing, delay_rules
-from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas
-from plenum.test.view_change.helper import add_new_node
+from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas, checkNodesConnected
 from stp_core.loop.eventually import eventually
 
 
@@ -46,20 +46,14 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
 
     with delay_rules_without_processing(slow_stashers, *delayers):
         # Add Node5
-        new_node = add_new_node(looper,
-                                fast_nodes,
-                                sdk_pool_handle,
-                                sdk_wallet_steward,
-                                tdir,
-                                tconf,
-                                allPluginsPath)
+        _, new_node = sdk_add_new_steward_and_node(looper, sdk_pool_handle, sdk_wallet_steward,
+                                                   'New_Steward', 'Epsilon',
+                                                   tdir, tconf, allPluginsPath=allPluginsPath)
+        looper.run(checkNodesConnected(fast_nodes + [new_node]))
         old_set = list(txnPoolNodeSet)
         txnPoolNodeSet.append(new_node)
 
-        # Trigger view change
-        trigger_view_change(txnPoolNodeSet)
-
-        # make sure view change is finished eventually
+        # make sure view change is started and finished eventually
         waitForViewChange(looper, old_set, 4)
         ensureElectionsDone(looper, old_set)
 
