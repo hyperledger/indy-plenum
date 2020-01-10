@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.delayers import delay_3pc_messages, vcd_delay, nv_delay
+from plenum.test.delayers import delay_3pc_messages, nv_delay
 from plenum.test.helper import sdk_send_batches_of_random_and_check, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensure_all_nodes_have_same_data

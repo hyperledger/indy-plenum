@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.delayers import vcd_delay, nv_delay
+from plenum.test.delayers import nv_delay
 from plenum.test.stasher import delay_rules
 from plenum.test.helper import waitForViewChange, perf_monitor_disabled, view_change_timeout
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
