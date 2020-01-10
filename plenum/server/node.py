@@ -575,12 +575,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def primaries(self):
         return self.master_replica._consensus_data.primaries
 
-    @primaries.setter
-    def primaries(self, ps):
-        self._primaries = ps
-        for r in self.replicas.values():
-            r.set_primaries(ps)
-
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
             CONFIG_LEDGER_ID,
@@ -760,7 +754,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # may be incorrect if we have uncommitted batches in new view
         # Perform this after node reg in new view is committed
         old_required_number_of_instances = self.requiredNumberOfInstances
-        self.allNodeNames = set(self.write_manager.node_reg_handler.uncommitted_node_reg)
+        self.allNodeNames = set(self.write_manager.node_reg_handler.node_reg_at_beginning_of_view[self.viewNo])
         if len(self.allNodeNames) == 0:
             # Take it from the ledger if catch-up is not finished yet
             # TODO: unify this logic
@@ -3221,16 +3215,16 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule_replica_removal(msg.inst_id)
 
     def _process_master_reordered(self, msg: MasterReorderedAfterVC):
+        # TODO: the node reg in a new view is not committed yet, so we had to use uncommitted_node_reg which
+        # may be incorrect if we have uncommitted batches in new view
+        # Perform this after node reg in new view is committed
+        self.setPoolParams()
+
         for replica in self.replicas.values():
             if not replica.isMaster:
                 # ToDo: This line should be changed to sending internal message
                 #  instead of setting attr directly
                 replica._consensus_data._master_reordered_after_vc = True
-
-        # TODO: the node reg in a new view is not committed yet, so we had to use uncommitted_node_reg which
-        # may be incorrect if we have uncommitted batches in new view
-        # Perform this after node reg in new view is committed
-        self.setPoolParams()
 
     def _process_node_need_view_change(self, msg: NodeNeedViewChange):
         self.on_view_change_start()

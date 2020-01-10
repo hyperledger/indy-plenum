@@ -28,6 +28,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self.uncommitted_node_reg = []
         self.committed_node_reg = []
         self.node_reg_at_beginning_of_view = SortedDict()
+        self.active_node_reg = [] # as it is at the beginning of current view
 
         self._uncommitted = deque()  # type: deque[UncommittedNodeReg]
         self._uncommitted_view_no = 0

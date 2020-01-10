@@ -90,11 +90,12 @@ class ViewChangeService:
                            extra={"cli": "ANNOUNCE",
                                   "tags": ["node-election"]})
 
-        old_primary = self._data.primary_name
-        self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
-
         if not self._data.is_master:
             return
+
+        # Backup primaries will be re-selected after re-ordering is done
+        old_primary = self._data.primary_name
+        self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
 
         if old_primary and self._data.primary_name == old_primary:
             logger.info("Selected master primary is the same with the "
