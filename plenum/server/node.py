@@ -754,7 +754,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # may be incorrect if we have uncommitted batches in new view
         # Perform this after node reg in new view is committed
         old_required_number_of_instances = self.requiredNumberOfInstances
-        self.allNodeNames = set(self.write_manager.node_reg_handler.node_reg_at_beginning_of_view[self.viewNo])
+        self.allNodeNames = set(self.write_manager.node_reg_handler.active_node_reg)
         if len(self.allNodeNames) == 0:
             # Take it from the ledger if catch-up is not finished yet
             # TODO: unify this logic
@@ -1857,6 +1857,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # 2. Adjust pool params and replicas
         self.setPoolParams()
 
+        # TBD: select primaries
+
         # 3. select primaries
         self.primaries = self.get_primaries_for_current_view()
         if len(self.replicas) != len(self.primaries):
@@ -2724,6 +2726,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
             raise
 
+        if three_pc_batch.original_view_no > self.master_last_ordered_3PC[0]:
+            self.on_first_batch_in_view_committed()
+
         for req_key in valid_reqs_keys + invalid_reqs_keys:
             if req_key in self.requests:
                 self.mark_request_as_executed(self.requests[req_key].request)
@@ -2774,6 +2779,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                                  three_pc_batch.original_view_no,
                                                  three_pc_batch.pp_digest)
             self._observable.append_input(batch_committed_msg, self.name)
+
+    def on_first_batch_in_view_committed(self):
+        # TODO: consider using Internal messages instead
+        self.setPoolParams()
+
+        # TBD: primaries selection for backups
 
     def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):
@@ -3215,11 +3226,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule_replica_removal(msg.inst_id)
 
     def _process_master_reordered(self, msg: MasterReorderedAfterVC):
-        # TODO: the node reg in a new view is not committed yet, so we had to use uncommitted_node_reg which
-        # may be incorrect if we have uncommitted batches in new view
-        # Perform this after node reg in new view is committed
-        self.setPoolParams()
-
         for replica in self.replicas.values():
             if not replica.isMaster:
                 # ToDo: This line should be changed to sending internal message

@@ -12,7 +12,7 @@ from stp_core.loop.eventually import eventually
 
 def get_next_primary_name(txnPoolNodeSet, expected_view_no):
     inst_count = len(txnPoolNodeSet[0].replicas)
-    return txnPoolNodeSet[0].primaries_selector.select_primaries(expected_view_no)[0]
+    return txnPoolNodeSet[0].primaries_selector.select_master_primary(expected_view_no)
 
 
 def trigger_view_change(nodes):

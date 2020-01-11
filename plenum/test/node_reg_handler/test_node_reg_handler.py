@@ -67,6 +67,7 @@ def test_update_node_reg_at_beginning_of_view_updated_on_commit_only(node_reg_ha
     three_pc_batch1 = add_node(write_req_manager, "Epsilon", view_no=1, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
     assert three_pc_batch1.node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
@@ -74,6 +75,7 @@ def test_update_node_reg_at_beginning_of_view_updated_on_commit_only(node_reg_ha
     three_pc_batch2 = add_node(write_req_manager, "AAA", view_no=2, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
     assert three_pc_batch2.node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
@@ -81,6 +83,7 @@ def test_update_node_reg_at_beginning_of_view_updated_on_commit_only(node_reg_ha
     three_pc_batch3 = add_node(write_req_manager, "BBB", view_no=3, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
     assert three_pc_batch3.node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
@@ -88,6 +91,7 @@ def test_update_node_reg_at_beginning_of_view_updated_on_commit_only(node_reg_ha
     write_req_manager.commit_batch(three_pc_batch1)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -96,6 +100,7 @@ def test_update_node_reg_at_beginning_of_view_updated_on_commit_only(node_reg_ha
     write_req_manager.commit_batch(three_pc_batch2)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[2] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -104,6 +109,7 @@ def test_update_node_reg_at_beginning_of_view_updated_on_commit_only(node_reg_ha
     write_req_manager.commit_batch(three_pc_batch3)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[2] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[3] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA',
                                                                  'BBB']
@@ -181,37 +187,44 @@ def test_update_node_regs_on_apply_and_commit_txns(node_reg_handler, init_node_r
 
 def test_update_node_regs_on_revert_txns(node_reg_handler, init_node_reg_handler,
                                          write_req_manager):
+    add_node(write_req_manager, "CCC", view_no=0, commit=True)
+    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC']
+    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
+
     add_node(write_req_manager, "Epsilon", view_no=0, commit=True)
-    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC', 'Epsilon']
+    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC', 'Epsilon']
     assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     add_node(write_req_manager, "AAA", view_no=0, commit=False)
-    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
-    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC', 'Epsilon', 'AAA']
+    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC', 'Epsilon']
     assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     demote_node(write_req_manager, "Beta", view_no=0, commit=False)
-    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Gamma', 'Delta', 'Epsilon', 'AAA']
-    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Gamma', 'Delta', 'CCC', 'Epsilon', 'AAA']
+    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC', 'Epsilon']
     assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
-    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
-    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC', 'Epsilon', 'AAA']
+    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC', 'Epsilon']
     assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
-    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC', 'Epsilon']
+    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'CCC', 'Epsilon']
     assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
@@ -252,7 +265,7 @@ def test_update_node_regs_on_apply_and_commit_in_different_views(node_reg_handle
     three_pc_batch1 = add_node(write_req_manager, "AAA", view_no=2, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
-    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -260,6 +273,7 @@ def test_update_node_regs_on_apply_and_commit_in_different_views(node_reg_handle
     three_pc_batch2 = add_node(write_req_manager, "Beta", view_no=2, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -267,6 +281,7 @@ def test_update_node_regs_on_apply_and_commit_in_different_views(node_reg_handle
     three_pc_batch3 = add_node(write_req_manager, "Alpha", view_no=3, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -274,6 +289,7 @@ def test_update_node_regs_on_apply_and_commit_in_different_views(node_reg_handle
     three_pc_batch4 = add_node(write_req_manager, "CCC", view_no=3, commit=False, original_view_no=3)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -281,6 +297,7 @@ def test_update_node_regs_on_apply_and_commit_in_different_views(node_reg_handle
     write_req_manager.commit_batch(three_pc_batch1)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[2] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -288,6 +305,7 @@ def test_update_node_regs_on_apply_and_commit_in_different_views(node_reg_handle
     write_req_manager.commit_batch(three_pc_batch2)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[2] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -295,6 +313,8 @@ def test_update_node_regs_on_apply_and_commit_in_different_views(node_reg_handle
     write_req_manager.commit_batch(three_pc_batch3)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta',
+                                                'Alpha']
     assert node_reg_handler.node_reg_at_beginning_of_view[2] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[3] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta',
                                                                  'Alpha']
@@ -303,6 +323,8 @@ def test_update_node_regs_on_apply_and_commit_in_different_views(node_reg_handle
     write_req_manager.commit_batch(three_pc_batch4)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta',
+                                                'Alpha']
     assert node_reg_handler.node_reg_at_beginning_of_view[2] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[3] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta',
                                                                  'Alpha']
@@ -315,60 +337,70 @@ def test_update_node_regs_on_apply_and_commit_in_different_views_original_view_n
     add_node(write_req_manager, "Epsilon", view_no=0, commit=True, original_view_no=0)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     demote_node(write_req_manager, "Alpha", view_no=0, commit=True, original_view_no=0)
     assert node_reg_handler.uncommitted_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     demote_node(write_req_manager, "Beta", view_no=1, commit=True, original_view_no=0)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     add_node(write_req_manager, "BBB", view_no=1, commit=True, original_view_no=0)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     three_pc_batch1 = add_node(write_req_manager, "AAA", view_no=2, commit=False, original_view_no=0)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     three_pc_batch2 = add_node(write_req_manager, "Beta", view_no=2, commit=False, original_view_no=1)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     three_pc_batch3 = add_node(write_req_manager, "Alpha", view_no=3, commit=False, original_view_no=1)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     three_pc_batch4 = add_node(write_req_manager, "CCC", view_no=3, commit=False, original_view_no=3)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.commit_batch(three_pc_batch1)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.commit_batch(three_pc_batch2)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -376,6 +408,7 @@ def test_update_node_regs_on_apply_and_commit_in_different_views_original_view_n
     write_req_manager.commit_batch(three_pc_batch3)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -383,6 +416,7 @@ def test_update_node_regs_on_apply_and_commit_in_different_views_original_view_n
     write_req_manager.commit_batch(three_pc_batch4)
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta', 'Alpha', 'CCC']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
     assert node_reg_handler.node_reg_at_beginning_of_view[3] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta',
                                                                  'Alpha', 'CCC']
@@ -394,54 +428,63 @@ def test_update_node_regs_on_revert_in_different_views(node_reg_handler, init_no
     add_node(write_req_manager, "Epsilon", view_no=0, commit=True)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     add_node(write_req_manager, "AAA", view_no=1, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     demote_node(write_req_manager, "Gamma", view_no=1, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     demote_node(write_req_manager, "Beta", view_no=2, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     add_node(write_req_manager, "BBB", view_no=2, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
@@ -451,67 +494,77 @@ def test_update_node_regs_on_revert_in_different_views_original_view_no(node_reg
     add_node(write_req_manager, "Epsilon", view_no=0, commit=True, original_view_no=0)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     add_node(write_req_manager, "AAA", view_no=1, commit=False, original_view_no=0)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     demote_node(write_req_manager, "Gamma", view_no=1, commit=False, original_view_no=0)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     demote_node(write_req_manager, "Beta", view_no=2, commit=False, original_view_no=0)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     add_node(write_req_manager, "BBB", view_no=2, commit=False, original_view_no=1)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     add_node(write_req_manager, "CCC", view_no=2, commit=False, original_view_no=2)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA', 'BBB', 'CCC']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA', 'BBB', 'CCC']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
     write_req_manager.post_batch_rejected(POOL_LEDGER_ID)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
@@ -528,6 +581,8 @@ def test_clean_node_regs_on_commit_txns(node_reg_handler, init_node_reg_handler,
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
                                                      'EEE', 'FFF']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
+                                                'EEE', 'FFF']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
@@ -535,6 +590,8 @@ def test_clean_node_regs_on_commit_txns(node_reg_handler, init_node_reg_handler,
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
                                                      'EEE', 'FFF']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
+                                                'EEE', 'FFF']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[3] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -543,6 +600,8 @@ def test_clean_node_regs_on_commit_txns(node_reg_handler, init_node_reg_handler,
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
                                                      'EEE', 'FFF']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
+                                                'EEE', 'FFF']
     assert node_reg_handler.node_reg_at_beginning_of_view[3] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[6] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB',
                                                                  'CCC']
@@ -552,6 +611,8 @@ def test_clean_node_regs_on_commit_txns(node_reg_handler, init_node_reg_handler,
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
                                                      'EEE', 'FFF']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
+                                                'EEE', 'FFF']
     assert node_reg_handler.node_reg_at_beginning_of_view[6] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB',
                                                                  'CCC']
     assert node_reg_handler.node_reg_at_beginning_of_view[9] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB',
@@ -562,6 +623,8 @@ def test_clean_node_regs_on_commit_txns(node_reg_handler, init_node_reg_handler,
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
                                                      'EEE', 'FFF']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD', 'EEE']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
+                                                'EEE', 'FFF']
     assert node_reg_handler.node_reg_at_beginning_of_view[9] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB',
                                                                  'CCC', 'DDD']
     assert node_reg_handler.node_reg_at_beginning_of_view[10] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB',
@@ -573,6 +636,8 @@ def test_clean_node_regs_on_commit_txns(node_reg_handler, init_node_reg_handler,
                                                      'EEE', 'FFF']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD', 'EEE',
                                                    'FFF']
+    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB', 'CCC', 'DDD',
+                                                'EEE', 'FFF']
     assert node_reg_handler.node_reg_at_beginning_of_view[10] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB',
                                                                   'CCC', 'DDD', 'EEE']
     assert node_reg_handler.node_reg_at_beginning_of_view[12] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'AAA', 'BBB',
@@ -601,8 +666,10 @@ def test_load_regs_on_catchup_finished_view_initial_to_0(node_reg_handler, init_
     if first_txn is None:
         # as we don't know whether the first Audit txn was for a Pool or other ledger Batch,
         # get all Nodes for a Pool ledger corresponding to the first audit txn
+        assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
         assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     else:
+        assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
         assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
@@ -630,9 +697,11 @@ def test_load_regs_on_catchup_finished_view_initial_to_X(node_reg_handler, init_
     if first_txn is None:
         # as we don't know whether the first Audit txn was for a Pool or other ledger Batch,
         # get all Nodes for a Pool ledger corresponding to the first audit txn
+        assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
         assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
         assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     else:
+        assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
         assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Alpha', 'Beta', 'Gamma', 'Delta']
         assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -662,6 +731,7 @@ def test_load_regs_on_catchup_finished_views_from_0_to_X_list_as_first_node_reg_
 
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -694,6 +764,7 @@ def test_load_regs_on_catchup_finished_views_from_0_to_X_delta_as_first_node_reg
 
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -725,6 +796,7 @@ def test_load_regs_on_catchup_finished_views_0_1_2_list_as_first_node_reg_in_vie
 
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'BBB', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'BBB', 'AAA']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[2] == ['Gamma', 'Delta', 'BBB']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -759,6 +831,7 @@ def test_load_regs_on_catchup_finished_views_0_1_2_delta_as_first_node_reg_in_vi
 
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'BBB', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'BBB', 'AAA']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[2] == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
@@ -779,6 +852,7 @@ def test_load_regs_on_catchup_finished_with_uncomitted(node_reg_handler, init_no
 
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA', 'Beta']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[1] == ['Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[2] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'AAA']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2

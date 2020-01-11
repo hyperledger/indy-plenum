@@ -2,12 +2,11 @@ from collections import deque
 from logging import getLogger
 from typing import NamedTuple
 
-from sortedcontainers import SortedDict
-
 from plenum.common.constants import POOL_LEDGER_ID, ALIAS, SERVICES, VALIDATOR, NODE, DATA, AUDIT_LEDGER_ID, \
     AUDIT_TXN_NODE_REG, TYPE, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_LEDGERS_SIZE
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type, get_payload_data, get_seq_no
+from plenum.common.util import SortedDict
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
@@ -27,11 +26,23 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         self.uncommitted_node_reg = []
         self.committed_node_reg = []
-        self.node_reg_at_beginning_of_view = SortedDict()
-        self.active_node_reg = [] # as it is at the beginning of current view
+        self.node_reg_at_beginning_of_view = SortedDict() # committed only
+        self.active_node_reg = []
 
         self._uncommitted = deque()  # type: deque[UncommittedNodeReg]
+        self._uncommitted_view_no = 0
         self._committed_view_no = 0
+
+    # @property
+    # def active_node_reg(self):
+    #     last_committed_view_no, last_committed_node_reg = self.node_reg_at_beginning_of_view.peekitem()
+    #
+    #     if not self._uncommitted:
+    #         return last_committed_node_reg
+    #
+    #     last_uncommitted = self._uncommitted[-1]
+    #     if last_uncommitted
+
 
     def on_catchup_finished(self):
         self._load_current_node_reg()
@@ -51,6 +62,10 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         three_pc_batch.node_reg = list(self.uncommitted_node_reg)
 
+        if view_no > self._uncommitted_view_no:
+            self.active_node_reg = list(self.uncommitted_node_reg)
+            self._uncommitted_view_no = view_no
+
         logger.debug("Applied uncommitted node registry: {}".format(self.uncommitted_node_reg))
         logger.debug(
             "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
@@ -59,9 +74,22 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         reverted = self._uncommitted.pop()
         if len(self._uncommitted) == 0:
             self.uncommitted_node_reg = self.committed_node_reg
+            self._uncommitted_view_no = self._committed_view_no
         else:
             last_uncommitted = self._uncommitted[-1]
             self.uncommitted_node_reg = last_uncommitted.uncommitted_node_reg
+            self._uncommitted_view_no = last_uncommitted.view_no
+
+
+        # find the uncommitted node reg at the beginning of view
+        if self._uncommitted_view_no < reverted.view_no:
+            if self._committed_view_no == self._uncommitted_view_no:
+                self.active_node_reg = list(self.node_reg_at_beginning_of_view[self._committed_view_no])
+            else:
+                i = 1
+                while i <= len(self._uncommitted) and self._uncommitted_view_no == self._uncommitted[-i].view_no:
+                    i += 1
+                self.active_node_reg = list(self._uncommitted[-i+1].uncommitted_node_reg)
 
         logger.debug("Reverted uncommitted node registry from {} to {}".format(reverted.uncommitted_node_reg,
                                                                                self.uncommitted_node_reg))
@@ -142,6 +170,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         if not audit_ledger:
             # don't have audit ledger yet, so get aleady loaded values from the pool ledger
             self.node_reg_at_beginning_of_view[0] = list(self.uncommitted_node_reg)
+            self.active_node_reg = list(self.uncommitted_node_reg)
             self._committed_view_no = 0
             return
 
@@ -149,8 +178,9 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         first_txn_in_this_view, last_txn_in_prev_view = self.__get_first_txn_in_view_from_audit(audit_ledger,
                                                                                                 audit_ledger.get_last_committed_txn())
         self._committed_view_no = get_payload_data(first_txn_in_this_view)[AUDIT_TXN_VIEW_NO]
-        self.node_reg_at_beginning_of_view[self._committed_view_no] = list(
-            self.__load_node_reg_for_view(audit_ledger, first_txn_in_this_view))
+        node_reg_this_view = self.__load_node_reg_for_view(audit_ledger, first_txn_in_this_view)
+        self.node_reg_at_beginning_of_view[self._committed_view_no] = list(node_reg_this_view)
+        self.active_node_reg = list(node_reg_this_view)
 
         # 4. Check if audit ledger has information about 0 view only
         if self._committed_view_no == 0:
