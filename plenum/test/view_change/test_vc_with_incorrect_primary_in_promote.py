@@ -14,10 +14,10 @@ from plenum.test.test_node import checkNodesConnected, TestNode, ensureElections
 from plenum.test.view_change.helper import ensure_view_change_complete
 
 
-nodeCount = 4
+nodeCount = 7
 
 
-def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet, sdk_pool_handle,
+def test_finish_view_change_with_incorrect_primaries_list2(looper, txnPoolNodeSet, sdk_pool_handle,
                                                           sdk_wallet_steward, tdir, tconf, allPluginsPath):
     view_no = txnPoolNodeSet[-1].viewNo
 
@@ -29,7 +29,7 @@ def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet
                                            role=STEWARD_STRING)
 
     # Force 5 view changes so that we have viewNo == 5 and Zeta as the primary.
-    for _ in range(3):
+    for _ in range(5):
         ensure_view_change_complete(looper, txnPoolNodeSet)
         waitForViewChange(looper, txnPoolNodeSet, view_no + 1)
         ensureElectionsDone(looper, txnPoolNodeSet)
@@ -76,6 +76,63 @@ def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet
     sdk_ensure_pool_functional(looper, txnPoolNodeSet[:-1], sdk_wallet_steward, sdk_pool_handle)
 
 
+
+def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet, sdk_pool_handle,
+                                                          sdk_wallet_steward, tdir, tconf, allPluginsPath):
+    view_no = txnPoolNodeSet[-1].viewNo
+    lagging_node = txnPoolNodeSet[-1]
+    fast_nodes = txnPoolNodeSet[:-1]
+
+    # create new steward
+    new_steward_for_zeta = sdk_add_new_nym(looper,
+                                           sdk_pool_handle,
+                                           sdk_wallet_steward,
+                                           alias="new_steward_for_zeta",
+                                           role=STEWARD_STRING)
+
+    # Force 5 view changes so that we have viewNo == 5 and Zeta as the primary.
+    for _ in range(5):
+        ensure_view_change_complete(looper, txnPoolNodeSet)
+        waitForViewChange(looper, txnPoolNodeSet, view_no + 1)
+        ensureElectionsDone(looper, txnPoolNodeSet)
+        view_no = checkViewNoForNodes(txnPoolNodeSet)
+
+    with delay_rules_without_processing(lagging_node.nodeIbStasher, icDelay(), cDelay()):
+
+        _, epsilon = sdk_add_new_steward_and_node(looper, sdk_pool_handle, sdk_wallet_steward,
+                                                   'New_Steward', 'new_node1',
+                                                   tdir, tconf, allPluginsPath=allPluginsPath)
+        txnPoolNodeSet.append(epsilon)
+        fast_nodes.append(epsilon)
+
+        # nodes_sans_alpha = txnPoolNodeSet[1:]
+        looper.run(checkNodesConnected(fast_nodes))
+        ensure_all_nodes_have_same_data(looper, fast_nodes)
+
+        waitForViewChange(looper, fast_nodes, view_no + 1)
+        ensureElectionsDone(looper, fast_nodes)
+
+    ensure_view_change_complete(looper, fast_nodes)
+    print(view_no + 1)
+    print(txnPoolNodeSet[0].viewNo)
+    # new_node = add_new_node_without_wait(looper,
+    #                                      sdk_pool_handle,
+    #                                      new_steward_for_zeta, tconf, tdir, allPluginsPath, 'Zeta')
+    _, new_node = sdk_add_new_steward_and_node(looper, sdk_pool_handle, sdk_wallet_steward,
+                                               'New_Zeta_Steward', 'new_node2',
+                                               tdir, tconf, allPluginsPath=allPluginsPath)
+    # ensure_all_nodes_have_same_data(looper, [*txnPoolNodeSet, new_node])
+    ensure_all_nodes_have_same_data(looper, [*fast_nodes, new_node])
+    txnPoolNodeSet.append(new_node)
+
+    # for n in txnPoolNodeSet[:nodeCount]:
+    #     n.nodeIbStasher.reset_delays_and_process_delayeds()
+    waitForViewChange(looper, txnPoolNodeSet[:-1], view_no + 1)
+    ensureElectionsDone(looper, txnPoolNodeSet[:-1])
+    epsilon.nodeIbStasher.reset_delays_and_process_delayeds()
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet[:-1], sdk_wallet_steward, sdk_pool_handle)
+
+
 def add_new_node_without_wait(looper,
                               sdk_pool_handle,
                               new_steward_wallet_handle, tconf, tdir, allPluginsPath, node_name):
@@ -102,23 +159,3 @@ def add_new_node_without_wait(looper,
                                      (nodeIp, nodePort), (clientIp, clientPort),
                                      tconf, True, allPluginsPath,
                                      TestNode, configClass=PNodeConfigHelper)
-
-
-@pytest.mark.skip(reason="INDY-2322 A lagging node may be the only one who started view change "
-                         "in case of F Nodes added/promoted in 1 batch")
-def test_same_quorum_on_different_nodes_in_promote(looper, txnPoolNodeSet, sdk_pool_handle,
-                                                   sdk_wallet_steward, tdir, tconf, allPluginsPath):
-    view_no = txnPoolNodeSet[-1].viewNo
-
-    # Add a New node but don't allow Delta to be aware it. We do not want it in Delta's node registry.
-    with delay_rules_without_processing(txnPoolNodeSet[-1].nodeIbStasher, ppDelay(), pDelay(), cDelay()):
-        _, new_node = sdk_add_new_steward_and_node(looper, sdk_pool_handle, sdk_wallet_steward,
-                                                   'New_Steward', 'Epsilon',
-                                                   tdir, tconf, allPluginsPath=allPluginsPath)
-        txnPoolNodeSet.append(new_node)
-
-        nodes_sans_alpha = txnPoolNodeSet[-1:]
-        looper.run(checkNodesConnected(nodes_sans_alpha))
-
-    waitForViewChange(looper, txnPoolNodeSet, view_no + 1)
-    ensure_view_change_complete(looper, txnPoolNodeSet)
