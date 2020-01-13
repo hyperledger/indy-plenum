@@ -167,11 +167,6 @@ class OrderingService:
         # replica during that view
         self.primary_names = OrderedDict()  # type: OrderedDict[int, str]
 
-        # Indicates name of the primary replica of this protocol instance.
-        # None in case the replica does not know who the primary of the
-        # instance is
-        self._primary_name = None  # type: Optional[str]
-
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
 
@@ -817,17 +812,6 @@ class OrderingService:
 
     def _validate(self, msg):
         return self._validator.validate(msg)
-
-    """Method from legacy code"""
-    def l_compact_primary_names(self):
-        min_allowed_view_no = self.view_no - 1
-        views_to_remove = []
-        for view_no in self.primary_names:
-            if view_no >= min_allowed_view_no:
-                break
-            views_to_remove.append(view_no)
-        for view_no in views_to_remove:
-            self.primary_names.pop(view_no)
 
     def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         """
