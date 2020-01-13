@@ -13,8 +13,7 @@ from plenum.test.helper import MockNetwork
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
 
 
-# TODO: INDY-2263 Revert back to 0.6 if possible
-@pytest.fixture(params=[(0, 0.03)])
+@pytest.fixture(params=[(0, 0.6)])
 def latency(request, tconf):
     min_latency, max_latency = tuple(int(param * tconf.NEW_VIEW_TIMEOUT) for param in request.param)
     return min_latency, max_latency
@@ -120,9 +119,8 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom,
     pool.network.set_latency(min_latency, max_latency)
 
     # 3. set filter
-    # TODO: Uncomment after fix
-    # pool.network.set_filter([replica_name_to_node_name(pool.nodes[-1].name)],
-    #                         filtered_msg_types, filter_probability)
+    pool.network.set_filter([replica_name_to_node_name(pool.nodes[-1].name)],
+                            filtered_msg_types, filter_probability)
 
     # EXECUTE
 

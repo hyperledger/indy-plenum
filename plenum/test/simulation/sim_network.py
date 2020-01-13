@@ -78,7 +78,10 @@ class SimNetwork:
             assert name != frm, "{} tried to send message {} to itself".format(frm, msg)
 
             peer = self._peers.get(name)
-            assert peer, "{} tried to send message {} to unknown peer {}".format(frm, msg, name)
+            if peer is None:
+                self._logger.info("{} tried to send message {} to unknown peer {}".format(frm, msg, name))
+                continue
+            # assert peer, "{} tried to send message {} to unknown peer {}".format(frm, msg, name)
 
             msg = self._serialize_deserialize(msg)
 

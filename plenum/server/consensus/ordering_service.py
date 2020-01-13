@@ -4,7 +4,7 @@ import time
 from _sha256 import sha256
 from collections import defaultdict, OrderedDict, deque
 from functools import partial
-from typing import Tuple, List, Set, Optional, Dict, Iterable
+from typing import Tuple, List, Set, Optional, Dict, Iterable, Callable
 
 from orderedset._orderedset import OrderedSet
 from sortedcontainers import SortedList
@@ -68,8 +68,8 @@ class OrderingService:
                  freshness_checker: FreshnessChecker,
                  primaries_selector: PrimariesSelector,
                  stasher=None,
-                 get_current_time=None,
-                 get_time_for_3pc_batch=None,
+                 get_current_time: Optional[Callable[[], float]] = None,
+                 get_time_for_3pc_batch: Optional[Callable[[], int]] = None,
                  metrics: MetricsCollector = NullMetricsCollector()):
         self.metrics = metrics
         self._data = data

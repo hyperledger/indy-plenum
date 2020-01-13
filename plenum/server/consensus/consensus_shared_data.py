@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
