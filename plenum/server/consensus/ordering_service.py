@@ -30,7 +30,7 @@ from plenum.common.request import Request
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
-from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
+from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time, get_digest
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
@@ -1232,7 +1232,10 @@ class OrderingService:
                     .format(self, reqCount, Ledger.hashToStr(state.headHash),
                             Ledger.hashToStr(stateRootHash), ledgerId))
         state.revertToHead(stateRootHash)
-        ledger.discardTxns(reqCount)
+        reverted_txns = ledger.discardTxns(reqCount)
+        if reverted_txns:
+            for txn in reverted_txns:
+                self.requestQueues[ledgerId].add(get_digest(txn))
         self.post_batch_rejection(ledgerId)
 
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
@@ -1766,8 +1769,8 @@ class OrderingService:
 
     def _do_dynamic_validation(self, request: Request, req_pp_time: int):
         """
-                State based validation
-                """
+        State based validation
+        """
         # Digest validation
         # TODO implicit caller's context: request is processed by (master) replica
         # as part of PrePrepare 3PC batch
