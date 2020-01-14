@@ -1,19 +1,11 @@
 import copy
-from random import Random
 
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.consensus.order_service.sim_helper import create_requests, setup_pool, MAX_BATCH_SIZE, update_config
-from plenum.test.simulation.sim_random import DefaultSimRandom
 
 REQS_COUNT = 10
-
-
-# "params" equal to seed
-@pytest.fixture(params=Random().sample(range(1000000), 100))
-def random(request):
-    return DefaultSimRandom(request.param)
 
 
 @pytest.fixture()

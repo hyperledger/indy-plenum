@@ -1,4 +1,5 @@
 from functools import partial
+from random import Random
 
 import pytest
 
@@ -24,6 +25,7 @@ from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import primary_in_view, create_test_write_req_manager
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer, MockNetwork, create_pool_txn_data, TestInternalBus
+from plenum.test.simulation.sim_random import DefaultSimRandom
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -204,7 +206,7 @@ def stasher(internal_bus, external_bus):
 
 
 @pytest.fixture()
-def replica_service(validators, primary, timer,
+def replica_service(validators, initial_view_no, timer,
                     internal_bus, external_bus):
     genesis_txns = create_pool_txn_data(
         node_names=validators,
@@ -213,7 +215,7 @@ def replica_service(validators, primary, timer,
     write_manager = create_test_write_req_manager("Alpha", genesis_txns)
 
     replica = ReplicaService("Alpha:0",
-                             validators, primary,
+                             validators, initial_view_no,
                              timer,
                              internal_bus,
                              external_bus,
@@ -221,3 +223,8 @@ def replica_service(validators, primary, timer,
                              bls_bft_replica=FakeSomething(gc=lambda key: None))
 
     return replica
+
+
+@pytest.fixture(params=Random().sample(range(1000000), 100))
+def random(request):
+    return DefaultSimRandom(request.param)

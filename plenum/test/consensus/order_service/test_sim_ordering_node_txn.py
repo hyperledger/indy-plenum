@@ -1,5 +1,5 @@
 from functools import partial
-from random import randint, shuffle, Random
+from random import shuffle
 
 import pytest
 
@@ -9,16 +9,13 @@ from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.request import Request
 from plenum.common.timer import RepeatingTimer
 from plenum.common.txn_util import get_payload_data, get_from
-from plenum.common.util import getMaxFailures, randomString
-from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, \
-    RoundRobinConstantNodesPrimariesSelector
-from plenum.server.consensus.replica_service import ReplicaService
+from plenum.common.util import randomString
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.test.consensus.helper import SimPool
 from plenum.test.consensus.order_service.sim_helper import order_requests, \
-    get_pools_ledger_size, setup_pool, check_batch_count, check_ledger_size, create_requests
+    get_pools_ledger_size, setup_pool, check_ledger_size, create_requests
 from plenum.test.greek import Greeks
-from plenum.test.simulation.sim_random import DefaultSimRandom
-from stp_core.common.log import Logger, getlogger
+from stp_core.common.log import getlogger
 
 
 logger = getlogger()
@@ -43,7 +40,7 @@ def build_add_new_node_req(node_name, services, ports_addiction):
     if services is not None:
         operation[DATA][SERVICES] = services
 
-    return Request(operation=operation, reqId=1513945121191691,
+    return Request(operation=operation, reqId=Request.gen_req_id(),
                    protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=randomString())
 
 
@@ -63,8 +60,29 @@ def build_demote_node_req(node_name, txn):
         },
         TARGET_NYM: target_nym
     }
-    return Request(operation=operation, reqId=1513945121191691,
+    return Request(operation=operation, reqId=Request.gen_req_id(),
                    protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=get_from(txn))
+
+
+def build_promote_node_back_req(node_name, txn):
+    txn_data = get_payload_data(txn)
+    target_nym = txn_data[TARGET_NYM]
+    txn_data = txn_data['data']
+    operation = {
+        TYPE: NODE,
+        DATA: {
+            ALIAS: node_name,
+            CLIENT_IP: txn_data[CLIENT_IP],
+            CLIENT_PORT: txn_data[CLIENT_PORT],
+            NODE_IP: txn_data[NODE_IP],
+            NODE_PORT: txn_data[NODE_PORT],
+            SERVICES: [VALIDATOR],
+        },
+        TARGET_NYM: target_nym
+    }
+    return Request(operation=operation, reqId=Request.gen_req_id(),
+                   protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=get_from(txn))
+
 
 
 def check_primaries(pool: SimPool, expected_primaries):
@@ -116,14 +134,20 @@ def node_req_demote(random, sim_pool):
     return wrap
 
 
-# "params" equal to seed
-@pytest.fixture(params=Random().sample(range(1000000), 100))
-def random(request):
-    seed = request.param
-    # TODO: Remove after we fix INDY-2237 and INDY-2148
-    if seed in {752248, 659043, 550513, 141156}:
-        return DefaultSimRandom(0)
-    return DefaultSimRandom(request.param)
+@pytest.fixture()
+def node_req_promote_back(random, sim_pool):
+    def wrap(node_index):
+        node_to_promote = sim_pool.nodes[node_index]
+        return node_to_promote.name.split(':')[0], \
+               build_promote_node_back_req(Greeks[node_index][0],
+                                           get_txn_data_from_ledger(
+                                           node_to_promote._write_manager.database_manager.get_ledger(POOL_LEDGER_ID),
+                                           Greeks[node_index][0]))
+    return wrap
+
+
+# TODO: Failed seeds for debugging INDY-2237 and INDY-2148
+# {752248, 659043, 550513, 141156}
 
 
 @pytest.fixture()
@@ -131,10 +155,11 @@ def sim_pool(random):
     return setup_pool(random)
 
 
-# Get list of random indexes. Count of this indexes is not greater then
+# ToDo: After INDY-2148, INDY-2237 and INDY-2324 needs to increase
+#  possible pool length to 3 (minimal node's count)
 @pytest.fixture()
 def indexes_to_demote(sim_pool, random):
-    return random.sample(range(1, sim_pool.size), sim_pool.size // 2)
+    return random.sample(range(1, sim_pool.size), sim_pool.size - 4)
 
 
 @pytest.fixture()
@@ -158,40 +183,25 @@ def pool_with_edge_primaries(sim_pool):
 def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
-    pool_reqs = [node_req_add(sim_pool.size + i) for i in range(random.integer(1, sim_pool.size - 1))]
+    initial_view_no = sim_pool._initial_view_no
+    pool_reqs = [node_req_add(sim_pool.size + i) for i in range(random.integer(1, sim_pool.f))]
     domain_reqs = create_requests(DOMAIN_REQ_COUNT)
-    reqs = pool_reqs + domain_reqs
-    shuffle(reqs)
-    sim_pool.sim_send_requests(reqs)
+    all_reqs = pool_reqs + domain_reqs
+    shuffle(all_reqs)
+    sim_pool.sim_send_requests(all_reqs)
 
-    current_view_no = sim_pool.view_no
     current_pool_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=POOL_LEDGER_ID)
     current_domain_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=DOMAIN_LEDGER_ID)
-    expected_view_no = current_view_no + 1
     expected_node_reg = sim_pool.validators + [Greeks[sim_pool.size + i][0] for i in range(len(pool_reqs))]
 
-    # Step 2. Start requests ordering
-    random_interval = random.integer(10, 20) * 100
-    RepeatingTimer(sim_pool.timer, random_interval, partial(order_requests, sim_pool))
-
-    # Step 3. Initiate view change process during request's ordering
-    for node in sim_pool.nodes:
-        sim_pool.timer.schedule(random_interval + 1000,
-                                partial(node._view_changer.process_need_view_change, NeedViewChange(view_no=1)))
-
-    # Step 4. Wait for VC completing
-    for node in sim_pool.nodes:
-        sim_pool.timer.wait_for(lambda: node._view_changer._data.view_no == 1)
-
-    for node in sim_pool.nodes:
-        sim_pool.timer.wait_for(lambda: not node._data.waiting_for_new_view)
+    # Step 2. Start ordering and VC
+    do_order_and_vc(sim_pool, random, initial_view_no)
 
     # Step 5. Check parameters like ordered txns count, node_reg state
     # For now we can run this checks only for old nodes with newly added.
     # Because we cannot run catchup process
     # ToDo: change this checks for making they on whole pool after INDY-2148 will be implemented
 
-    sim_pool.timer.wait_for(lambda: all([n._data.view_no == expected_view_no for n in sim_pool.nodes]))
     sim_pool.timer.wait_for(partial(check_node_reg, sim_pool, expected_node_reg))
     for node in sim_pool.nodes:
         sim_pool.timer.wait_for(
@@ -205,6 +215,7 @@ def test_node_txn_add_new_node(node_req_add, sim_pool, random):
 def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demote):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
+    initial_view_no = sim_pool._initial_view_no
     demoted_names = []
     pool_reqs = []
     domain_reqs = create_requests(DOMAIN_REQ_COUNT)
@@ -212,37 +223,21 @@ def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demo
         name, req = node_req_demote(i)
         demoted_names.append(name)
         pool_reqs.append(req)
-    reqs = pool_reqs + domain_reqs
-    shuffle(reqs)
-    sim_pool.sim_send_requests(reqs)
+    all_reqs = pool_reqs + domain_reqs
+    shuffle(all_reqs)
+    sim_pool.sim_send_requests(all_reqs)
 
-    current_view_no = sim_pool.view_no
     current_pool_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=POOL_LEDGER_ID)
     current_domain_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=DOMAIN_LEDGER_ID)
-    expected_view_no = current_view_no + 1
     expected_node_reg = [name for name in sim_pool._genesis_validators if name not in demoted_names]
-    # Step 2. Start requests ordering
-    random_interval = random.integer(10, 20) * 100
-    RepeatingTimer(sim_pool.timer, random_interval, partial(order_requests, sim_pool))
 
-    # Step 3. Initiate view change process during request's ordering
-    for node in sim_pool.nodes:
-        sim_pool.timer.schedule(random_interval + 1000,
-                                partial(node._view_changer.process_need_view_change, NeedViewChange(view_no=1)))
+    # Step 2. Start ordering and VC
+    do_order_and_vc(sim_pool, random, initial_view_no)
 
-    # Step 4. Wait for VC completing
-    for node in sim_pool.nodes:
-        sim_pool.timer.wait_for(lambda: node._view_changer._data.view_no == 1)
-
-    for node in sim_pool.nodes:
-        sim_pool.timer.wait_for(lambda: not node._data.waiting_for_new_view)
-
-    # Step 5. Check parameters like ordered txns count, node_reg state
+    # Step 3. Check parameters like ordered txns count, node_reg state
     # For now we can run this checks only for old nodes with newly added.
     # Because we cannot run catchup process
     # ToDo: change this checks for making they on whole pool after INDY-2148 will be implemented
-
-    sim_pool.timer.wait_for(lambda: all([n._data.view_no == expected_view_no for n in sim_pool.nodes]))
     sim_pool.timer.wait_for(partial(check_node_reg, sim_pool, expected_node_reg))
     for node in sim_pool.nodes:
         sim_pool.timer.wait_for(
@@ -251,6 +246,103 @@ def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demo
         sim_pool.timer.wait_for(
             partial(
                 check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
+
+
+def test_demote_promote_mixed(node_req_demote,
+                              sim_pool,
+                              random,
+                              indexes_to_demote,
+                              node_req_add):
+    # Step 1. Prepare NODE requests and some of params to check
+    # Count of NODE requests is random but less then pool size
+    initial_view_no = sim_pool._initial_view_no
+    demoted_names = []
+    domain_reqs = create_requests(DOMAIN_REQ_COUNT)
+    pool_reqs = [node_req_add(sim_pool.size + i) for i in range(random.integer(1, sim_pool.f))]
+    promoted_names = [Greeks[sim_pool.size + i][0] for i in range(len(pool_reqs))]
+
+    for i in indexes_to_demote:
+        name, req = node_req_demote(i)
+        demoted_names.append(name)
+        pool_reqs.append(req)
+    all_reqs = domain_reqs + pool_reqs
+
+    shuffle(all_reqs)
+    sim_pool.sim_send_requests(all_reqs)
+
+    current_pool_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=POOL_LEDGER_ID)
+    current_domain_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=DOMAIN_LEDGER_ID)
+    expected_node_reg = [name for name in sim_pool._genesis_validators if name not in demoted_names] + promoted_names
+
+    # Step 2. Start ordering and VC
+    do_order_and_vc(sim_pool, random, initial_view_no)
+
+    # Step 3. Check parameters like ordered txns count, node_reg state
+    # For now we can run this checks only for old nodes with newly added.
+    # Because we cannot run catchup process
+    # ToDo: change this checks for making they on whole pool after INDY-2148 will be implemented
+    sim_pool.timer.wait_for(partial(check_node_reg, sim_pool, expected_node_reg))
+    for node in sim_pool.nodes:
+        sim_pool.timer.wait_for(
+            partial(
+                check_ledger_size, node, current_pool_ledger_size + len(pool_reqs), POOL_LEDGER_ID))
+        sim_pool.timer.wait_for(
+            partial(
+                check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
+
+
+@pytest.mark.skip(reason="INDY-2148 Integrate catchup service to simulation pool")
+def test_demote_and_promote_back(node_req_promote_back,
+                                 node_req_demote,
+                                 sim_pool,
+                                 random,
+                                 indexes_to_demote,
+                                 node_req_add):
+    # Step 1. Prepare NODE requests and some of params to check
+    # Count of NODE requests is random but less then pool size
+    initial_view_no = sim_pool._initial_view_no
+    demoted_names = []
+    demoted_reqs = []
+    promoted_reqs = []
+    for i in indexes_to_demote:
+        name, req = node_req_demote(i)
+        demoted_names.append(name)
+        demoted_reqs.append(req)
+        _, req = node_req_promote_back(i)
+        promoted_reqs.append(req)
+
+    pool_reqs = []
+    [pool_reqs.extend(r) for r in zip(demoted_reqs, promoted_reqs)]
+
+    current_pool_ledger_size = get_pools_ledger_size(sim_pool, ledger_id=POOL_LEDGER_ID)
+    expected_node_reg = sim_pool._genesis_validators
+
+
+    do_order_and_vc(sim_pool, random, initial_view_no)
+
+    sim_pool.timer.wait_for(partial(check_node_reg, sim_pool, expected_node_reg))
+    for node in sim_pool.nodes:
+        sim_pool.timer.wait_for(
+            partial(
+                check_ledger_size, node, current_pool_ledger_size + len(pool_reqs), POOL_LEDGER_ID))
+
+
+
+def do_order_and_vc(pool, random, initial_view_no):
+
+    # Step 1. Start requests ordering
+    random_interval = random.integer(10, 20) * 100
+    RepeatingTimer(pool.timer, random_interval, partial(order_requests, pool))
+
+    # Step 2. Initiate view change process during request's ordering
+    for node in pool.nodes:
+        pool.timer.schedule(random_interval + 1000,
+                                partial(node._view_changer.process_need_view_change, NeedViewChange()))
+
+    # Step 3. Wait for VC completing
+    pool.timer.wait_for(lambda: all(not node._data.waiting_for_new_view
+                                    and node._data.view_no > initial_view_no
+                                    for node in pool.nodes))
 
 
 @pytest.mark.skip("INDY-2148, need catchup for new added node")

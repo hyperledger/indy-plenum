@@ -78,7 +78,11 @@ class SimNetwork:
             assert name != frm, "{} tried to send message {} to itself".format(frm, msg)
 
             peer = self._peers.get(name)
-            assert peer, "{} tried to send message {} to unknown peer {}".format(frm, msg, name)
+            if not peer:
+                # ToDo: Remove this check after adding real node promoting
+                # It can be possible after implementing INDY-2237 and INDY-2148
+                self._logger.warning("{} tried to send message {} to unknown peer {}".format(frm, msg, name))
+                return
 
             msg = self._serialize_deserialize(msg)
 
