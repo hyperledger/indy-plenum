@@ -2787,7 +2787,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._observable.append_input(batch_committed_msg, self.name)
 
     def on_first_batch_in_view_committed(self):
-        # TODO: consider using Internal messages instead
+        # TODO: we need to call it only when the first batch is committed.
+        # Currently it's called when it's just Ordered.
         self.setPoolParams()
 
     def updateSeqNoMap(self, committedTxns, ledger_id):

@@ -1821,6 +1821,9 @@ class OrderingService:
             return False
         if self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
             return False
+        # do not send new 3PC batches in a view until the first batch is ordered
+        if self._lastPrePrepareSeqNo > self._data.prev_view_prepare_cert and self.last_ordered_3pc[1] < self._data.prev_view_prepare_cert + 1:
+            return False
 
         if self.view_no < self.last_ordered_3pc[0]:
             return False
