@@ -66,7 +66,6 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  freshness_checker: FreshnessChecker,
-                 primaries_selector: PrimariesSelector,
                  stasher=None,
                  get_current_time=None,
                  get_time_for_3pc_batch=None,
@@ -197,8 +196,6 @@ class OrderingService:
 
         self._freshness_checker = freshness_checker
         self._skip_send_3pc_ts = None
-
-        self._primaries_selector = primaries_selector
 
         self._subscription.subscribe(self._stasher, PrePrepare, self.process_preprepare)
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
@@ -1183,7 +1180,6 @@ class OrderingService:
                 pre_prepare,
                 state_root=self.get_state_root_hash(pre_prepare.ledgerId, to_str=False),
                 txn_root=self.get_txn_root_hash(pre_prepare.ledgerId, to_str=False),
-                primaries=self._primaries_selector.select_primaries(view_no=get_original_viewno(pre_prepare)),
                 valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices)
             )
             self.post_batch_creation(three_pc_batch)
@@ -1558,10 +1554,7 @@ class OrderingService:
             self._bus.send(MasterReorderedAfterVC())
 
     def _get_primaries_for_ordered(self, pp):
-        txn_primaries = self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
-        if txn_primaries is None:
-            txn_primaries = self._data.primaries
-        return txn_primaries
+        return self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
 
     def _get_node_reg_for_ordered(self, pp):
         txn_node_reg = self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
@@ -2040,7 +2033,6 @@ class OrderingService:
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
 
-        primaries_for_batch = self._primaries_selector.select_primaries(self.view_no)
         req_ids = [req.digest for req in reqs]
         digest = self.generate_pp_digest(req_ids, self.view_no, tm)
         if self.is_master:
@@ -2052,7 +2044,6 @@ class OrderingService:
                 pp_time=tm,
                 state_root=self.get_state_root_hash(ledger_id, to_str=False),
                 txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
-                primaries=primaries_for_batch,
                 valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices),
                 pp_digest=digest,
                 original_view_no=self.view_no,

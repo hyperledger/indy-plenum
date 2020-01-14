@@ -14,7 +14,7 @@ from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReAppliedInNewView, CatchupFinished, \
     NeedViewChange, NodeNeedViewChange, PrimarySelected, PrimaryDisconnected, NodeStatusUpdated, \
-    MasterReorderedAfterVC
+    MasterReorderedAfterVC, VoteForViewChange
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
@@ -32,6 +32,7 @@ from plenum.server.backup_instance_faulty_processor import BackupInstanceFaultyP
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.inconsistency_watchers import NetworkInconsistencyWatcher
 from plenum.server.quota_control import StaticQuotaControl, RequestQueueQuotaControl
+from plenum.server.replica_helper import generateName
 from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_CATCH_UP, STASH_VIEW_3PC
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
@@ -557,7 +558,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def viewNo(self):
-        return None if self.view_changer is None else self.view_changer.view_no
+        return 0 if self.view_changer is None else self.view_changer.view_no
 
     # TODO not sure that this should be allowed
     @viewNo.setter
@@ -573,7 +574,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def primaries(self):
-        return self.master_replica._consensus_data.primaries
+        return [replica_name_to_node_name(r.primaryName) for r in self.replicas.values()]
 
     def _add_config_ledger(self):
         self.ledgerManager.addLedger(
@@ -750,16 +751,21 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     # noinspection PyAttributeOutsideInit
     def setPoolParams(self):
         # TODO should be always called when nodeReg is changed - automate
-        # TODO: the node reg in a new view is not committed yet, so we had to use uncommitted_node_reg which
-        # may be incorrect if we have uncommitted batches in new view
-        # Perform this after node reg in new view is committed
+
+        # 1. Update active node reg
+        # TODO: have only one source of node reg
         old_required_number_of_instances = self.requiredNumberOfInstances
         self.allNodeNames = set(self.write_manager.node_reg_handler.active_node_reg)
         if len(self.allNodeNames) == 0:
             # Take it from the ledger if catch-up is not finished yet
             # TODO: unify this logic
             self.allNodeNames = set(self.nodeReg.keys())
+            # the following is needed to do initial primary selection
+            self.write_manager.node_reg_handler.active_node_reg = list(self.nodeReg.keys())
+            self.write_manager.node_reg_handler.node_reg_at_beginning_of_view[0] = list(self.nodeReg.keys())
         self.network_i3pc_watcher.set_nodes(self.allNodeNames)
+
+        # 2. Update N and F
         self.totalNodes = len(self.allNodeNames)
         self.f = getMaxFailures(self.totalNodes)
         self.requiredNumberOfInstances = self.f + 1  # per RBFT
@@ -773,12 +779,33 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.allNodeNames, self.requiredNumberOfInstances,
                 self.minimumNodes, self.quorums))
 
+        # 3. Adjust replicas
         self.adjustReplicas(old_required_number_of_instances,
                             self.requiredNumberOfInstances)
         for r in self.replicas.values():
             # We set new list of validators for every replica,
             # cause cdp for every replica need to be independent
             r.set_validators(self.allNodeNames)
+
+        # 4. Select primaries for backups
+        primaries = self.primaries_selector.select_primaries(self.viewNo)
+        if len(self.replicas) != len(primaries):
+            raise LogicError('Inconsistent number of replicas and expected primaries. '
+                             'Number of replicas={}. Expected number of primaries={}'
+                             .format(len(self.replicas), len(primaries)))
+        if self.master_replica.primaryName is not None and primaries[0] != self.master_replica.primaryName:
+            raise LogicError('Master Primary is not expected to be changed. Current master primary {}; selected {}'
+                             .format(self.master_replica.primaryName, primaries[0]))
+        for inst_id, r in self.replicas.items():
+            r.primaryName = generateName(primaries[inst_id], inst_id)
+            self.primary_selected(inst_id)
+            logger.display("{} selected primary {} for instance {} (view {})"
+                           .format(PRIMARY_SELECTION_PREFIX,
+                                   r.primaryName, inst_id, self.viewNo))
+
+        # 5. Check if master Primary is still in the list of active nodes
+        if self.master_replica.primaryName is not None and replica_name_to_node_name(self.master_replica.primaryName) not in self.allNodeNames:
+            self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.NODE_COUNT_CHANGED))
 
     def build_ledger_status(self, ledger_id):
         ledger = self.getLedger(ledger_id)
@@ -1857,33 +1884,14 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # 2. Adjust pool params and replicas
         self.setPoolParams()
 
-        # TBD: select primaries
-
-        # 3. select primaries
-        self.primaries = self.get_primaries_for_current_view()
-        if len(self.replicas) != len(self.primaries):
-            logger.warning('Audit ledger has inconsistent number of nodes. '
-                           'Node primaries = {}'.format(self.primaries))
-
         # 4. process primary selection by replicas
         for instance_id, replica in list(self.replicas.items()):
             # can participate
             if instance_id == 0:
                 self.start_participating()
 
-            # set primary
-            if instance_id < len(self.primaries):
-                # TODO: combine with CatchupFinished processing
-                replica.primaryName = Replica.generateName(self.primaries[instance_id], instance_id)
-                # TODO: combine with CatchupFinished processing
-                replica.on_propagate_primary_done()
-
-                self.primary_selected(instance_id)
-                logger.display("{} selected primary {} for instance {} (view {})"
-                               .format(PRIMARY_SELECTION_PREFIX,
-                                       self.primaries[instance_id], instance_id, self.viewNo),
-                               extra={"cli": "ANNOUNCE",
-                                      "tags": ["node-election"]})
+            # TODO: combine with CatchupFinished processing
+            replica.on_propagate_primary_done()
 
         # 5. Notify replica, that we need to send batch with new primaries
         # do it only if audit ledger is empty yet to write primaries there
@@ -1891,7 +1899,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             for r in self.replicas.values():
                 r.set_primaries_batch_needed(True)
 
-        # 6. Restore backup Primaries
+        # 6. Restore backup Primaries' last send ppseqno
         last_sent_pp_seq_no_restored = False
         if self.view_changer.previous_view_no == 0:
             last_sent_pp_seq_no_restored = \
@@ -2784,8 +2792,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # TODO: consider using Internal messages instead
         self.setPoolParams()
 
-        # TBD: primaries selection for backups
-
     def updateSeqNoMap(self, committedTxns, ledger_id):
         if all([get_req_id(txn) for txn in committedTxns]):
             self.seqNoDB.addBatch((get_payload_digest(txn), ledger_id, get_seq_no(txn), get_digest(txn))
@@ -3241,7 +3247,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for i in self.replicas.keys():
             if i != MASTER_REPLICA_INDEX:
                 self.replicas.send_to_internal_bus(msg, i)
-            self.primary_selected(i)
+            else:
+                self.primary_selected(i)
 
     def _subscribe_to_internal_msgs(self):
         self.replicas.subscribe_to_internal_bus(RequestPropagates, self.request_propagates)

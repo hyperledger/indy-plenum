@@ -218,9 +218,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self._consensus_data.node_mode = self.node.mode
         self._consensus_data.quorums = self.quorums
 
-    def set_primaries(self, primaries):
-        self._consensus_data.primaries = primaries
-
     def _subscribe_to_external_msgs(self):
         # self._subscription.subscribe(self._external_bus, ReqKey, self.readyFor3PC)
         pass
@@ -693,7 +690,6 @@ class Replica(HasActionQueue, MessageProcessor):
                                write_manager=self.node.write_manager,
                                bls_bft_replica=self._bls_bft_replica,
                                freshness_checker=self._freshness_checker,
-                               primaries_selector=self.node.primaries_selector,
                                get_current_time=self.get_current_time,
                                get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                stasher=self.stasher,

@@ -26,7 +26,6 @@ def orderer(consensus_data, internal_bus, external_bus, name, write_manager,
                               bls_bft_replica=bls_bft_replica,
                               freshness_checker=FreshnessChecker(
                                   freshness_timeout=tconf.STATE_FRESHNESS_UPDATE_INTERVAL),
-                              primaries_selector=RoundRobinConstantNodesPrimariesSelector(validators),
                               stasher=stasher)
     orderer._data.node_mode = Mode.participating
     orderer._data.primary_name = "Alpha:0"

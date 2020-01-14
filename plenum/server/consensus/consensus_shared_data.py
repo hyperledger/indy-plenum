@@ -29,7 +29,6 @@ class ConsensusSharedData:
         self.inst_id = inst_id
         self.view_no = 0
         self.waiting_for_new_view = False
-        self.primaries = []
         self.is_master = is_master
 
         self.legacy_vc_in_progress = False
