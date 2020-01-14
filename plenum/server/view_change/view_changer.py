@@ -37,4 +37,3 @@ class ViewChanger():
     @property
     def view_change_in_progress(self) -> bool:
         return self.provider.view_change_in_progress()
-
