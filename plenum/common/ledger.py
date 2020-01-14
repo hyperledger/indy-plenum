@@ -114,6 +114,7 @@ class Ledger(_Ledger):
             raise LogicError("expected to revert {} txns while there are only {}".
                              format(count, len(self.uncommittedTxns)))
         old_hash = self.uncommittedRootHash
+        discarded_txns = self.uncommittedTxns[-count:]
         self.uncommittedTxns = self.uncommittedTxns[:-count]
         if not self.uncommittedTxns:
             self.uncommittedTree = None
@@ -125,6 +126,7 @@ class Ledger(_Ledger):
         logger.info('Discarding {} txns and root hash {} and new root hash is {}. {} are still uncommitted'.
                     format(count, Ledger.hashToStr(old_hash), Ledger.hashToStr(self.uncommittedRootHash),
                            len(self.uncommittedTxns)))
+        return discarded_txns
 
     def treeWithAppliedTxns(self, txns: List, currentTree=None):
         """
