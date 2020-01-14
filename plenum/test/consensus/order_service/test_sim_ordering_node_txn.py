@@ -153,7 +153,7 @@ def pool_with_edge_primaries(sim_pool):
     return sim_pool
 
 
-@pytest.mark.skip(reason="INDY-2324: Investigating")
+@pytest.mark.skip(reason="INDY-2324: Waiting for fix")
 def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
@@ -201,7 +201,7 @@ def test_node_txn_add_new_node(node_req_add, sim_pool, random):
                 check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
-@pytest.mark.skip(reason="INDY-2324: Investigating")
+@pytest.mark.skip(reason="INDY-2324: Waiting for fix")
 def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demote):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size

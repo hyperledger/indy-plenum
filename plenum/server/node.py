@@ -14,7 +14,7 @@ from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.messages.internal_messages import NeedMasterCatchup, \
     RequestPropagates, PreSigVerification, NewViewAccepted, ReAppliedInNewView, CatchupFinished, \
     NeedViewChange, NodeNeedViewChange, PrimarySelected, PrimaryDisconnected, NodeStatusUpdated, \
-    MasterReorderedAfterVC
+    MasterReorderedAfterVC, VoteForViewChange
 from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, PrimariesSelector
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
@@ -1243,7 +1243,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # We need to do a view change only during usual ordering. Because
             # if this is usual catchup, then, we will apply primaries from audit,
             # after catchup finish.
-            self.view_changer.on_node_count_changed()
+            self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.NODE_COUNT_CHANGED))
 
     @property
     def clientStackName(self):
@@ -2592,7 +2592,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
-                self.view_changer.on_master_degradation()
+                self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.PRIMARY_DEGRADED))
                 return False
             else:
                 logger.trace("{}'s master has higher performance than backups".
@@ -2950,7 +2950,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_TIME_WRONG,
                                      )):
             logger.display('{}{} got one of primary suspicions codes {}'.format(VIEW_CHANGE_PREFIX, self, code))
-            self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
+            self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.get_by_code(code)))
 
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.debug)
