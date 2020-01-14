@@ -26,4 +26,4 @@ class ForcedViewChangeService:
         self._force_view_change_timer.stop()
 
     def _force_view_change(self):
-        self._bus.send(VoteForViewChange(Suspicions.STATE_SIGS_ARE_NOT_UPDATED))
+        self._bus.send(VoteForViewChange(Suspicions.DEBUG_FORCE_VIEW_CHANGE))

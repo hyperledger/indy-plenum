@@ -1,5 +1,5 @@
 from functools import partial
-from random import randint, shuffle, Random
+from random import shuffle, Random
 
 import pytest
 
@@ -9,16 +9,14 @@ from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.request import Request
 from plenum.common.timer import RepeatingTimer
 from plenum.common.txn_util import get_payload_data, get_from
-from plenum.common.util import getMaxFailures, randomString
-from plenum.server.consensus.primary_selector import RoundRobinNodeRegPrimariesSelector, \
-    RoundRobinConstantNodesPrimariesSelector
-from plenum.server.consensus.replica_service import ReplicaService
+from plenum.common.util import randomString
+from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.test.consensus.helper import SimPool
 from plenum.test.consensus.order_service.sim_helper import order_requests, \
-    get_pools_ledger_size, setup_pool, check_batch_count, check_ledger_size, create_requests
+    get_pools_ledger_size, setup_pool, check_ledger_size, create_requests
 from plenum.test.greek import Greeks
 from plenum.test.simulation.sim_random import DefaultSimRandom
-from stp_core.common.log import Logger, getlogger
+from stp_core.common.log import getlogger
 
 
 logger = getlogger()
@@ -155,6 +153,7 @@ def pool_with_edge_primaries(sim_pool):
     return sim_pool
 
 
+@pytest.mark.skip(reason="INDY-2324: Investigating")
 def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
@@ -202,6 +201,7 @@ def test_node_txn_add_new_node(node_req_add, sim_pool, random):
                 check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
+@pytest.mark.skip(reason="INDY-2324: Investigating")
 def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demote):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size

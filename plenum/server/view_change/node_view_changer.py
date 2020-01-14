@@ -1,6 +1,4 @@
 from plenum.common.messages.internal_messages import VoteForViewChange
-from plenum.common.startable import Mode
-from plenum.server.quorums import Quorums
 from plenum.server.suspicion_codes import Suspicion
 from plenum.server.view_change.view_changer import ViewChanger, ViewChangerDataProvider
 

@@ -145,4 +145,5 @@ class ReplicaService:
         self._internal_bus.send(NeedViewChange(msg.view_no))
 
     def get_time_for_3pc_batch(self):
+        # TODO: This is for simulation tests purpose, probably we should add respective method to TimerService instead
         return int(self._timer.get_current_time()) + 1550000000
