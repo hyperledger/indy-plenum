@@ -1,6 +1,6 @@
 from plenum.common.constants import PREPREPARE
 from plenum.common.messages.internal_messages import NodeNeedViewChange
-from plenum.test.delayers import cDelay, ppDelay, msg_rep_delay, old_view_pp_reply_delay
+from plenum.test.delayers import cDelay, ppDelay, msg_rep_delay, old_view_pp_reply_delay, nv_delay
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -36,6 +36,7 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
 
     # Delay 3PC messages on slow nodes
     fast_nodes = [node for node in txnPoolNodeSet if node not in slow_nodes]
+    fast_stashers = [fast_node.nodeIbStasher for fast_node in fast_nodes]
     slow_stashers = [slow_node.nodeIbStasher for slow_node in slow_nodes]
     delayers = []
     if delay_pre_prepare:
@@ -44,18 +45,21 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
     if delay_commit:
         delayers.append(cDelay())
 
-    with delay_rules_without_processing(slow_stashers, *delayers):
-        # Add Node5
-        _, new_node = sdk_add_new_steward_and_node(looper, sdk_pool_handle, sdk_wallet_steward,
-                                                   'New_Steward', 'Epsilon',
-                                                   tdir, tconf, allPluginsPath=allPluginsPath)
-        looper.run(checkNodesConnected(fast_nodes + [new_node]))
-        old_set = list(txnPoolNodeSet)
-        txnPoolNodeSet.append(new_node)
+    # delay NewView message to make sure that all old nodes started view change,
+    # but finish the view change when no Commits are delayed (otherwise slow node will not be able to select backup primaries)
+    with delay_rules(fast_stashers, nv_delay()):
+        with delay_rules_without_processing(slow_stashers, *delayers):
+            # Add Node5
+            _, new_node = sdk_add_new_steward_and_node(looper, sdk_pool_handle, sdk_wallet_steward,
+                                                       'New_Steward', 'Epsilon',
+                                                       tdir, tconf, allPluginsPath=allPluginsPath)
+            looper.run(checkNodesConnected(fast_nodes + [new_node]))
+            old_set = list(txnPoolNodeSet)
+            txnPoolNodeSet.append(new_node)
 
-        # make sure view change is started and finished eventually
-        waitForViewChange(looper, old_set, 4)
-        ensureElectionsDone(looper, old_set)
+            # make sure view change is started and finished eventually
+            waitForViewChange(looper, old_set, 4)
+    ensureElectionsDone(looper, old_set)
 
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
 
