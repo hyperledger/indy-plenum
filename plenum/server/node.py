@@ -793,7 +793,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise LogicError('Inconsistent number of replicas and expected primaries. '
                              'Number of replicas={}. Expected number of primaries={}'
                              .format(len(self.replicas), len(primaries)))
-        if self.master_replica.primaryName is not None and primaries[0] != self.master_replica.primaryName:
+        if self.master_replica.primaryName is not None and \
+                generateName(primaries[0], MASTER_REPLICA_INDEX) != self.master_replica.primaryName:
             raise LogicError('Master Primary is not expected to be changed. Current master primary {}; selected {}'
                              .format(self.master_replica.primaryName, primaries[0]))
         for inst_id, r in self.replicas.items():
@@ -2734,9 +2735,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             )
             raise
 
-        if three_pc_batch.original_view_no > self.master_last_ordered_3PC[0]:
-            self.on_first_batch_in_view_committed()
-
         for req_key in valid_reqs_keys + invalid_reqs_keys:
             if req_key in self.requests:
                 self.mark_request_as_executed(self.requests[req_key].request)
@@ -3232,6 +3230,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._schedule_replica_removal(msg.inst_id)
 
     def _process_master_reordered(self, msg: MasterReorderedAfterVC):
+        self.on_first_batch_in_view_committed()
         for replica in self.replicas.values():
             if not replica.isMaster:
                 # ToDo: This line should be changed to sending internal message

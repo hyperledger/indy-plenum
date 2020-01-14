@@ -1465,7 +1465,7 @@ class OrderingService:
         Try to order if the Commit message is ready to be ordered.
         """
         if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo) and \
-                self._data.prev_view_prepare_cert + 1 == commit.ppSeqNo:
+                self._data.prev_view_prepare_cert + 1 <= commit.ppSeqNo:
             self._bus.send(MasterReorderedAfterVC())
 
         canOrder, reason = self._can_order(commit)
@@ -1550,24 +1550,24 @@ class OrderingService:
     def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
-        if self._data.prev_view_prepare_cert + 1 == pp_seq_no:
+        if self._data.prev_view_prepare_cert + 1 <= pp_seq_no:
             self._bus.send(MasterReorderedAfterVC())
 
     def _get_primaries_for_ordered(self, pp):
         return self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
 
     def _get_node_reg_for_ordered(self, pp):
-        txn_node_reg = self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
-        if txn_node_reg is None:
-            txn_node_reg = self._write_manager.node_reg_handler.uncommitted_node_reg
-        return txn_node_reg
+        return self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
 
     def _get_from_audit_for_ordered(self, pp, field):
+        if not self.is_master:
+            return []
         ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
         for index, txn in enumerate(ledger.get_uncommitted_txns()):
             payload_data = get_payload_data(txn)
+            pp_view_no = get_original_viewno(pp)
             if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
-                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
+                    pp_view_no == payload_data[AUDIT_TXN_VIEW_NO]:
                 txn_data = payload_data.get(field)
                 if isinstance(txn_data, Iterable):
                     return txn_data

@@ -17,3 +17,6 @@ class PrimaryBatchHandler(BatchRequestHandler):
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         pass
+
+    def commit_batch(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
+        pass
