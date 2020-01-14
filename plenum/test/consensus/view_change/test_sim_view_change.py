@@ -53,6 +53,30 @@ def test_view_change_completes_under_normal_conditions_regression_seeds(seed, la
     check_view_change_completes_under_normal_conditions(random, *latency, *filter)
 
 
+def test_view_change_permutations(random_random):
+    # Create pool in some random initial state
+    pool, _ = some_pool(random_random)
+    quorums = pool.nodes[0]._data.quorums
+
+    # Get view change votes from all nodes
+    view_change_messages = []
+    for node in pool.nodes:
+        network = MockNetwork()
+        node._view_changer._network = network
+        node._view_changer._bus.send(NeedViewChange())
+        view_change_messages.append(network.sent_messages[0][0])
+
+    # Select random number of view change votes
+    num_view_changes = random_random.integer(quorums.view_change.value, quorums.n)
+    view_change_messages = random_random.sample(view_change_messages, num_view_changes)
+
+    # Check that all committed requests are present in final batches
+    new_view_builder = pool.nodes[0]._view_changer._new_view_builder
+    cps = {new_view_builder.calc_checkpoint(random_random.shuffle(view_change_messages))
+           for _ in range(10)}
+    assert len(cps) == 1
+
+
 def test_new_view_combinations(random):
     # Create pool in some random initial state
     pool, _ = some_pool(random)

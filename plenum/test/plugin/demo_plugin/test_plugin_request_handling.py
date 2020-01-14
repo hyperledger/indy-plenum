@@ -6,7 +6,7 @@ from plenum.test.plugin.demo_plugin.helper import successful_op
 from plenum.test.helper import sdk_send_signed_requests, \
     sdk_sign_request_strings, sdk_get_and_check_replies
 from plenum.test.plugin.demo_plugin.constants import AMOUNT, PLACE_BID, \
-    AUCTION_START, AUCTION_END, AUCTION_LEDGER_ID
+    AUCTION_START, AUCTION_END
 from stp_core.loop.eventually import eventually
 
 whitelist = ["Can't parse parsed_req or op from message", ]

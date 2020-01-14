@@ -271,9 +271,6 @@ def addNodeBack(node_set,
                              config=tconf,
                              ha=node.nodestack.ha,
                              cliha=node.clientstack.ha)
-    for node in node_set:
-        if node.name != restartedNode.name:
-            node.nodestack.reconnectRemoteWithName(restartedNode.name)
     node_set.append(restartedNode)
     looper.add(restartedNode)
     return restartedNode
@@ -1571,7 +1568,7 @@ def create_pool_txn_data(node_names: List[str],
     return data
 
 
-def get_pp_seq_no(nodes: list) -> int:
-    los = set([n.master_replica.last_ordered_3pc[1] for n in nodes])
+def get_pp_seq_no(nodes: list, inst_id=0) -> int:
+    los = set([n.replicas._replicas[inst_id].last_ordered_3pc[1] for n in nodes])
     assert len(los) == 1
     return los.pop()

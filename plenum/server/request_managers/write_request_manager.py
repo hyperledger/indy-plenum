@@ -7,13 +7,14 @@ from common.serializers.serialization import pool_state_serializer, config_state
 from plenum.common.config_util import getConfig
 
 from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, AML, TXN_AUTHOR_AGREEMENT_VERSION, \
-    TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID
+    TXN_AUTHOR_AGREEMENT_TEXT, CONFIG_LEDGER_ID, AUDIT_LEDGER_ID, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, \
+    TXN_AUTHOR_AGREEMENT_RATIFICATION_TS
 from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
 from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 
 from plenum.server.request_handlers.utils import VALUE
 from plenum.common.request import Request
-from plenum.common.txn_util import get_type, get_txn_time
+from plenum.common.txn_util import get_type, get_txn_time, get_version
 from plenum.common.types import f
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
@@ -97,16 +98,21 @@ class WriteRequestManager(RequestManager):
         for handler in handlers:
             handler.static_validation(request)
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         handlers = self.request_handlers.get(request.operation[TXN_TYPE], None)
         if handlers is None:
             raise LogicError
         for handler in handlers:
-            handler.dynamic_validation(request)
+            handler.dynamic_validation(request, req_pp_time)
 
-    def _get_handlers_by_version(self, txn_type=None, timestamp=None):
-        version = self.database_manager.get_version(timestamp)
+    def _get_handlers_by_version(self, txn):
+        txn_type = get_type(txn)
+        timestamp = get_txn_time(txn)
+        version = self.database_manager.get_pool_version(timestamp)
         version = self.config.INDY_VERSION_MATCHING.get(version, version)
+        if (txn_type, version) not in self._request_handlers_with_version:
+            version = self.database_manager.get_txn_version(txn)
+
         handlers = self._request_handlers_with_version.get((txn_type, version)) \
             if (txn_type, version) in self._request_handlers_with_version \
             else self.request_handlers.get(txn_type, None)
@@ -126,7 +132,7 @@ class WriteRequestManager(RequestManager):
         self.database_manager.update_state_version(txn)
         # TODO: add to TxnVersionController function `get_version(txn)`
         # to use a version from the txn and update it in the internal TxnVersionController version
-        handlers = self._get_handlers_by_version(get_type(txn), get_txn_time(txn))
+        handlers = self._get_handlers_by_version(txn)
         updated_state = None
         for handler in handlers:
             updated_state = handler.update_state(txn, updated_state, None, is_committed=True)
@@ -302,44 +308,12 @@ class WriteRequestManager(RequestManager):
                 )
                 return
 
-        taa = None
-        taa_data = self.get_taa_data()
-        if taa_data is not None:
-            (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
-
-        if taa is None:
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance has not been set yet"
-                    " and not allowed in requests"
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: taa is not set"
-                    .format(self, request.reqId)
-                )
-                return
-
-        if not taa[TXN_AUTHOR_AGREEMENT_TEXT]:
-            if request.taaAcceptance:
-                raise InvalidClientTaaAcceptanceError(
-                    request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance is disabled"
-                    " and not allowed in requests"
-                )
-            else:
-                logger.trace(
-                    "{} TAA acceptance passed for request {}: taa is disabled"
-                    .format(self, request.reqId)
-                )
-                return
-
-        if not taa_digest:
-            raise LogicError(
-                "Txn Author Agreement digest is not defined: version {}, seq_no {}, txn_time {}"
-                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
+        if not self.get_taa_data(isCommitted=False):
+            logger.trace(
+                "{} TAA acceptance passed for request {}: "
+                "taa is disabled".format(self, request.reqId)
             )
+            return
 
         if not request.taaAcceptance:
             raise InvalidClientTaaAcceptanceError(
@@ -348,13 +322,23 @@ class WriteRequestManager(RequestManager):
                 .format(ledger_id)
             )
 
-        r_taa_a_digest = request.taaAcceptance[f.TAA_ACCEPTANCE_DIGEST.nm]
-        if r_taa_a_digest != taa_digest:
+        taa = None
+        r_taa_a_digest = request.taaAcceptance.get(f.TAA_ACCEPTANCE_DIGEST.nm)
+        taa_data = self.get_taa_data(digest=r_taa_a_digest, isCommitted=False)
+        if taa_data is not None:
+            (taa, taa_seq_no, taa_txn_time), taa_digest = taa_data
+        else:
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
-                "Txn Author Agreement acceptance digest is invalid or non-latest:"
-                " provided {}, expected {}"
-                .format(r_taa_a_digest, taa_digest)
+                "Incorrect Txn Author Agreement(digest={}) in the request".format(r_taa_a_digest)
+            )
+
+        retired = taa.get(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS)
+        if retired and retired < req_pp_time:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "Txn Author Agreement is retired: version {}, seq_no {}, txn_time {}"
+                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
             )
 
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
@@ -365,8 +349,9 @@ class WriteRequestManager(RequestManager):
                 "Txn Author Agreement acceptance time {}"
                 " is too precise and is a privacy risk."
                 .format(r_taa_a_ts))
+        taa_txn_creation_time = taa.get(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, taa_txn_time)
         date_lowest = datetime.utcfromtimestamp(
-            taa_txn_time -
+            taa_txn_creation_time -
             config.TXN_AUTHOR_AGREEMENT_ACCEPTANCE_TIME_BEFORE_TAA_TIME
         ).date()
         date_higest = datetime.utcfromtimestamp(

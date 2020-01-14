@@ -1,7 +1,5 @@
-import pytest
-
-from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone
-from plenum.test.delayers import icDelay, vcd_delay, nv_delay
+from plenum.common.messages.node_messages import ViewChangeDone
+from plenum.test.delayers import icDelay, nv_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules

@@ -22,7 +22,7 @@ from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageExcepti
 from plenum.common.ledger import Ledger
 from plenum.common.messages.internal_messages import RequestPropagates, BackupSetupLastOrdered, \
     RaisedSuspicion, ViewChangeStarted, NewViewCheckpointsApplied, MissingMessage, CheckpointStabilized, \
-    ReOrderedInNewView, NewViewAccepted, CatchupCheckpointsApplied
+    ReAppliedInNewView, NewViewAccepted, CatchupCheckpointsApplied, MasterReorderedAfterVC
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit, Reject, ThreePhaseKey, Ordered, \
     OldViewPrePrepareRequest, OldViewPrePrepareReply
 from plenum.common.metrics_collector import MetricsName, MetricsCollector, NullMetricsCollector
@@ -30,7 +30,7 @@ from plenum.common.request import Request
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
-from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
+from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time, get_digest
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
@@ -167,11 +167,6 @@ class OrderingService:
         # replica during that view
         self.primary_names = OrderedDict()  # type: OrderedDict[int, str]
 
-        # Indicates name of the primary replica of this protocol instance.
-        # None in case the replica does not know who the primary of the
-        # instance is
-        self._primary_name = None  # type: Optional[str]
-
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
 
@@ -293,10 +288,14 @@ class OrderingService:
                     sender, Suspicions.DUPLICATE_PR_SENT, prepare))
                 return False
             # If PRE-PREPARE was not sent for this PREPARE, certainly
-            # malicious behavior
+            # malicious behavior unless this is re-ordering after view change where a new Primary may not have a
+            # PrePrepare from old view
             elif not ppReq:
-                self.report_suspicious_node(SuspiciousNode(
-                    sender, Suspicions.UNKNOWN_PR_SENT, prepare))
+                if prepare.ppSeqNo <= self._data.prev_view_prepare_cert:
+                    self._enqueue_prepare(prepare, sender)
+                else:
+                    self.report_suspicious_node(SuspiciousNode(
+                        sender, Suspicions.UNKNOWN_PR_SENT, prepare))
                 return False
 
         if primaryStatus is None and not ppReq:
@@ -806,22 +805,13 @@ class OrderingService:
                 self.prePreparesPendingPrevPP.pop((v, p))
 
     def report_suspicious_node(self, ex: SuspiciousNode):
+        logger.debug("{} raised suspicion on node {} for {}; suspicion code "
+                     "is {}".format(self, ex.node, ex.reason, ex.code))
         self._bus.send(RaisedSuspicion(inst_id=self._data.inst_id,
                                        ex=ex))
 
     def _validate(self, msg):
         return self._validator.validate(msg)
-
-    """Method from legacy code"""
-    def l_compact_primary_names(self):
-        min_allowed_view_no = self.view_no - 1
-        views_to_remove = []
-        for view_no in self.primary_names:
-            if view_no >= min_allowed_view_no:
-                break
-            views_to_remove.append(view_no)
-        for view_no in views_to_remove:
-            self.primary_names.pop(view_no)
 
     def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         """
@@ -890,6 +880,10 @@ class OrderingService:
             self._add_to_sent_pre_prepares(pre_prepare)
         else:
             self._add_to_pre_prepares(pre_prepare)
+
+        # we may have stashed Prepares and Commits if this is PrePrepare from old view (re-ordering phase)
+        self._dequeue_prepares(pre_prepare.viewNo, pre_prepare.ppSeqNo)
+        self._dequeue_commits(pre_prepare.viewNo, pre_prepare.ppSeqNo)
 
         return None
 
@@ -1238,7 +1232,10 @@ class OrderingService:
                     .format(self, reqCount, Ledger.hashToStr(state.headHash),
                             Ledger.hashToStr(stateRootHash), ledgerId))
         state.revertToHead(stateRootHash)
-        ledger.discardTxns(reqCount)
+        reverted_txns = ledger.discardTxns(reqCount)
+        if reverted_txns:
+            for txn in reverted_txns:
+                self.requestQueues[ledgerId].add(get_digest(txn))
         self.post_batch_rejection(ledgerId)
 
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
@@ -1286,8 +1283,6 @@ class OrderingService:
         self._preprepare_batch(pp)
         self.lastPrePrepareSeqNo = pp.ppSeqNo
         self.last_accepted_pre_prepare_time = pp.ppTime
-        self._dequeue_prepares(*key)
-        self._dequeue_commits(*key)
         self.stats.inc(TPCStat.PrePrepareRcvd)
         self.try_prepare(pp)
 
@@ -1460,12 +1455,17 @@ class OrderingService:
         """
         Try to order if the Commit message is ready to be ordered.
         """
+        if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo) and \
+                self._data.prev_view_prepare_cert == commit.ppSeqNo:
+            self._bus.send(MasterReorderedAfterVC())
+
         canOrder, reason = self._can_order(commit)
         if canOrder:
             logger.trace("{} returning request to node".format(self))
             self._do_order(commit)
         else:
-            logger.debug("{} cannot return request to node: {}".format(self, reason))
+            logger.trace("{} cannot return request to node: {}".format(self, reason))
+
         return canOrder
 
     def _do_order(self, commit: Commit):
@@ -1541,6 +1541,8 @@ class OrderingService:
     def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
+        if self._data.prev_view_prepare_cert == pp_seq_no:
+            self._bus.send(MasterReorderedAfterVC())
 
     def _get_primaries_for_ordered(self, pp):
         txn_primaries = self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
@@ -1767,8 +1769,8 @@ class OrderingService:
 
     def _do_dynamic_validation(self, request: Request, req_pp_time: int):
         """
-                State based validation
-                """
+        State based validation
+        """
         # Digest validation
         # TODO implicit caller's context: request is processed by (master) replica
         # as part of PrePrepare 3PC batch
@@ -1785,7 +1787,7 @@ class OrderingService:
         # For now, we need to call taa_validation not from dynamic_validation because
         # req_pp_time is required
         self._write_manager.do_taa_validation(request, req_pp_time, self._config)
-        self._write_manager.dynamic_validation(request)
+        self._write_manager.dynamic_validation(request, req_pp_time)
 
     @measure_consensus_time(MetricsName.REQUEST_PROCESSING_TIME,
                             MetricsName.BACKUP_REQUEST_PROCESSING_TIME)
@@ -1806,6 +1808,8 @@ class OrderingService:
         if not self._data.is_primary:
             return False
         if not self._data.is_participating:
+            return False
+        if not self.is_master and not self._data._master_reordered_after_vc:
             return False
         if self._data.waiting_for_new_view:
             return False
@@ -2310,6 +2314,7 @@ class OrderingService:
 
         # 5. clear ordered from previous view
         self.ordered.clear_below_view(msg.view_no)
+
         return PROCESS, None
 
     def process_new_view_accepted(self, msg: NewViewAccepted):
@@ -2332,6 +2337,7 @@ class OrderingService:
 
         self._clear_prev_view_pre_prepares()
         self._stasher.process_all_stashed(STASH_CATCH_UP)
+        self._finish_master_reordering()
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
         for pp in pre_prepares:
@@ -2356,13 +2362,16 @@ class OrderingService:
                 else:
                     self._process_pre_prepare_from_old_view(pp)
 
+        if len(msg.batches) == 0:
+            self._finish_master_reordering()
+
         if missing_batches:
             self._request_old_view_pre_prepares(missing_batches)
 
         self.primaries_batch_needed = True
 
         if not missing_batches:
-            self._reordered_in_new_view()
+            self._reapplied_in_new_view()
 
     def process_old_view_preprepare_request(self, msg: OldViewPrePrepareRequest, sender):
         result, reason = self._validate(msg)
@@ -2379,12 +2388,6 @@ class OrderingService:
         self._send(rep, dst=[replica_name_to_node_name(sender)])
 
     def process_old_view_preprepare_reply(self, msg: OldViewPrePrepareReply, sender):
-        # TODO: return the check after INDY-2238 about persisting of 3pc messages
-        # At the moment this optimization adds a bug that is reproduced in
-        # test_view_change_with_delayed_commits_on_half_of_the_nodes_and_restart_of_the_other_half
-        # if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
-        #     self._reordered_in_new_view()
-        #     return
         result, reason = self._validate(msg)
         if result != PROCESS:
             return result, reason
@@ -2401,7 +2404,7 @@ class OrderingService:
                 # TODO: catch more specific error here
                 logger.error("Invalid PrePrepare in {}: {}".format(msg, ex))
         if self._data.prev_view_prepare_cert and self._data.prev_view_prepare_cert <= self.lastPrePrepareSeqNo:
-            self._reordered_in_new_view()
+            self._reapplied_in_new_view()
 
     def _request_old_view_pre_prepares(self, batches):
         old_pp_req = OldViewPrePrepareRequest(self._data.inst_id, batches)
@@ -2416,10 +2419,9 @@ class OrderingService:
 
         return PROCESS, None
 
-    def _reordered_in_new_view(self):
+    def _reapplied_in_new_view(self):
         self._stasher.process_all_stashed(STASH_VIEW_3PC)
-        # TODO: Why do we call it "reordered" despite that we only _started_ reordering old batches?
-        self._bus.send(ReOrderedInNewView())
+        self._bus.send(ReAppliedInNewView())
 
     def process_checkpoint_stabilized(self, msg: CheckpointStabilized):
         self.gc(msg.last_stable_3pc)
@@ -2450,3 +2452,7 @@ class OrderingService:
             self._data.preprepared.remove(batch_id)
         if batch_id in self._data.prepared:
             self._data.prepared.remove(batch_id)
+
+    def _finish_master_reordering(self):
+        if not self.is_master:
+            self._data._master_reordered_after_vc = True
