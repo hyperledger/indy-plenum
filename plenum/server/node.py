@@ -36,7 +36,6 @@ from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_CATCH_
 from plenum.server.request_managers.action_request_manager import ActionRequestManager
 from plenum.server.request_managers.read_request_manager import ReadRequestManager
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
-from plenum.server.view_change.node_view_changer import create_view_changer
 from state.pruning_state import PruningState
 from storage.helper import initKeyValueStorage, initHashStore, initKeyValueStorageIntKeys
 from storage.state_ts_store import StateTsDbStorage
@@ -121,7 +120,6 @@ from plenum.server.req_authenticator import ReqAuthenticator
 from plenum.server.router import Router
 from plenum.server.suspicion_codes import Suspicions
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.server.view_change.view_changer import ViewChanger
 
 pluginManager = PluginManager()
 logger = getlogger()
@@ -155,7 +153,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                  genesis_dir: str = None,
                  plugins_dir: str = None,
                  node_info_dir: str = None,
-                 view_changer: ViewChanger = None,
                  pluginPaths: Iterable[str] = None,
                  storage: Storage = None,
                  config=None,
@@ -221,8 +218,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         MessageReqProcessor.__init__(self, metrics=self.metrics)
 
-        self.view_changer = view_changer
-
         self.nodeInBox = deque()
         self.clientInBox = deque()
 
@@ -243,7 +238,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             'data': {}
         }
 
-        self._view_changer = None  # type: ViewChanger
+        self.previous_view_no = None
         self.start_view_change_ts = 0
         self.primaries_selector = RoundRobinNodeRegPrimariesSelector(self.write_manager.node_reg_handler)  # type: PrimariesSelector
 
@@ -549,7 +544,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def viewNo(self):
-        return None if self.view_changer is None else self.view_changer.view_no
+        if self.replicas.num_replicas == 0:
+            return None
+        return self.master_replica._consensus_data.view_no
 
     # TODO not sure that this should be allowed
     @viewNo.setter
@@ -559,9 +556,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     @property
     def view_change_in_progress(self):
-        if self.view_changer is None:
+        if self.replicas.num_replicas == 0:
             return False
-        return self.view_changer.view_change_in_progress
+        return self.master_replica._consensus_data.waiting_for_new_view
 
     @property
     def primaries(self):
@@ -624,14 +621,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
     def ledger_summary(self):
         return [li.ledger_summary for li in
                 self.ledgerManager.ledgerRegistry.values()]
-
-    @property
-    def view_changer(self) -> ViewChanger:
-        return self._view_changer
-
-    @view_changer.setter
-    def view_changer(self, value):
-        self._view_changer = value
 
     # EXTERNAL EVENTS
 
@@ -917,8 +906,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.nodestack.start()
             self.clientstack.start()
 
-            self.view_changer = self.newViewChanger()
-
             self.schedule_node_status_dump()
             self.dump_additional_info()
 
@@ -954,12 +941,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
     def get_rank_by_name(self, name, node_reg, node_ids):
         return self.poolManager.get_rank_by_name(name, node_reg, node_ids)
-
-    def newViewChanger(self):
-        if self.view_changer:
-            return self.view_changer
-        else:
-            return create_view_changer(self)
 
     @property
     def connectedNodeCount(self) -> int:
@@ -1020,7 +1001,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         # self.clientstack.conns.clear()
         self.aqStash.clear()
         self.actionQueue.clear()
-        self.view_changer = None
 
     @async_measure_time(MetricsName.NODE_PROD_TIME)
     async def prod(self, limit: int = None) -> int:
@@ -1237,7 +1217,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if txn_data and DATA in txn_data:
             alias = txn_data[DATA].get(ALIAS, alias)
         # If number of nodes changed, we need to do a view change.
-        if not self.view_changer.view_change_in_progress \
+        if not self.view_change_in_progress \
                 and leecher.state == LedgerState.synced:
             # We can call nodeJoined function during usual ordering or during catchup
             # We need to do a view change only during usual ordering. Because
@@ -1707,7 +1687,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             msg_dict = msg.as_dict if isinstance(msg, Request) else msg
             if isinstance(msg_dict, dict):
-                if self.view_changer.view_change_in_progress and self.is_request_need_quorum(msg_dict):
+                if self.view_change_in_progress and self.is_request_need_quorum(msg_dict):
                     self.discard(msg_dict,
                                  reason="view change in progress",
                                  logMethod=logger.debug)
@@ -1869,7 +1849,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # 1. Get viewNo from the audit
         if len(audit_ledger) != 0:
-            self.view_changer.previous_view_no = self.viewNo
+            self.previous_view_no = self.viewNo
             self.viewNo = get_payload_data(audit_ledger.get_last_committed_txn())[AUDIT_TXN_VIEW_NO]
 
         # 2. select primaries
@@ -1906,7 +1886,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # 5. Restore backup Primaries
         last_sent_pp_seq_no_restored = False
-        if self.view_changer.previous_view_no == 0:
+        if self.previous_view_no == 0:
             last_sent_pp_seq_no_restored = \
                 self.last_sent_pp_store_helper.try_restore_last_sent_pp_seq_no()
         if not last_sent_pp_seq_no_restored:
@@ -2358,9 +2338,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         self.metrics.add_event(MetricsName.PROPAGATES_PHASE_REQ_TIMEOUTS, self.propagates_phase_req_timeouts)
         self.metrics.add_event(MetricsName.ORDERING_PHASE_REQ_TIMEOUTS, self.ordering_phase_req_timeouts)
 
-        if self.view_changer is not None:
+        if self.replicas.num_replicas > 0:
             self.metrics.add_event(MetricsName.CURRENT_VIEW, self.viewNo)
-            self.metrics.add_event(MetricsName.VIEW_CHANGE_IN_PROGRESS, int(self.view_changer.view_change_in_progress))
+            self.metrics.add_event(MetricsName.VIEW_CHANGE_IN_PROGRESS, int(self.view_change_in_progress))
 
         self.metrics.add_event(MetricsName.NODE_STATUS, int(self.mode) if self.mode is not None else 0)
         self.metrics.add_event(MetricsName.CONNECTED_NODES_NUM, self.connectedNodeCount)

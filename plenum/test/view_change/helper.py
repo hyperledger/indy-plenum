@@ -2,8 +2,6 @@ import types
 
 from plenum.common.messages.node_messages import ThreePhaseKey
 from plenum.common.util import randomString
-from plenum.server.view_change.node_view_changer import create_view_changer
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.spy_helpers import get_count
 from stp_core.types import HA
 
@@ -371,7 +369,6 @@ def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
     # add node_to_disconnect to pool
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
                                             tdir, allPluginsPath)
-    node_to_disconnect.view_changer = create_view_changer(node_to_disconnect, ViewChanger)
 
     txnPoolNodeSet[idx] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))

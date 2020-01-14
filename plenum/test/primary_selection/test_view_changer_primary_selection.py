@@ -14,7 +14,6 @@ from plenum.server.propagator import Requests
 from plenum.server.node import Node
 
 from plenum.common.metrics_collector import NullMetricsCollector
-from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.test.testing_utils import FakeSomething
 from stp_core.types import HA
 
@@ -81,7 +80,6 @@ class FakeNode:
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
-        self.view_changer = create_view_changer(self)
         self.metrics = NullMetricsCollector()
 
         # For catchup testing
