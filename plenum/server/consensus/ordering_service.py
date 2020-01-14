@@ -30,7 +30,7 @@ from plenum.common.request import Request
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
-from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
+from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time, get_digest
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
@@ -166,11 +166,6 @@ class OrderingService:
         # view. Key is the view no and value is the name of the primary
         # replica during that view
         self.primary_names = OrderedDict()  # type: OrderedDict[int, str]
-
-        # Indicates name of the primary replica of this protocol instance.
-        # None in case the replica does not know who the primary of the
-        # instance is
-        self._primary_name = None  # type: Optional[str]
 
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
@@ -818,17 +813,6 @@ class OrderingService:
     def _validate(self, msg):
         return self._validator.validate(msg)
 
-    """Method from legacy code"""
-    def l_compact_primary_names(self):
-        min_allowed_view_no = self.view_no - 1
-        views_to_remove = []
-        for view_no in self.primary_names:
-            if view_no >= min_allowed_view_no:
-                break
-            views_to_remove.append(view_no)
-        for view_no in views_to_remove:
-            self.primary_names.pop(view_no)
-
     def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         """
         Decide whether this replica is eligible to process a PRE-PREPARE.
@@ -1248,7 +1232,10 @@ class OrderingService:
                     .format(self, reqCount, Ledger.hashToStr(state.headHash),
                             Ledger.hashToStr(stateRootHash), ledgerId))
         state.revertToHead(stateRootHash)
-        ledger.discardTxns(reqCount)
+        reverted_txns = ledger.discardTxns(reqCount)
+        if reverted_txns:
+            for txn in reverted_txns:
+                self.requestQueues[ledgerId].add(get_digest(txn))
         self.post_batch_rejection(ledgerId)
 
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
@@ -1783,8 +1770,8 @@ class OrderingService:
 
     def _do_dynamic_validation(self, request: Request, req_pp_time: int):
         """
-                State based validation
-                """
+        State based validation
+        """
         # Digest validation
         # TODO implicit caller's context: request is processed by (master) replica
         # as part of PrePrepare 3PC batch
