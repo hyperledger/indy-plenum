@@ -27,7 +27,8 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
                                       sdk_wallet_steward,
                                       slow_nodes=[],
                                       delay_commit=False,
-                                      delay_pre_prepare=False):
+                                      delay_pre_prepare=False,
+                                      trigger_view_change_manually=False):
     # Pre-requisites: viewNo=3, Primary is Node4
     for viewNo in range(1, 4):
         trigger_view_change(txnPoolNodeSet)
@@ -56,6 +57,9 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
             looper.run(checkNodesConnected(fast_nodes + [new_node]))
             old_set = list(txnPoolNodeSet)
             txnPoolNodeSet.append(new_node)
+
+            if trigger_view_change_manually:
+                trigger_view_change(txnPoolNodeSet)
 
             # make sure view change is started and finished eventually
             waitForViewChange(looper, old_set, 4)
@@ -100,10 +104,11 @@ def check_view_change_one_slow_node(looper, txnPoolNodeSet, sdk_pool_handle, sdk
                     node.master_replica.internal_bus.send(NodeNeedViewChange(current_view_no + 2))
 
         waitForViewChange(looper=looper, txnPoolNodeSet=txnPoolNodeSet, expectedViewNo=expected_view_no)
-        ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)
 
         # wait till fast nodes finish re-ordering
         looper.run(eventually(check_has_commits, fast_nodes))
+
+    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)
 
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

@@ -26,23 +26,12 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         self.uncommitted_node_reg = []
         self.committed_node_reg = []
-        self.node_reg_at_beginning_of_view = SortedDict() # committed only
+        self.node_reg_at_beginning_of_view = SortedDict()  # committed only
         self.active_node_reg = []
 
         self._uncommitted = deque()  # type: deque[UncommittedNodeReg]
         self._uncommitted_view_no = 0
         self._committed_view_no = 0
-
-    # @property
-    # def active_node_reg(self):
-    #     last_committed_view_no, last_committed_node_reg = self.node_reg_at_beginning_of_view.peekitem()
-    #
-    #     if not self._uncommitted:
-    #         return last_committed_node_reg
-    #
-    #     last_uncommitted = self._uncommitted[-1]
-    #     if last_uncommitted
-
 
     def on_catchup_finished(self):
         self._load_current_node_reg()
@@ -80,7 +69,6 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             self.uncommitted_node_reg = last_uncommitted.uncommitted_node_reg
             self._uncommitted_view_no = last_uncommitted.view_no
 
-
         # find the uncommitted node reg at the beginning of view
         if self._uncommitted_view_no < reverted.view_no:
             if self._committed_view_no == self._uncommitted_view_no:
@@ -89,7 +77,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
                 i = 1
                 while i <= len(self._uncommitted) and self._uncommitted_view_no == self._uncommitted[-i].view_no:
                     i += 1
-                self.active_node_reg = list(self._uncommitted[-i+1].uncommitted_node_reg)
+                self.active_node_reg = list(self._uncommitted[-i + 1].uncommitted_node_reg)
 
         logger.debug("Reverted uncommitted node registry from {} to {}".format(reverted.uncommitted_node_reg,
                                                                                self.uncommitted_node_reg))

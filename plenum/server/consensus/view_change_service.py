@@ -89,7 +89,8 @@ class ViewChangeService:
 
         # Backup primaries will be re-selected after re-ordering is done
         old_primary = self._data.primary_name
-        self._data.primary_name = generateName(self._primaries_selector.select_master_primary(self._data.view_no), self._data.inst_id)
+        self._data.primary_name = generateName(self._primaries_selector.select_master_primary(self._data.view_no),
+                                               self._data.inst_id)
 
         if old_primary and self._data.primary_name == old_primary:
             logger.info("Selected master primary is the same with the "
@@ -99,8 +100,8 @@ class ViewChangeService:
             self._propose_view_change(Suspicions.INCORRECT_NEW_PRIMARY)
 
         logger.info("{} started view change to view {}. Expected Master Primary: {}".format(self._data.name,
-                                                                                       self._data.view_no,
-                                                                                     self._data.primary_name))
+                                                                                            self._data.view_no,
+                                                                                            self._data.primary_name))
 
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()
@@ -314,8 +315,8 @@ class ViewChangeService:
 
     def _finish_view_change(self):
         logger.info("{} finished view change to view {}. Master Primary: {}".format(self._data.name,
-                                                                               self._data.view_no,
-                                                                               self._data.primary_name))
+                                                                                    self._data.view_no,
+                                                                                    self._data.primary_name))
         # Update shared data
         self._data.waiting_for_new_view = False
         self._data.prev_view_prepare_cert = self._data.new_view.batches[-1].pp_seq_no \
