@@ -153,7 +153,6 @@ def pool_with_edge_primaries(sim_pool):
     return sim_pool
 
 
-@pytest.mark.skip(reason="INDY-2324: Waiting for fix")
 def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
@@ -170,12 +169,12 @@ def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     expected_node_reg = sim_pool.validators + [Greeks[sim_pool.size + i][0] for i in range(len(pool_reqs))]
 
     # Step 2. Start requests ordering
-    random_interval = random.integer(10, 20) * 100
+    random_interval = random.float(1.0, 2.0)
     RepeatingTimer(sim_pool.timer, random_interval, partial(order_requests, sim_pool))
 
     # Step 3. Initiate view change process during request's ordering
     for node in sim_pool.nodes:
-        sim_pool.timer.schedule(random_interval + 1000,
+        sim_pool.timer.schedule(1.0 + random_interval,
                                 partial(node._view_changer.process_need_view_change, NeedViewChange(view_no=1)))
 
     # Step 4. Wait for VC completing
@@ -201,7 +200,6 @@ def test_node_txn_add_new_node(node_req_add, sim_pool, random):
                 check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
-@pytest.mark.skip(reason="INDY-2324: Waiting for fix")
 def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demote):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
@@ -222,12 +220,12 @@ def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demo
     expected_view_no = current_view_no + 1
     expected_node_reg = [name for name in sim_pool._genesis_validators if name not in demoted_names]
     # Step 2. Start requests ordering
-    random_interval = random.integer(10, 20) * 100
+    random_interval = random.float(1.0, 2.0)
     RepeatingTimer(sim_pool.timer, random_interval, partial(order_requests, sim_pool))
 
     # Step 3. Initiate view change process during request's ordering
     for node in sim_pool.nodes:
-        sim_pool.timer.schedule(random_interval + 1000,
+        sim_pool.timer.schedule(1.0 + random_interval,
                                 partial(node._view_changer.process_need_view_change, NeedViewChange(view_no=1)))
 
     # Step 4. Wait for VC completing
