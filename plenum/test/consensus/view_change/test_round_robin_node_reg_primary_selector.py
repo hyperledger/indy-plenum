@@ -66,171 +66,122 @@ def test_select_primaries_for_view_0(primary_selector, node_reg_handler, has_nod
 
     # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
-    node_reg_handler.uncommitted_node_reg =  ['AAA', 'BBB', 'CCC']
+    node_reg_handler.uncommitted_node_reg = ['AAA', 'BBB', 'CCC']
     if has_node_reg_next_view:
         node_reg_handler.node_reg_at_beginning_of_view[1] = ['AAA', 'BBB', 'CCC']
         node_reg_handler.node_reg_at_beginning_of_view[2] = ['AAA', 'BBB', 'CCC']
 
     master_primary = primary_selector.select_master_primary(view_no=0)
-    backup_primaries = primary_selector.select_backup_primaries(view_no=0)
     primaries = primary_selector.select_primaries(view_no=0)
     assert master_primary == "Alpha"
-    assert backup_primaries == ["Delta", "Epsilon"]
-    assert primaries == ["Alpha", "Delta", "Epsilon"]
+    assert primaries == ["Alpha", "Delta"]
 
 
 @pytest.mark.parametrize('has_node_reg_next_view', [True, False])
-@pytest.mark.parametrize('uncommitted_node_reg',
-                         [list(range(i)) for i in range(3, 30)])
-def test_select_primaries_for_view_1_takes_node_reg_from_previous_view_same_node_reg_length(primary_selector,
-                                                                                             node_reg_handler,
-                                                                                            has_node_reg_next_view,
-                                                                                             uncommitted_node_reg):
-    node_reg_handler.uncommitted_node_reg = uncommitted_node_reg
+def test_select_primaries_for_view_1_takes_node_reg_from_previous_view(primary_selector,
+                                                                       node_reg_handler,
+                                                                       has_node_reg_next_view
+                                                                       ):
     node_reg_handler.node_reg_at_beginning_of_view[0] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
+    node_reg_handler.active_node_reg = ["Alpha", "Delta", "Epsilon", "Zeta", "Eta", "Kappa", "Gamma"]
 
     # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
-    node_reg_handler.uncommitted_node_reg =  ['AAA', 'BBB', 'CCC']
+    node_reg_handler.uncommitted_node_reg = ['AAA', 'BBB', 'CCC']
     if has_node_reg_next_view:
+        node_reg_handler.node_reg_at_beginning_of_view[1] = ['AAA', 'BBB', 'CCC']
         node_reg_handler.node_reg_at_beginning_of_view[2] = ['AAA', 'BBB', 'CCC']
-        node_reg_handler.node_reg_at_beginning_of_view[3] = ['AAA', 'BBB', 'CCC']
-
-
 
     master_primary = primary_selector.select_master_primary(view_no=1)
-    backup_primaries = primary_selector.select_backup_primaries(view_no=1)
     primaries = primary_selector.select_primaries(view_no=1)
-    expected_instance_count = (len(uncommitted_node_reg) - 1) // 3 + 1
-
     assert master_primary == "Beta"
-    if expected_instance_count == 10:
-        assert primaries == ["Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta"]
-        assert backup_primaries == ["Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta"]
-    elif expected_instance_count == 9:
-        assert primaries == ["Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha", "Beta", "Gamma"]
-        assert backup_primaries == ["Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha", "Beta", "Gamma"]
-    elif expected_instance_count == 8:
-        assert primaries == ["Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha", "Beta"]
-        assert backup_primaries == ["Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha", "Beta"]
-    elif expected_instance_count == 7:
-        assert primaries == ["Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha"]
-        assert backup_primaries == ["Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha"]
-    elif expected_instance_count == 6:
-        assert primaries == ["Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-        assert backup_primaries == ["Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-    elif expected_instance_count == 5:
-        assert primaries == ["Beta", "Gamma", "Delta", "Epsilon", "Zeta"]
-        assert backup_primaries == ["Gamma", "Delta", "Epsilon", "Zeta"]
-    elif expected_instance_count == 4:
-        assert primaries == ["Beta", "Gamma", "Delta", "Epsilon"]
-        assert backup_primaries == ["Gamma", "Delta", "Epsilon"]
-    elif expected_instance_count == 3:
-        assert primaries == ["Beta", "Gamma", "Delta"]
-        assert backup_primaries == ["Gamma", "Delta"]
-    elif expected_instance_count == 2:
-        assert primaries == ["Beta", "Gamma"]
-        assert backup_primaries == ["Gamma"]
-    elif expected_instance_count == 1:
-        assert primaries == ["Beta"]
-        assert backup_primaries == []
+    assert primaries == ["Beta", "Epsilon", "Zeta"]
 
 
-@pytest.mark.parametrize('has_node_reg_last_view', [True, False])
-@pytest.mark.parametrize('uncommitted_node_reg',
-                         [list(range(i)) for i in range(3, 30)])
-def test_select_primaries_for_view_5_takes_node_reg_from_previous_view(primary_selector, node_reg_handler,
-                                                                       has_node_reg_last_view,
-                                                                       uncommitted_node_reg):
-    node_reg_handler.uncommitted_node_reg = uncommitted_node_reg
-    node_reg_handler.node_reg_at_beginning_of_view[4] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
+@pytest.mark.parametrize('has_node_reg_next_view', [True, False])
+def test_select_primaries_for_view_greater_than_node_reg(primary_selector,
+                                                         node_reg_handler,
+                                                         has_node_reg_next_view
+                                                         ):
+    node_reg_handler.node_reg_at_beginning_of_view[8] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
+    node_reg_handler.active_node_reg = ["Alpha", "Delta", "Epsilon", "Zeta", "Eta", "Kappa", "Beta"]
 
-    # committed and beginning of current view shouldn't be taking into account so can be any
+    # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
-    if has_node_reg_last_view:
-        node_reg_handler.node_reg_at_beginning_of_view[5] = ['AAA', 'BBB', 'CCC']
-        node_reg_handler.node_reg_at_beginning_of_view[6] = ['AAA', 'BBB', 'CCC']
+    node_reg_handler.uncommitted_node_reg = ['AAA', 'BBB', 'CCC']
+    if has_node_reg_next_view:
         node_reg_handler.node_reg_at_beginning_of_view[7] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.node_reg_at_beginning_of_view[9] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.node_reg_at_beginning_of_view[10] = ['AAA', 'BBB', 'CCC']
 
-    master_primary = primary_selector.select_master_primary(view_no=5)
-    backup_primaries = primary_selector.select_backup_primaries(view_no=5)
-    primaries = primary_selector.select_primaries(view_no=5)
-    expected_instance_count = (len(uncommitted_node_reg) - 1) // 3 + 1
-
-    assert master_primary == "Zeta"
-    if expected_instance_count == 10:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha"]
-        assert backup_primaries == ["Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha"]
-    elif expected_instance_count == 9:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-        assert backup_primaries == ["Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-    elif expected_instance_count == 8:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"]
-        assert backup_primaries == ["Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"]
-    elif expected_instance_count == 7:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
-        assert backup_primaries == ["Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
-    elif expected_instance_count == 6:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta"]
-        assert backup_primaries == ["Eta", "Alpha", "Beta", "Gamma", "Delta"]
-    elif expected_instance_count == 5:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma"]
-        assert backup_primaries == ["Eta", "Alpha", "Beta", "Gamma"]
-    elif expected_instance_count == 4:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta"]
-        assert backup_primaries == ["Eta", "Alpha", "Beta"]
-    elif expected_instance_count == 3:
-        assert primaries == ["Zeta", "Eta", "Alpha"]
-        assert backup_primaries == ["Eta", "Alpha"]
-    elif expected_instance_count == 2:
-        assert primaries == ["Zeta", "Eta"]
-        assert backup_primaries == ["Eta"]
-    elif expected_instance_count == 1:
-        assert primaries == ["Zeta"]
-        assert backup_primaries == []
+    master_primary = primary_selector.select_master_primary(view_no=9)
+    primaries = primary_selector.select_primaries(view_no=9)
+    assert master_primary == "Gamma"
+    assert primaries == ["Gamma", "Zeta", "Eta"]
 
 
-@pytest.mark.parametrize('has_node_reg_last_view', [True, False])
+@pytest.mark.parametrize('has_node_reg_next_view', [True, False])
+def test_select_primaries_dont_select_equal_master_and_backup(primary_selector,
+                                                              node_reg_handler,
+                                                              has_node_reg_next_view
+                                                              ):
+    node_reg_handler.node_reg_at_beginning_of_view[5] = ["Alpha", "Beta", "Gamma", "Delta"]
+    node_reg_handler.active_node_reg = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
+
+    # committed and uncommitted_node_reg can be any
+    node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
+    node_reg_handler.uncommitted_node_reg = ['AAA', 'BBB', 'CCC']
+    if has_node_reg_next_view:
+        node_reg_handler.node_reg_at_beginning_of_view[7] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.node_reg_at_beginning_of_view[9] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.node_reg_at_beginning_of_view[10] = ['AAA', 'BBB', 'CCC']
+
+    master_primary = primary_selector.select_master_primary(view_no=6)
+    primaries = primary_selector.select_primaries(view_no=6)
+    assert master_primary == "Gamma"
+    assert primaries == ["Gamma", "Delta"]
+
+
+@pytest.mark.parametrize('has_node_reg_next_view', [True, False])
+def test_select_primaries_num_of_replicas_from_active_node_reg(primary_selector,
+                                                               node_reg_handler,
+                                                               has_node_reg_next_view
+                                                               ):
+    node_reg_handler.node_reg_at_beginning_of_view[3] = ["Alpha", "Beta", "Gamma"]
+    node_reg_handler.active_node_reg = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
+
+    # committed and uncommitted_node_reg can be any
+    node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
+    node_reg_handler.uncommitted_node_reg = ['AAA', 'BBB', 'CCC']
+    if has_node_reg_next_view:
+        node_reg_handler.node_reg_at_beginning_of_view[7] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.node_reg_at_beginning_of_view[9] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.node_reg_at_beginning_of_view[10] = ['AAA', 'BBB', 'CCC']
+
+    master_primary = primary_selector.select_master_primary(view_no=4)
+    primaries = primary_selector.select_primaries(view_no=4)
+    assert master_primary == "Beta"
+    assert primaries == ["Beta", "Zeta", "Eta"]
+
+
+@pytest.mark.parametrize('has_node_reg_next_view', [True, False])
 @pytest.mark.parametrize('prev_available_viewno', [0, 1, 2, 3])
-@pytest.mark.parametrize('uncommitted_node_reg',
-                         [list(range(i)) for i in range(3, 30)])
 def test_select_primaries_takes_latest_available_node_reg_for_previous_views(primary_selector, node_reg_handler,
-                                                                             has_node_reg_last_view,
-                                                                             prev_available_viewno,
-                                                                             uncommitted_node_reg):
-    node_reg_handler.uncommitted_node_reg = uncommitted_node_reg
+                                                                             has_node_reg_next_view,
+                                                                             prev_available_viewno):
     node_reg_handler.node_reg_at_beginning_of_view[prev_available_viewno] = ["Alpha", "Beta", "Gamma", "Delta",
                                                                              "Epsilon", "Zeta", "Eta"]
+    node_reg_handler.active_node_reg = ["Alpha", "Beta", "Gamma", "Delta"]
 
-    # committed and beginning of current view shouldn't be taking into account so can be any
+    # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
-    if has_node_reg_last_view:
-        node_reg_handler.node_reg_at_beginning_of_view[5] = ['AAA', 'BBB', 'CCC']
+    node_reg_handler.uncommitted_node_reg = ['AAA', 'BBB', 'CCC']
+    if has_node_reg_next_view:
+        node_reg_handler.node_reg_at_beginning_of_view[7] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.node_reg_at_beginning_of_view[9] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.node_reg_at_beginning_of_view[10] = ['AAA', 'BBB', 'CCC']
 
-    master_primary = primary_selector.select_master_primary(view_no=5)
-    backup_primaries = primary_selector.select_backup_primaries(view_no=5)
-    primaries = primary_selector.select_primaries(view_no=5)
-    expected_instance_count = (len(uncommitted_node_reg) - 1) // 3 + 1
-
-    assert master_primary == "Zeta"
-
-    if expected_instance_count == 10:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Alpha"]
-    elif expected_instance_count == 9:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-    elif expected_instance_count == 8:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"]
-    elif expected_instance_count == 7:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
-    elif expected_instance_count == 6:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma", "Delta"]
-    elif expected_instance_count == 5:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta", "Gamma"]
-    elif expected_instance_count == 4:
-        assert primaries == ["Zeta", "Eta", "Alpha", "Beta"]
-    elif expected_instance_count == 3:
-        assert primaries == ["Zeta", "Eta", "Alpha"]
-    elif expected_instance_count == 2:
-        assert primaries == ["Zeta", "Eta"]
-    elif expected_instance_count == 1:
-        assert primaries == ["Zeta"]
+    master_primary = primary_selector.select_master_primary(view_no=4)
+    primaries = primary_selector.select_primaries(view_no=4)
+    assert master_primary == "Epsilon"
+    assert primaries == ["Epsilon", "Beta"]

@@ -11,15 +11,16 @@ logger = getlogger()
 class PrimariesSelector(metaclass=ABCMeta):
 
     @abstractmethod
-    def select_backup_primaries(self, view_no: int) -> List[str]:
-        pass
-
-    @abstractmethod
     def select_master_primary(self, view_no: int) -> str:
         pass
 
     def select_primaries(self, view_no: int) -> List[str]:
-        return [self.select_master_primary(view_no)] + self.select_backup_primaries(view_no)
+        master_primary = self.select_master_primary(view_no)
+        return [master_primary] + self._select_backup_primaries(view_no, master_primary)
+
+    @abstractmethod
+    def _select_backup_primaries(self, view_no: int, master_primary: str) -> List[str]:
+        pass
 
 
 class RoundRobinConstantNodesPrimariesSelector(PrimariesSelector):
@@ -30,16 +31,21 @@ class RoundRobinConstantNodesPrimariesSelector(PrimariesSelector):
     def select_master_primary(self, view_no: int) -> str:
         return self.validators[view_no % len(self.validators)]
 
-    def select_backup_primaries(self, view_no: int) -> List[str]:
+    def _select_backup_primaries(self, view_no: int, master_primary) -> List[str]:
         N = len(self.validators)
         F = (N - 1) // 3
-        return self.select_backup_primaries_round_robin(view_no, self.validators, F)
+        return self.select_backup_primaries_round_robin(view_no, self.validators, F, master_primary)
 
     @staticmethod
-    def select_backup_primaries_round_robin(view_no: int, validators: List[str], backup_instance_count: int):
+    def select_backup_primaries_round_robin(view_no: int, validators: List[str], backup_instance_count: int,
+                                            master_primary: str):
         primaries = []
-        for i in range(backup_instance_count):
-            primaries.append(validators[(view_no + i + 1) % len(validators)])
+        i = 1
+        while len(primaries) < backup_instance_count:
+            backup_primary = validators[(view_no + i) % len(validators)]
+            if backup_primary != master_primary:
+                primaries.append(backup_primary)
+            i += 1
         return primaries
 
 
@@ -62,9 +68,10 @@ class RoundRobinNodeRegPrimariesSelector(PrimariesSelector):
 
         return node_reg_to_use[view_no % len(node_reg_to_use)]
 
-    def select_backup_primaries(self, view_no: int) -> List[str]:
+    def _select_backup_primaries(self, view_no: int, master_primary) -> List[str]:
         N = len(self.node_reg_handler.active_node_reg)
         F = (N - 1) // 3
         return RoundRobinConstantNodesPrimariesSelector.select_backup_primaries_round_robin(view_no,
                                                                                             self.node_reg_handler.active_node_reg,
-                                                                                            F)
+                                                                                            F,
+                                                                                            master_primary)

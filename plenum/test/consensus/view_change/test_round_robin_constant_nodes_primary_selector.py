@@ -43,24 +43,24 @@ def test_primaries_selection_viewno_0(primary_selector):
     validators = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
     primary_selector = RoundRobinConstantNodesPrimariesSelector(validators)
     master_primary = primary_selector.select_master_primary(view_no=0)
-    backup_primaries = primary_selector.select_backup_primaries(view_no=0)
+    primaries = primary_selector.select_primaries(view_no=0)
     assert master_primary == "Alpha"
-    assert backup_primaries == ["Beta", "Gamma"]
+    assert primaries == ["Alpha", "Beta", "Gamma"]
 
 
 def test_primaries_selection_viewno_5(primary_selector):
     validators = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
     primary_selector = RoundRobinConstantNodesPrimariesSelector(validators)
     master_primary = primary_selector.select_master_primary(view_no=5)
-    backup_primaries = primary_selector.select_backup_primaries(view_no=5)
+    primaries = primary_selector.select_primaries(view_no=5)
     assert master_primary == "Zeta"
-    assert backup_primaries == ["Eta", "Alpha"]
+    assert primaries == ["Zeta", "Eta", "Alpha"]
 
 
 def test_primaries_selection_viewno_9(primary_selector):
     validators = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
     primary_selector = RoundRobinConstantNodesPrimariesSelector(validators)
     master_primary = primary_selector.select_master_primary(view_no=9)
-    backup_primaries = primary_selector.select_backup_primaries(view_no=9)
+    primaries = primary_selector.select_primaries(view_no=9)
     assert master_primary == "Gamma"
-    assert backup_primaries == ["Delta", "Epsilon"]
+    assert primaries == ["Gamma", "Delta", "Epsilon"]

@@ -80,6 +80,7 @@ class ViewChangeService:
         # 3. Update shared data
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
+        self._data.primary_name = None
         if not self._data.is_master:
             self._data._master_reordered_after_vc = False
 
