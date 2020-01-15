@@ -539,7 +539,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         if node_count_changed and three_pc_batch.original_view_no == current_view_no:
             # send Instance Change (to current_view_no + 1) first, and only then start the View Change
             # otherwise Instance Change would be sent to current_view_no + 2
-            self.view_changer.on_node_count_changed()
+            self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.NODE_COUNT_CHANGED))
             # self.master_replica._internal_bus.send(NodeNeedViewChange(current_view_no + 1))
 
         return committed_txns
