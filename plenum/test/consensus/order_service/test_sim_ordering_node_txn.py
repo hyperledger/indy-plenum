@@ -180,6 +180,7 @@ def pool_with_edge_primaries(sim_pool):
     return sim_pool
 
 
+# ToDo: failed seeds: {458923, 353373}
 def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
@@ -197,7 +198,7 @@ def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     # Step 2. Start ordering and VC
     do_order_and_vc(sim_pool, random, initial_view_no)
 
-    # Step 5. Check parameters like ordered txns count, node_reg state
+    # Step 3. Check parameters like ordered txns count, node_reg state
     # For now we can run this checks only for old nodes with newly added.
     # Because we cannot run catchup process
     # ToDo: change this checks for making they on whole pool after INDY-2148 will be implemented
@@ -212,6 +213,7 @@ def test_node_txn_add_new_node(node_req_add, sim_pool, random):
                 check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
+# ToDo: failed seeds: {277519, 154546, 926597}
 def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demote):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
@@ -248,6 +250,7 @@ def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demo
                 check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
+# ToDo: failed seeds: {77948, 445428}
 def test_demote_promote_mixed(node_req_demote,
                               sim_pool,
                               random,
@@ -331,18 +334,19 @@ def test_demote_and_promote_back(node_req_promote_back,
 def do_order_and_vc(pool, random, initial_view_no):
 
     # Step 1. Start requests ordering
-    random_interval = random.integer(10, 20) * 100
+    random_interval = random.float(1.0, 2.0)
     RepeatingTimer(pool.timer, random_interval, partial(order_requests, pool))
 
     # Step 2. Initiate view change process during request's ordering
     for node in pool.nodes:
-        pool.timer.schedule(random_interval + 1000,
+        pool.timer.schedule(random_interval + 1.0,
                                 partial(node._view_changer.process_need_view_change, NeedViewChange()))
 
     # Step 3. Wait for VC completing
     pool.timer.wait_for(lambda: all(not node._data.waiting_for_new_view
                                     and node._data.view_no > initial_view_no
-                                    for node in pool.nodes))
+                                    for node in pool.nodes),
+                        max_iterations=100000)
 
 
 @pytest.mark.skip("INDY-2148, need catchup for new added node")

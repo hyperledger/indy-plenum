@@ -9,10 +9,11 @@ from plenum.test.view_change.helper import ensure_all_nodes_have_same_data
 from plenum.common.constants import PREPREPARE
 from plenum.test.helper import sdk_send_random_and_check, waitForViewChange, sdk_send_random_request, \
     sdk_get_and_check_replies
+from plenum.test.view_change_service.helper import trigger_view_change
 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
-from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
+from plenum.test.test_node import ensureElectionsDone
 from plenum.test import waits
 
 logger = getlogger()
@@ -71,8 +72,7 @@ def test_primary_send_incorrect_pp(looper, txnPoolNodeSet, tconf,
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 1)
 
-        for n in txnPoolNodeSet:
-            n.view_changer.on_master_degradation()
+        trigger_view_change(txnPoolNodeSet)
         ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
         waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=start_view_no + 1)
 

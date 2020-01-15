@@ -1,4 +1,5 @@
 from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change_service.helper import trigger_view_change
 
 nodeCount = 7
 
@@ -15,8 +16,7 @@ def test_select_primary_after_removed_backup(txnPoolNodeSet,
     start_replicas_count = node.replicas.num_replicas
     instance_id = start_replicas_count - 1
     node.replicas.remove_replica(instance_id)
-    for node in txnPoolNodeSet:
-        node.view_changer.on_master_degradation()
+    trigger_view_change(txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
     for n in txnPoolNodeSet:
         assert n.requiredNumberOfInstances == n.replicas.num_replicas

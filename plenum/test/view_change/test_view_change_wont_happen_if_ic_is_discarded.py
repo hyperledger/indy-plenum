@@ -3,6 +3,7 @@ import pytest as pytest
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import restart_node
+from plenum.test.view_change_service.helper import send_test_instance_change
 from stp_core.loop.eventually import eventually
 
 
@@ -30,7 +31,7 @@ def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
     panic_node = txnPoolNodeSet[-1]
     view_no = txnPoolNodeSet[0].viewNo
 
-    panic_node.view_changer.on_master_degradation()
+    send_test_instance_change(panic_node)
     for n in nodes_to_restart:
         restart_node(looper, txnPoolNodeSet, n, tconf, tdir, allPluginsPath)
     nodes_to_restart = txnPoolNodeSet[1:3]
@@ -44,7 +45,7 @@ def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
     looper.run(eventually(check_old_ic_discarded, timeout=tconf.OUTDATED_INSTANCE_CHANGES_CHECK_INTERVAL + 1))
 
     for n in nodes_to_restart:
-        n.view_changer.on_master_degradation()
+        send_test_instance_change(n)
 
     def check_ic():
         for node in txnPoolNodeSet:

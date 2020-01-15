@@ -77,12 +77,15 @@ class SimNetwork:
         for name in sorted(dst):
             assert name != frm, "{} tried to send message {} to itself".format(frm, msg)
 
+            assert isinstance(name, (str, bytes)), \
+                "{} retied to send message {} to invalid peer {}".format(frm, msg, name)
+
             peer = self._peers.get(name)
-            if not peer:
+            if peer is None:
                 # ToDo: Remove this check after adding real node promoting
                 # It can be possible after implementing INDY-2237 and INDY-2148
-                self._logger.warning("{} tried to send message {} to unknown peer {}".format(frm, msg, name))
-                return
+                self._logger.info("{} tried to send message {} to unknown peer {}".format(frm, msg, name))
+                continue
 
             msg = self._serialize_deserialize(msg)
 

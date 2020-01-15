@@ -4,7 +4,7 @@ import time
 from _sha256 import sha256
 from collections import defaultdict, OrderedDict, deque
 from functools import partial
-from typing import Tuple, List, Set, Optional, Dict, Iterable
+from typing import Tuple, List, Set, Optional, Dict, Iterable, Callable
 
 from orderedset._orderedset import OrderedSet
 from sortedcontainers import SortedList
@@ -68,8 +68,8 @@ class OrderingService:
                  freshness_checker: FreshnessChecker,
                  primaries_selector: PrimariesSelector,
                  stasher=None,
-                 get_current_time=None,
-                 get_time_for_3pc_batch=None,
+                 get_current_time: Optional[Callable[[], float]] = None,
+                 get_time_for_3pc_batch: Optional[Callable[[], int]] = None,
                  metrics: MetricsCollector = NullMetricsCollector()):
         self.metrics = metrics
         self._data = data
@@ -1484,6 +1484,7 @@ class OrderingService:
 
         self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
                                                  ts=pp.ppTime)
+        self._data.last_batch_timestamp = pp.ppTime
 
         self._add_to_ordered(*key)
         invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
@@ -2195,11 +2196,13 @@ class OrderingService:
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
 
         # Get all pre-prepares and prepares since the latest stable checkpoint
-        ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
-        last_txn = ledger.get_last_txn()
+        audit_ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
+        last_txn = audit_ledger.get_last_txn()
 
         if not last_txn:
             return
+
+        self._data.last_batch_timestamp = get_txn_time(last_txn)
 
         to = get_payload_data(last_txn)[AUDIT_TXN_PP_SEQ_NO]
         frm = to - to % self._config.CHK_FREQ + 1
@@ -2212,7 +2215,7 @@ class OrderingService:
                     pp_seq_no=get_payload_data(txn)[AUDIT_TXN_PP_SEQ_NO],
                     pp_digest=get_payload_data(txn)[AUDIT_TXN_DIGEST]
                 )
-                for _, txn in ledger.getAllTxn(frm=frm, to=to)
+                for _, txn in audit_ledger.getAllTxn(frm=frm, to=to)
             ]
 
             self._data.preprepared.extend(batch_ids)
