@@ -939,6 +939,137 @@ def test_update_node_regs_on_node_txn_formats_on_catchup(node_reg_handler, init_
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'Beta', 'AAA']
 
 
+@pytest.mark.parametrize('add_node_reg_to_audit', ['True', 'False', 'Latest_only'])
+@pytest.mark.parametrize('view_no', [1, 2])
+def test_apply_uncommitted_after_cathup_finished_on_same_view(node_reg_handler,
+                                                              init_node_reg_handler,
+                                                              write_req_manager,
+                                                              add_node_reg_to_audit,
+                                                              view_no):
+    add_node_reg_to_audit_view_0 = add_node_reg_to_audit == 'True'
+    add_node_reg_to_audit_view_1 = add_node_reg_to_audit == 'True' or add_node_reg_to_audit == 'Latest_only'
+
+    edit_node(write_req_manager, "Gamma", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    add_node(write_req_manager, "Epsilon", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    edit_node(write_req_manager, "Gamma", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    demote_node(write_req_manager, "Alpha", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+
+    edit_node(write_req_manager, "Gamma", view_no=view_no, commit=True,
+              add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    demote_node(write_req_manager, "Beta", view_no=view_no, commit=True,
+                add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    edit_node(write_req_manager, "Gamma", view_no=view_no, commit=True,
+              add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    add_node(write_req_manager, "BBB", view_no=view_no, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+
+    write_req_manager.on_catchup_finished()
+
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+    three_pc_batch1 = add_node(write_req_manager, "CCC", view_no=view_no, commit=False)
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+    three_pc_batch2 = add_node(write_req_manager, "DDD", view_no=view_no + 1, commit=False)
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+    write_req_manager.commit_batch(three_pc_batch1)
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+    write_req_manager.commit_batch(three_pc_batch2)
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no + 1] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC',
+                                                                           'DDD']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+
+@pytest.mark.parametrize('add_node_reg_to_audit', ['True', 'False', 'Latest_only'])
+@pytest.mark.parametrize('view_no', [1, 2])
+def test_apply_uncommitted_after_cathup_finished_on_next_view(node_reg_handler,
+                                                              init_node_reg_handler,
+                                                              write_req_manager,
+                                                              add_node_reg_to_audit,
+                                                              view_no):
+    add_node_reg_to_audit_view_0 = add_node_reg_to_audit == 'True'
+    add_node_reg_to_audit_view_1 = add_node_reg_to_audit == 'True' or add_node_reg_to_audit == 'Latest_only'
+
+    edit_node(write_req_manager, "Gamma", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    add_node(write_req_manager, "Epsilon", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    edit_node(write_req_manager, "Gamma", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+    demote_node(write_req_manager, "Alpha", view_no=0, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_0)
+
+    edit_node(write_req_manager, "Gamma", view_no=view_no, commit=True,
+              add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    demote_node(write_req_manager, "Beta", view_no=view_no, commit=True,
+                add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    edit_node(write_req_manager, "Gamma", view_no=view_no, commit=True,
+              add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+    add_node(write_req_manager, "BBB", view_no=view_no, commit=True, add_node_reg_to_audit=add_node_reg_to_audit_view_1)
+
+    write_req_manager.on_catchup_finished()
+
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+    three_pc_batch1 = add_node(write_req_manager, "CCC", view_no=view_no + 1, commit=False)
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+    three_pc_batch2 = add_node(write_req_manager, "DDD", view_no=view_no + 1, commit=False)
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+    write_req_manager.commit_batch(three_pc_batch1)
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no + 1] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+    write_req_manager.commit_batch(three_pc_batch2)
+    assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC', 'DDD']
+    assert node_reg_handler.active_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
+    assert node_reg_handler.node_reg_at_beginning_of_view[view_no + 1] == ['Gamma', 'Delta', 'Epsilon', 'BBB', 'CCC']
+    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+
+
 def build_node_req(node_name, services):
     operation = {
         TYPE: NODE,
