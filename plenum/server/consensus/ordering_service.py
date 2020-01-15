@@ -1546,10 +1546,26 @@ class OrderingService:
             self._on_first_bacth_in_view_ordered()
 
     def _get_primaries_for_ordered(self, pp):
-        return self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
+        txn_primaries = self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
+        if txn_primaries is None:
+            # TODO: it's possible to get into this case if we have txns being ordered after catch-up is finished
+            # when we have no batches applied (uncommitted txns are  reverted when catchup is started)
+            # Re-applying of batches will be done in apply_stashed_reqs in node.py,
+            # but as we need to fill primaries field in Ordered, we have to emulate what NodeRegHandler would do here
+            # TODO: fix this by getting rid of Ordered msg and using ThreePcBatch instead
+            txn_primaries = self._write_manager.primary_reg_handler.primaries_selector.select_primaries(self.view_no)
+        return txn_primaries
 
     def _get_node_reg_for_ordered(self, pp):
-        return self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
+        txn_node_reg = self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
+        if txn_node_reg is None:
+            # TODO: it's possible to get into this case if we have txns being ordered after catch-up is finished
+            # when we have no batches applied (uncommitted txns are  reverted when catchup is started)
+            # Re-applying of batches will be done in apply_stashed_reqs in node.py,
+            # but as we need to fill node_reg field in Ordered, we have to emulate what NodeRegHandler would do here
+            # TODO: fix this by getting rid of Ordered msg and using ThreePcBatch instead
+            txn_node_reg = list(self._write_manager.node_reg_handler.uncommitted_node_reg)
+        return txn_node_reg
 
     def _get_from_audit_for_ordered(self, pp, field):
         if not self.is_master:
