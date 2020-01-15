@@ -301,7 +301,7 @@ class SimPool:
             replica._network.update_connecteds(connecteds)
 
 
-VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries', 'prev_view_prepare_cert'
+VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primary_name', 'prev_view_prepare_cert'
 ORDERING_SERVICE_FIELDS = 'last_ordered_3pc', 'preprepared', 'prepared'
 CHECKPOINT_SERVICE_FIELDS = 'stable_checkpoint', 'checkpoints', 'low_watermark', 'high_watermark'
 

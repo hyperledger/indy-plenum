@@ -48,7 +48,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, PP_WRONG_PRIMARIES
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP, STASH_WAITING_FIRST_BATCH_IN_VIEW
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -1453,7 +1453,7 @@ class OrderingService:
         """
         if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo) and \
                 self._data.prev_view_prepare_cert + 1 == commit.ppSeqNo:
-            self._bus.send(MasterReorderedAfterVC())
+            self._on_first_bacth_in_view_ordered()
 
         canOrder, reason = self._can_order(commit)
         if canOrder:
@@ -1463,6 +1463,10 @@ class OrderingService:
             logger.trace("{} cannot return request to node: {}".format(self, reason))
 
         return canOrder
+
+    def _on_first_bacth_in_view_ordered(self):
+        self._bus.send(MasterReorderedAfterVC())
+        self._stasher.process_all_stashed(STASH_WAITING_FIRST_BATCH_IN_VIEW)
 
     def _do_order(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
@@ -1539,7 +1543,7 @@ class OrderingService:
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
         if self._data.prev_view_prepare_cert + 1 == pp_seq_no:
-            self._bus.send(MasterReorderedAfterVC())
+            self._on_first_bacth_in_view_ordered()
 
     def _get_primaries_for_ordered(self, pp):
         return self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)

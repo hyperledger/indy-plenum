@@ -1,13 +1,13 @@
-from plenum.common.constants import PREPREPARE
+from plenum.common.constants import PREPREPARE, STEWARD_STRING, VALIDATOR
 from plenum.common.messages.internal_messages import NodeNeedViewChange, VoteForViewChange
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import cDelay, ppDelay, msg_rep_delay, old_view_pp_reply_delay, nv_delay
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_add_new_node
 from plenum.test.stasher import delay_rules_without_processing, delay_rules
-from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas, checkNodesConnected
+from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas, checkNodesConnected, TestNode
 from stp_core.loop.eventually import eventually
 
 
@@ -50,14 +50,32 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
     if delay_commit:
         delayers.append(cDelay())
 
+    # add a new Steward before delaying. Otherwise the slow node may reject NODE client reqs
+    # as it can not authenticate it due to lack of Steward txn applied
+    new_steward_wallet_handle = sdk_add_new_nym(looper,
+                                                sdk_pool_handle,
+                                                sdk_wallet_steward,
+                                                alias='New_Steward',
+                                                role=STEWARD_STRING)
+
     # delay NewView message to make sure that all old nodes started view change,
     # but finish the view change when no Commits are delayed (otherwise slow node will not be able to select backup primaries)
     with delay_rules(all_stashers, nv_delay()):
         with delay_rules_without_processing(slow_stashers, *delayers):
             # Add Node5
-            _, new_node = sdk_add_new_steward_and_node(looper, sdk_pool_handle, sdk_wallet_steward,
-                                                       'New_Steward', 'Epsilon',
-                                                       tdir, tconf, allPluginsPath=allPluginsPath)
+            new_node = sdk_add_new_node(
+                looper,
+                sdk_pool_handle,
+                new_steward_wallet_handle,
+                'Epsilon',
+                tdir,
+                tconf,
+                allPluginsPath,
+                autoStart=True,
+                nodeClass=TestNode,
+                do_post_node_creation=None,
+                services=[VALIDATOR],
+                wait_till_added=True)
             looper.run(checkNodesConnected(fast_nodes + [new_node]))
             old_set = list(txnPoolNodeSet)
             txnPoolNodeSet.append(new_node)
