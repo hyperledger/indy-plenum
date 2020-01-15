@@ -100,7 +100,27 @@ def test_can_send_3pc_batch_above_prev_view_prep_cert(primary_orderer, last_pp_s
                              ((0, 12), True),
                              ((0, 13), True)
                          ])
-def test_can_not_send_3pc_until_first_batch_in_view_ordered(primary_orderer, last_ordered_3pc, can_send):
+def test_can_not_send_3pc_until_first_batch_in_non_zero_view_ordered(primary_orderer, last_ordered_3pc, can_send):
+    primary_orderer._data.view_no = 1
+    primary_orderer._data.prev_view_prepare_cert = 10
+    primary_orderer._lastPrePrepareSeqNo = max(11, last_ordered_3pc[1])
+    primary_orderer._data.last_ordered_3pc = last_ordered_3pc
+    assert primary_orderer.can_send_3pc_batch() == can_send
+
+
+@pytest.mark.parametrize('last_ordered_3pc, can_send',
+                         [
+                             ((0, 0), True),
+                             ((0, 1), True),
+                             ((0, 9), True),
+                             ((0, 10), True),
+                             ((0, 11), True),
+                             ((0, 12), True),
+                             ((0, 13), True)
+                         ])
+def test_can_send_3pc_before_first_batch_in_zero_view_ordered(primary_orderer, last_ordered_3pc, can_send, monkeypatch):
+    monkeypatch.setattr(primary_orderer._config, 'Max3PCBatchesInFlight', 20)
+    primary_orderer._data.view_no = 0
     primary_orderer._data.prev_view_prepare_cert = 10
     primary_orderer._lastPrePrepareSeqNo = max(11, last_ordered_3pc[1])
     primary_orderer._data.last_ordered_3pc = last_ordered_3pc

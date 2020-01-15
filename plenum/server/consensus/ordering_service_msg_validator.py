@@ -142,7 +142,7 @@ class OrderingServiceMsgValidator:
                 return DISCARD, ALREADY_ORDERED
 
         # Stash 3PC msgs from a new view until the first batch in the view is ordered
-        if pp_seq_no is not None and pp_seq_no > self._data.prev_view_prepare_cert + 1 \
+        if pp_seq_no is not None and view_no > 0 and pp_seq_no > self._data.prev_view_prepare_cert + 1 \
                 and self._data.last_ordered_3pc[1] < self._data.prev_view_prepare_cert + 1:
             return STASH_WAITING_FIRST_BATCH_IN_VIEW, WAITING_FIRST_BATCH_IN_VIEW
 

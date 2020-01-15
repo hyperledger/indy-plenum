@@ -293,12 +293,13 @@ def test_process_non_master_new_view(validator, view_no):
     (13, (STASH_WAITING_FIRST_BATCH_IN_VIEW, WAITING_FIRST_BATCH_IN_VIEW)),
     (100, (STASH_WAITING_FIRST_BATCH_IN_VIEW, WAITING_FIRST_BATCH_IN_VIEW)),
 ])
-def test_stash_from_new_view_until_first_batch_is_ordered(validator, view_no, pp_seq_no, result):
+def test_stash_from_new_view_until_first_batch_is_ordered_non_zero_view(validator, pp_seq_no, result):
+    validator._data.view_no = 1
     validator._data.prev_view_prepare_cert = 10
-    validator._data.last_ordered_3pc = (view_no, 10)
-    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == result
-    assert validator.validate_prepare(prepare(view_no, pp_seq_no)) == result
-    assert validator.validate_commit(commit(view_no, pp_seq_no)) == result
+    validator._data.last_ordered_3pc = (1, 10)
+    assert validator.validate_pre_prepare(pre_prepare(1, pp_seq_no)) == result
+    assert validator.validate_prepare(prepare(1, pp_seq_no)) == result
+    assert validator.validate_commit(commit(1, pp_seq_no)) == result
 
 
 @pytest.mark.parametrize('pp_seq_no, result', [
@@ -308,9 +309,26 @@ def test_stash_from_new_view_until_first_batch_is_ordered(validator, view_no, pp
     (13, (PROCESS, None)),
     (100, (PROCESS, None)),
 ])
-def test_process_from_new_view_if_first_batch_is_ordered(validator, view_no, pp_seq_no, result):
+def test_process_from_new_view_if_first_batch_is_ordered_non_zero_view(validator, pp_seq_no, result):
+    validator._data.view_no = 1
     validator._data.prev_view_prepare_cert = 10
-    validator._data.last_ordered_3pc = (view_no, 11)
-    assert validator.validate_pre_prepare(pre_prepare(view_no, pp_seq_no)) == result
-    assert validator.validate_prepare(prepare(view_no, pp_seq_no)) == result
-    assert validator.validate_commit(commit(view_no, pp_seq_no)) == result
+    validator._data.last_ordered_3pc = (1, 11)
+    assert validator.validate_pre_prepare(pre_prepare(1, pp_seq_no)) == result
+    assert validator.validate_prepare(prepare(1, pp_seq_no)) == result
+    assert validator.validate_commit(commit(1, pp_seq_no)) == result
+
+
+@pytest.mark.parametrize('pp_seq_no, result', [
+    (10, (PROCESS, None)),
+    (11, (PROCESS, None)),
+    (12, (PROCESS, None)),
+    (13, (PROCESS, None)),
+    (100, (PROCESS, None)),
+])
+def test_process_from_new_view_if_first_batch_not_ordered_zero_view(validator, pp_seq_no, result):
+    validator._data.view_no = 0
+    validator._data.prev_view_prepare_cert = 10
+    validator._data.last_ordered_3pc = (0, 10)
+    assert validator.validate_pre_prepare(pre_prepare(0, pp_seq_no)) == result
+    assert validator.validate_prepare(prepare(0, pp_seq_no)) == result
+    assert validator.validate_commit(commit(0, pp_seq_no)) == result
