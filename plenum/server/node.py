@@ -2787,6 +2787,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self._observable.append_input(batch_committed_msg, self.name)
 
     def on_first_batch_in_view_committed(self):
+        logger.info("{} ordered the first batch in the new view {}. Going to adjust replicas.".format(self.name, self.viewNo))
         # TODO: we need to call it only when the first batch is committed.
         # Currently it's called when it's just Ordered.
         self.setPoolParams()

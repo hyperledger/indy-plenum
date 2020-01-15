@@ -320,7 +320,7 @@ class ViewChangeService:
         # Update shared data
         self._data.waiting_for_new_view = False
         self._data.prev_view_prepare_cert = self._data.new_view.batches[-1].pp_seq_no \
-            if self._data.new_view.batches else 0
+            if self._data.new_view.batches else self._data.new_view.checkpoint.seqNoEnd
 
         # Cancel View Change timeout task
         self._resend_inst_change_timer.stop()

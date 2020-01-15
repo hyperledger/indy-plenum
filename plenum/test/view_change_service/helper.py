@@ -37,7 +37,7 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
 
     # Delay 3PC messages on slow nodes
     fast_nodes = [node for node in txnPoolNodeSet if node not in slow_nodes]
-    fast_stashers = [fast_node.nodeIbStasher for fast_node in fast_nodes]
+    all_stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
     slow_stashers = [slow_node.nodeIbStasher for slow_node in slow_nodes]
     delayers = []
     if delay_pre_prepare:
@@ -48,7 +48,7 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
 
     # delay NewView message to make sure that all old nodes started view change,
     # but finish the view change when no Commits are delayed (otherwise slow node will not be able to select backup primaries)
-    with delay_rules(fast_stashers, nv_delay()):
+    with delay_rules(all_stashers, nv_delay()):
         with delay_rules_without_processing(slow_stashers, *delayers):
             # Add Node5
             _, new_node = sdk_add_new_steward_and_node(looper, sdk_pool_handle, sdk_wallet_steward,

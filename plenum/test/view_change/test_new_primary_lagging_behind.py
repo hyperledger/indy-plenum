@@ -3,7 +3,7 @@ import pytest
 from plenum.test.delayers import pDelay, cDelay
 from plenum.test.helper import sdk_send_random_and_check, checkViewNoForNodes
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.stasher import delay_rules_without_processing
+from plenum.test.stasher import delay_rules_without_processing, delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.view_change_service.helper import get_next_primary_name
@@ -37,11 +37,11 @@ def test_new_primary_lagging_behind(looper,
     next_primary = [n for n in txnPoolNodeSet if n.name == next_primary_name][0]
     expected_primary_name = get_next_primary_name(txnPoolNodeSet, initial_view_no + 2)
     # Next primary cannot stabilize 1 checkpoint
-    with delay_rules_without_processing(next_primary.nodeIbStasher, cDelay(), pDelay()):
+    with delay_rules(next_primary.nodeIbStasher, cDelay(), pDelay()):
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, CHK_FREQ)
         ensure_view_change(looper, txnPoolNodeSet)
-        ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
-                            customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
+                        customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
 
     assert next_primary_name != expected_primary_name
     assert checkViewNoForNodes(txnPoolNodeSet) == initial_view_no + 2
