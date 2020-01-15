@@ -903,6 +903,10 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                               timeout=timeout))
 
 
+def check_not_in_view_change(nodes):
+    assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
+
+
 def checkProtocolInstanceSetup(looper: Looper,
                                nodes: Sequence[TestNode],
                                retryWait: float = 1,
@@ -922,9 +926,7 @@ def checkProtocolInstanceSetup(looper: Looper,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
 
-    def check_not_in_view_change():
-        assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
-    looper.run(eventually(check_not_in_view_change, retryWait=retryWait, timeout=customTimeout))
+    looper.run(eventually(check_not_in_view_change, nodes, retryWait=retryWait, timeout=customTimeout))
 
     if check_primaries:
         for n in nodes[1:]:
