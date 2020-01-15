@@ -754,7 +754,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # 1. Update active node reg
         # TODO: have only one source of node reg
-        old_required_number_of_instances = self.requiredNumberOfInstances
         self.allNodeNames = set(self.write_manager.node_reg_handler.active_node_reg)
         if len(self.allNodeNames) == 0:
             # Take it from the ledger if catch-up is not finished yet
@@ -780,7 +779,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 self.minimumNodes, self.quorums))
 
         # 3. Adjust replicas
-        self.adjustReplicas(old_required_number_of_instances,
+        self.adjustReplicas(len(self.replicas),
                             self.requiredNumberOfInstances)
         for r in self.replicas.values():
             # We set new list of validators for every replica,

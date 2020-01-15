@@ -15,7 +15,7 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
-    TestNode, checkNodesConnected
+    TestNode, checkNodesConnected, check_not_in_view_change
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
@@ -304,9 +304,13 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes,
     if wait:
         looper.runFor(wait)
 
-    ensure_view_change_complete(looper, nodes, customTimeout=60)
+    ensure_view_change(looper, nodes)
+    looper.run(eventually(check_not_in_view_change, nodes))
 
     reset_delays_and_process_delayeds(slow_nodes)
+
+    ensureElectionsDone(looper=looper, nodes=nodes)
+    ensure_all_nodes_have_same_data(looper, nodes)
 
     sdk_send_random_and_check(looper, nodes, sdk_pool_handle,
                               sdk_wallet_client, 5, total_timeout=30)
