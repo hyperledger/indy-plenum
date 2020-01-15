@@ -4,6 +4,7 @@ from plenum.test.helper import freshness, waitForViewChange
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.restart.helper import restart_nodes
 from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change_service.helper import send_test_instance_change
 from stp_core.loop.eventually import eventually
 
 FRESHNESS_TIMEOUT = 20
@@ -30,7 +31,7 @@ def test_view_change_with_instance_change_lost_due_to_restarts(looper, txnPoolNo
     other_nodes = txnPoolNodeSet[2:4]
 
     for n in some_nodes:
-        n.view_changer.on_master_degradation()
+        send_test_instance_change(n)
 
     def check_ic_delivery():
         for node in txnPoolNodeSet:
@@ -45,7 +46,7 @@ def test_view_change_with_instance_change_lost_due_to_restarts(looper, txnPoolNo
                   start_one_by_one=False)
 
     last_node = txnPoolNodeSet[-1]
-    last_node.view_changer.on_master_degradation()
+    send_test_instance_change(last_node)
     waitForViewChange(looper, txnPoolNodeSet, current_view_no + 1, customTimeout=3 * FRESHNESS_TIMEOUT)
 
     ensureElectionsDone(looper, txnPoolNodeSet)

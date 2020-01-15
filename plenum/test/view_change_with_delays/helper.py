@@ -11,6 +11,7 @@ from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disc
 from plenum.test.stasher import delay_rules, delay_rules_without_processing
 from plenum.test.test_node import getRequiredInstances, ensureElectionsDone, checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
+from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually, eventuallyAll
 from stp_core.loop.looper import Looper
 
@@ -116,8 +117,7 @@ def do_view_change_with_pending_request_and_one_fast_node(fast_node,
             looper.run(eventually(check_last_prepared_certificate_on_quorum, nodes, (lpc[0], lpc[1] + 1)))
 
             # Trigger view change
-            for n in nodes:
-                n.view_changer.on_master_degradation()
+            trigger_view_change(nodes)
 
         # Now commits are processed on fast node
         # Wait until view change is complete
@@ -150,8 +150,7 @@ def do_view_change_with_unaligned_prepare_certificates(
             looper.run(eventually(check_last_prepared_certificate, slow_nodes, None))
 
             # Trigger view change
-            for n in nodes:
-                n.view_changer.on_master_degradation()
+            trigger_view_change(nodes)
 
         # Now commits are processed
         # Wait until view change is complete
@@ -187,8 +186,7 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
                 looper.run(eventually(check_last_prepared_certificate_on_quorum, nodes, (lpc[0], lpc[1] + 1)))
 
                 # Trigger view change
-                for n in nodes:
-                    n.view_changer.on_master_degradation()
+                trigger_view_change(nodes)
 
                 # Wait until view change is completed on all nodes except slow one
                 waitForViewChange(looper,
@@ -244,8 +242,7 @@ def do_view_change_with_propagate_primary_on_one_delayed_node(
                 looper.run(eventually(check_last_prepared_certificate_on_quorum, nodes, (lpc[0], lpc[1] + 1)))
 
                 # Trigger view change
-                for n in nodes:
-                    n.view_changer.on_master_degradation()
+                trigger_view_change(nodes)
 
                 # Wait until view change is completed on all nodes except slow one
                 waitForViewChange(looper,
@@ -330,8 +327,7 @@ def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes
         ensure_all_nodes_have_same_data(looper, nodes)
 
     # Trigger view change on all nodes
-    for node in nodes:
-        node.view_changer.on_master_degradation()
+    trigger_view_change(nodes)
 
     assert len(nodes) == len(slow_nodes) + len(fast_nodes)
 

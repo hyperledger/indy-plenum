@@ -58,6 +58,17 @@ def test_instance_changes_are_not_sent_while_not_synced(tconf, timer, internal_b
     timer.wait_for(lambda: num_votes_for_view_change(internal_bus) == 1)
 
 
+def test_instance_changes_are_not_sent_if_primary_is_unknown(tconf, timer, internal_bus, external_bus,
+                                                             primary_connection_monitor_service):
+    # Primary disconnected
+    primary_connection_monitor_service._data.primary_name = "UnknownOmega"
+    internal_bus.send(PrimarySelected())
+
+    # Check that there are no votes for view change after quite a lot of time
+    timer.run_for(10*(tconf.ToleratePrimaryDisconnection + tconf.NEW_VIEW_TIMEOUT))
+    assert num_votes_for_view_change(internal_bus) == 0
+
+
 def test_instance_changes_are_not_sent_if_primary_disconnected_for_short_time(tconf, timer, internal_bus, external_bus,
                                                                               primary_connection_monitor_service):
     # Primary disconnected

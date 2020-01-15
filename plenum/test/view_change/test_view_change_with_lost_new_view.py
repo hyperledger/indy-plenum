@@ -5,6 +5,7 @@ from plenum.common.messages.node_messages import NewView
 from plenum.test.helper import sdk_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.view_change_service.helper import trigger_view_change
 
 call_count = 0
 
@@ -54,8 +55,7 @@ def test_view_change_with_lost_new_view(txnPoolNodeSet,
     node_to_disconnect.nodeMsgRouter.add((NewView, unpatch_after_call))
 
     # trigger view change on all nodes
-    for n in txnPoolNodeSet:
-        n.view_changer.on_master_degradation()
+    trigger_view_change(txnPoolNodeSet)
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=initial_view_no + 1)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
                         customTimeout=tconf.NEW_VIEW_TIMEOUT * (call_count + 1))

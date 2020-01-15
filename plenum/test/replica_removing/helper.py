@@ -7,6 +7,7 @@ from plenum.test.helper import sdk_send_batches_of_random_and_check, waitForView
     acc_monitor
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 
 
@@ -81,8 +82,7 @@ def do_test_replica_removing_with_backup_degraded(looper,
         looper.run(eventually(check_replica_removed_on_all_nodes, timeout=120))
 
     # start View Change
-    for node in txnPoolNodeSet:
-        node.view_changer.on_master_degradation()
+    trigger_view_change(txnPoolNodeSet)
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=view_no + 1,
                       customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)

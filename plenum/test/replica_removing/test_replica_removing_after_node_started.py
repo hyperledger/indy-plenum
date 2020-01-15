@@ -1,12 +1,12 @@
 import pytest
 
 from plenum.test.helper import waitForViewChange
-from plenum.test.view_change.helper import ensure_view_change
 
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node
 from plenum.test.replica_removing.helper import check_replica_removed
+from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 
@@ -92,8 +92,7 @@ def test_replica_removing_after_node_started(looper,
     txnPoolNodeSet.append(removed_primary_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
     # start View Change
-    for node in txnPoolNodeSet:
-        node.view_changer.on_master_degradation()
+    trigger_view_change(txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
                         instances_list=range(txnPoolNodeSet[0].requiredNumberOfInstances),
                         customTimeout=tconf.TolerateBackupPrimaryDisconnection * 2)
