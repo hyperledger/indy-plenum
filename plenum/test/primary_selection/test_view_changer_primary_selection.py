@@ -46,6 +46,7 @@ class FakeNode:
         node_names = ['Node1', 'Node2', 'Node3', 'Node4']
         self.basedirpath = tmpdir
         self.name = node_names[0]
+        self.viewNo = 0
         self.db_manager = DatabaseManager()
         self.timer = QueueTimer()
         self.f = 1
@@ -90,10 +91,6 @@ class FakeNode:
 
         # callbacks
         self.onBatchCreated = lambda self, *args, **kwargs: True
-
-    @property
-    def viewNo(self):
-        return None if self.view_changer is None else self.view_changer.view_no
 
     @property
     def ledger_summary(self):
