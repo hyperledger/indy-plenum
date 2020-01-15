@@ -6,6 +6,7 @@ import pytest
 from plenum.common.messages.internal_messages import NeedViewChange
 from plenum.common.messages.node_messages import ViewChange, NewView
 from plenum.server.consensus.batch_id import BatchID
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.test.consensus.view_change.helper import some_pool
 from plenum.test.helper import MockNetwork
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
