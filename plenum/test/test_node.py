@@ -789,7 +789,7 @@ async def checkNodesCanRespondToClients(nodes):
 
 
 async def checkNodesConnected(nodes: Iterable[TestNode],
-                              customTimeout=None):
+                              customTimeout=20):
     # run for how long we expect all of the connections to take
     timeout = customTimeout or \
               waits.expectedPoolInterconnectionTime(len(nodes))
@@ -942,7 +942,7 @@ def checkProtocolInstanceSetup(looper: Looper,
 def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
-                        customTimeout: float = None,
+                        customTimeout: float = 20,
                         instances_list: Sequence[int] = None,
                         check_primaries=True) -> Sequence[TestNode]:
     # TODO: Change the name to something like `ensure_primaries_selected`

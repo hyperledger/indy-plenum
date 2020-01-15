@@ -13,7 +13,8 @@ class PrimaryBatchHandler(BatchRequestHandler):
         self.primaries_selector = RoundRobinNodeRegPrimariesSelector(node_reg_handler)
 
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
-        three_pc_batch.primaries = self.primaries_selector.select_primaries(three_pc_batch.original_view_no)
+        view_no = three_pc_batch.original_view_no if three_pc_batch.original_view_no is not None else three_pc_batch.view_no
+        three_pc_batch.primaries = self.primaries_selector.select_primaries(view_no)
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         pass
