@@ -20,7 +20,7 @@ def test_audit_multiple_uncommitted_node_regs(looper, tdir, tconf, allPluginsPat
     slow_stashers = [slow_node.nodeIbStasher]
 
     # let's ignore view changes for simplicity here
-    start_delaying([n.nodeIbStasher for n in txnPoolNodeSet], icDelay())
+    # start_delaying([n.nodeIbStasher for n in txnPoolNodeSet], icDelay())
 
     with delay_rules(slow_stashers, cDelay()):
         # Add Node5
