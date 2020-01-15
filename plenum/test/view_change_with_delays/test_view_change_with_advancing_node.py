@@ -8,6 +8,7 @@ from plenum.test.helper import sdk_send_random_and_check, \
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
+from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 
 
@@ -75,8 +76,7 @@ def do_view_change_with_delayed_commits_on_all_but_one(nodes, nodes_without_one_
                                                    old_last_ordered[1] + 1)))
 
         # trigger view change on all nodes
-        for node in nodes:
-            node.view_changer.on_master_degradation()
+        trigger_view_change(nodes)
 
         # wait for view change done on all nodes
         looper.run(eventually(view_change_done, nodes, new_view_no))

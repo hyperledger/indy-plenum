@@ -2588,7 +2588,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
             if self.monitor.isMasterDegraded():
                 logger.display('{} master instance performance degraded'.format(self))
-                self.view_changer.on_master_degradation()
+                self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.PRIMARY_DEGRADED))
                 return False
             else:
                 logger.trace("{}'s master has higher performance than backups".
@@ -2952,7 +2952,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                                      Suspicions.PPR_TIME_WRONG,
                                      )):
             logger.display('{}{} got one of primary suspicions codes {}'.format(VIEW_CHANGE_PREFIX, self, code))
-            self.view_changer.on_suspicious_primary(Suspicions.get_by_code(code))
+            self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.get_by_code(code)))
 
         if offendingMsg:
             self.discard(offendingMsg, reason, logger.debug)

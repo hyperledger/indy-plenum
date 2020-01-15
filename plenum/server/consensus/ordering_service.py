@@ -4,7 +4,7 @@ import time
 from _sha256 import sha256
 from collections import defaultdict, OrderedDict, deque
 from functools import partial
-from typing import Tuple, List, Set, Optional, Dict, Iterable
+from typing import Tuple, List, Set, Optional, Dict, Iterable, Callable
 
 from orderedset._orderedset import OrderedSet
 from sortedcontainers import SortedList
@@ -30,7 +30,7 @@ from plenum.common.request import Request
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
-from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
+from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time, get_digest
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
     get_utc_epoch, max_3PC_key
@@ -67,8 +67,8 @@ class OrderingService:
                  bls_bft_replica: BlsBftReplica,
                  freshness_checker: FreshnessChecker,
                  stasher=None,
-                 get_current_time=None,
-                 get_time_for_3pc_batch=None,
+                 get_current_time: Optional[Callable[[], float]] = None,
+                 get_time_for_3pc_batch: Optional[Callable[[], int]] = None,
                  metrics: MetricsCollector = NullMetricsCollector()):
         self.metrics = metrics
         self._data = data
@@ -165,11 +165,6 @@ class OrderingService:
         # view. Key is the view no and value is the name of the primary
         # replica during that view
         self.primary_names = OrderedDict()  # type: OrderedDict[int, str]
-
-        # Indicates name of the primary replica of this protocol instance.
-        # None in case the replica does not know who the primary of the
-        # instance is
-        self._primary_name = None  # type: Optional[str]
 
         # Did we log a message about getting request while absence of primary
         self.warned_no_primary = False
@@ -815,17 +810,6 @@ class OrderingService:
     def _validate(self, msg):
         return self._validator.validate(msg)
 
-    """Method from legacy code"""
-    def l_compact_primary_names(self):
-        min_allowed_view_no = self.view_no - 1
-        views_to_remove = []
-        for view_no in self.primary_names:
-            if view_no >= min_allowed_view_no:
-                break
-            views_to_remove.append(view_no)
-        for view_no in views_to_remove:
-            self.primary_names.pop(view_no)
-
     def _can_process_pre_prepare(self, pre_prepare: PrePrepare, sender: str):
         """
         Decide whether this replica is eligible to process a PRE-PREPARE.
@@ -1244,7 +1228,10 @@ class OrderingService:
                     .format(self, reqCount, Ledger.hashToStr(state.headHash),
                             Ledger.hashToStr(stateRootHash), ledgerId))
         state.revertToHead(stateRootHash)
-        ledger.discardTxns(reqCount)
+        reverted_txns = ledger.discardTxns(reqCount)
+        if reverted_txns:
+            for txn in reverted_txns:
+                self.requestQueues[ledgerId].add(get_digest(txn))
         self.post_batch_rejection(ledgerId)
 
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
@@ -1493,6 +1480,7 @@ class OrderingService:
 
         self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
                                                  ts=pp.ppTime)
+        self._data.last_batch_timestamp = pp.ppTime
 
         self._add_to_ordered(*key)
         invalid_indices = invalid_index_serializer.deserialize(pp.discarded)
@@ -1775,8 +1763,8 @@ class OrderingService:
 
     def _do_dynamic_validation(self, request: Request, req_pp_time: int):
         """
-                State based validation
-                """
+        State based validation
+        """
         # Digest validation
         # TODO implicit caller's context: request is processed by (master) replica
         # as part of PrePrepare 3PC batch
@@ -2202,11 +2190,13 @@ class OrderingService:
         self._remove_till_caught_up_3pc(last_caught_up_3PC)
 
         # Get all pre-prepares and prepares since the latest stable checkpoint
-        ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
-        last_txn = ledger.get_last_txn()
+        audit_ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
+        last_txn = audit_ledger.get_last_txn()
 
         if not last_txn:
             return
+
+        self._data.last_batch_timestamp = get_txn_time(last_txn)
 
         to = get_payload_data(last_txn)[AUDIT_TXN_PP_SEQ_NO]
         frm = to - to % self._config.CHK_FREQ + 1
@@ -2219,7 +2209,7 @@ class OrderingService:
                     pp_seq_no=get_payload_data(txn)[AUDIT_TXN_PP_SEQ_NO],
                     pp_digest=get_payload_data(txn)[AUDIT_TXN_DIGEST]
                 )
-                for _, txn in ledger.getAllTxn(frm=frm, to=to)
+                for _, txn in audit_ledger.getAllTxn(frm=frm, to=to)
             ]
 
             self._data.preprepared.extend(batch_ids)

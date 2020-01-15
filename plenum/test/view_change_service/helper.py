@@ -1,5 +1,6 @@
 from plenum.common.constants import PREPREPARE
-from plenum.common.messages.internal_messages import NodeNeedViewChange
+from plenum.common.messages.internal_messages import NodeNeedViewChange, VoteForViewChange
+from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import cDelay, ppDelay, msg_rep_delay, old_view_pp_reply_delay, nv_delay
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -11,13 +12,16 @@ from stp_core.loop.eventually import eventually
 
 
 def get_next_primary_name(txnPoolNodeSet, expected_view_no):
-    inst_count = len(txnPoolNodeSet[0].replicas)
     return txnPoolNodeSet[0].primaries_selector.select_master_primary(expected_view_no)
+
+
+def send_test_instance_change(node):
+    node.master_replica.internal_bus.send(VoteForViewChange(Suspicions.DEBUG_FORCE_VIEW_CHANGE))
 
 
 def trigger_view_change(nodes):
     for node in nodes:
-        node.view_changer.on_master_degradation()
+        send_test_instance_change(node)
 
 
 def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,

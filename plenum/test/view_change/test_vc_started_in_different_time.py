@@ -1,8 +1,9 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_and_check, assertExp
+from plenum.test.helper import sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change.helper import restart_node, nodes_received_ic
+from plenum.test.view_change_service.helper import send_test_instance_change
 from stp_core.loop.eventually import eventually
 
 
@@ -22,7 +23,7 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
 
     # Delta and Gamma send InstanceChange for all nodes.
     for node in [gamma, delta]:
-        node.view_changer.on_master_degradation()
+        send_test_instance_change(node)
         looper.run(
             eventually(nodes_received_ic, txnPoolNodeSet, node, 1))
 
@@ -32,7 +33,7 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
     alpha, beta, gamma, delta = txnPoolNodeSet
 
     # Send InstanceChange from Beta for all nodes
-    beta.view_changer.on_master_degradation()
+    send_test_instance_change(beta)
 
     # Ensure that pool is still functional
     sdk_send_random_and_check(looper, txnPoolNodeSet,
@@ -46,7 +47,7 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
 
     # Alpha, Gamma send InstanceChange for all nodes.
     for node in [alpha, gamma]:
-        node.view_changer.on_master_degradation()
+        send_test_instance_change(node)
 
     # Ensure that pool is still functional
     sdk_send_random_and_check(looper, txnPoolNodeSet,
