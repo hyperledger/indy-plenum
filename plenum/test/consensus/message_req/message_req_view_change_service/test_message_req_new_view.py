@@ -39,7 +39,7 @@ def test_process_message_req_new_view(message_req_service: MessageReqService,
                                       new_view_message: NewView):
     frm = "frm"
     data.primary_name = data.name
-    data.new_view = new_view_message
+    data.new_view_votes.add_new_view(new_view_message, data.primary_name)
     message_req = MessageReq(**{
         f.MSG_TYPE.nm: NEW_VIEW,
         f.PARAMS.nm: {f.INST_ID.nm: data.inst_id,
@@ -59,14 +59,14 @@ def test_process_message_req_new_view_by_non_primary(message_req_service: Messag
                                                      new_view_message: NewView):
     frm = "frm"
     data.primary_name = "a" + data.name
-    data.new_view = new_view_message
+    data.new_view_votes.add_new_view(new_view_message, data.primary_name)
     message_req = MessageReq(**{
         f.MSG_TYPE.nm: NEW_VIEW,
         f.PARAMS.nm: {f.INST_ID.nm: data.inst_id,
                       f.VIEW_NO.nm: data.view_no},
     })
     external_bus.process_incoming(message_req, frm)
-    assert len(external_bus.sent_messages) == 0
+    assert len(external_bus.sent_messages) == 1
 
 
 def test_process_missing_message_new_view(message_req_service: MessageReqService, external_bus, data,
