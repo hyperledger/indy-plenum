@@ -126,7 +126,7 @@ class ViewChangeService:
         self._clear_old_batches(self._old_prepared)
         self._clear_old_batches(self._old_preprepared)
         self.view_change_votes.clear()
-        self._data.new_view = None
+        self._data.new_view_votes.clear()
 
     def _clear_old_batches(self, batches: Dict[int, Any]):
         for pp_seq_no in list(batches.keys()):
@@ -208,17 +208,7 @@ class ViewChangeService:
 
         logger.info("{} processing {} from {}".format(self, msg, frm))
 
-        if frm != self._data.primary_name:
-            logger.info(
-                "{} Received NewView {} for view {} from non-primary {}; expected primary {}".format(self._data.name,
-                                                                                                     msg,
-                                                                                                     self._data.view_no,
-                                                                                                     frm,
-                                                                                                     self._data.primary_name)
-            )
-            return DISCARD, "New View from non-Primary"
-
-        self._data.new_view = msg
+        self._data.new_view_votes.add_new_view(msg, frm)
         self._finish_view_change_if_needed()
         return PROCESS, None
 
@@ -271,7 +261,7 @@ class ViewChangeService:
         )
         logger.info("{} sending {}".format(self, nv))
         self._network.send(nv)
-        self._data.new_view = nv
+        self._data.new_view_votes.add_new_view(nv, self._data.name)
         self._finish_view_change()
 
     def _finish_view_change_if_needed(self):
@@ -343,7 +333,7 @@ class ViewChangeService:
         self._bus.send(MissingMessage(msg_type=NEW_VIEW,
                                       key=view_no,
                                       inst_id=self._data.inst_id,
-                                      dst=[replica_name_to_node_name(self._data.primary_name)],
+                                      dst=None,
                                       stash_data=None))
 
     def _request_view_change_message(self, key):

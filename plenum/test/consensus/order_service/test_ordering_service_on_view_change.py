@@ -294,7 +294,7 @@ def test_process_preprepare_on_old_view_pre_prepares_reply(external_bus, interna
     orderer._data.view_no = initial_view_no + 1
     new_view = create_new_view(initial_view_no=initial_view_no, stable_cp=200,
                                batches=create_batches_from_preprepares(pre_prepares))
-    orderer._data.new_view = new_view
+    orderer._data.new_view_votes.add_new_view(new_view, orderer._data.primary_name)
     orderer._data.prev_view_prepare_cert = new_view.batches[-1].pp_seq_no
 
     # !!!EXECUTE!!!
