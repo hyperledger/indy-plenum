@@ -2,7 +2,7 @@ from plenum.test.delayers import cDelay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
-from plenum.test.stasher import delay_rules_without_processing, delay_rules
+from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
 
 
