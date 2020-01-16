@@ -44,8 +44,6 @@ from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
-from plenum.server.view_change.node_view_changer import create_view_changer
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
@@ -139,13 +137,6 @@ class TestNodeCore(StackedTester):
     def _serviceActions(self):
         self.actionQueueStasher.process()
         return super()._serviceActions()
-
-    def newViewChanger(self):
-        view_changer = self.view_changer if self.view_changer is not None \
-            else create_view_changer(self, ViewChanger)
-        # TODO: This is a hack for tests compatibility, do something better
-        view_changer.node = self
-        return view_changer
 
     def delayCheckPerformance(self, delay: Seconds):
         logger.debug("{} delaying check performance".format(self))
@@ -328,7 +319,6 @@ class TestNode(TestNodeCore, Node):
             kwargs['bootstrap_cls'] = TestNodeBootstrap
 
         Node.__init__(self, *args, **kwargs)
-        self.view_changer = create_view_changer(self, ViewChanger)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
