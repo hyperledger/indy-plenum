@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.common.util import randomString
-from plenum.test.helper import sdk_send_random_and_check, get_pp_seq_no
+from plenum.test.helper import get_pp_seq_no
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.view_change.helper import ensure_several_view_change
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
@@ -53,6 +53,12 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
 
     assert (cur_ppseqno < get_pp_seq_no(txnPoolNodeSet))
 
+
+
+    # Disable view change after adding new node as it will not be able to finish due to fake ppSeqNo set
+    for n in txnPoolNodeSet:
+        n._on_node_count_changed_committed = lambda: None
+
     new_steward_name = "testClientSteward" + randomString(4)
     new_node_name = "TestTheta" + randomString(4)
     new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
@@ -61,6 +67,7 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
         allPluginsPath=allPluginsPath)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
+
     sdk_ensure_pool_functional(looper, txnPoolNodeSet,
                                new_steward_wallet_handle,
                                sdk_pool_handle)

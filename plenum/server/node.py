@@ -535,14 +535,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         for txn in committed_txns:
             node_count_changed |= self.poolManager.onPoolMembershipChange(txn)
 
-        # Start View Change immediately unless this is re-ordering of txns from the last view
         if node_count_changed and three_pc_batch.original_view_no == current_view_no:
-            # send Instance Change (to current_view_no + 1) first, and only then start the View Change
-            # otherwise Instance Change would be sent to current_view_no + 2
-            self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.NODE_COUNT_CHANGED))
-            # self.master_replica._internal_bus.send(NodeNeedViewChange(current_view_no + 1))
+            self._on_node_count_changed_committed()
 
         return committed_txns
+
+    def _on_node_count_changed_committed(self):
+        self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.NODE_COUNT_CHANGED))
 
     def execute_domain_txns(self, three_pc_batch) -> List:
         committed_txns = self.default_executer(three_pc_batch)
