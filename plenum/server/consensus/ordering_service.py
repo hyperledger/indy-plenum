@@ -2355,6 +2355,7 @@ class OrderingService:
 
         self._clear_prev_view_pre_prepares()
         self._stasher.process_all_stashed(STASH_CATCH_UP)
+        self._stasher.process_all_stashed(STASH_WAITING_FIRST_BATCH_IN_VIEW)
         self._finish_master_reordering()
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
