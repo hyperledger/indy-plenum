@@ -5,7 +5,7 @@ from plenum.test.pool_transactions.helper import demote_node
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 
-nodeCount = 7
+nodeCount = 8
 
 
 def test_demote_node_delay_commit_on_one(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -13,7 +13,7 @@ def test_demote_node_delay_commit_on_one(looper, txnPoolNodeSet, sdk_pool_handle
     view_no = txnPoolNodeSet[-1].viewNo
     slow_node = txnPoolNodeSet[-2]
 
-    # Demote Node7 but don't allow Node6 to be aware of it.
+    # Demote Node8 but don't allow Node7 to be aware of it.
     with delay_rules(slow_node.nodeIbStasher, cDelay()):
         demote_node(looper, sdk_wallet_stewards[-1], sdk_pool_handle,
                     txnPoolNodeSet[-1])
