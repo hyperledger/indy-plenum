@@ -4,6 +4,7 @@ from plenum.test.delayers import nv_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change_service.helper import trigger_view_change
 
 NEW_VIEW_TIMEOUT = 8
 
@@ -23,14 +24,12 @@ def test_view_change_timeout_reset_on_next_view(txnPoolNodeSet, looper, tconf):
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
     with delay_rules(stashers, nv_delay()):
         # Start first view change
-        for n in txnPoolNodeSet:
-            n.view_changer.on_master_degradation()
+        trigger_view_change(txnPoolNodeSet)
         waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1)
         looper.runFor(0.6 * NEW_VIEW_TIMEOUT)
 
         # Start second view change
-        for n in txnPoolNodeSet:
-            n.view_changer.on_master_degradation()
+        trigger_view_change(txnPoolNodeSet)
         waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=2)
         looper.runFor(0.6 * NEW_VIEW_TIMEOUT)
 

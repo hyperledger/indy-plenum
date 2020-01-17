@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
@@ -89,6 +89,9 @@ class ConsensusSharedData:
         # Tracks for which keys PRE-PREPAREs have been requested.
         # Cleared in `gc`
         self.requested_pre_prepares = {}
+
+        # Timestamp of last ordered batch, used for freshness checks
+        self.last_batch_timestamp = None
 
         # Flag to mark that master reordered after VC
         self._master_reordered_after_vc = True

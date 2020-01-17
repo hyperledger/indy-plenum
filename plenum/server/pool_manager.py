@@ -8,6 +8,8 @@ from typing import Optional
 from typing import List
 
 from common.exceptions import LogicError
+from plenum.common.messages.internal_messages import VoteForViewChange
+from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
 from stp_core.network.auth_mode import AuthMode
 from stp_core.network.exceptions import RemoteNotFound
@@ -210,7 +212,8 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
     def node_about_to_be_disconnected(self, nodeName):
         if self.node.master_primary_name == nodeName:
-            self.node.view_changer.on_primary_about_to_be_disconnected()
+            self.node.master_replica.internal_bus.send(
+                VoteForViewChange(Suspicions.PRIMARY_ABOUT_TO_BE_DISCONNECTED))
 
     def nodeHaChanged(self, txn_data):
         nodeNym = txn_data[TARGET_NYM]

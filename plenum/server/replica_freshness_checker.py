@@ -1,15 +1,13 @@
 from collections import OrderedDict
 
 
-class FreshnessState():
-
+class FreshnessState:
     def __init__(self, last_updated, last_marked_as_outdated) -> None:
         self.last_updated = last_updated
         self.last_marked_as_outdated = last_marked_as_outdated
 
 
-class FreshnessChecker():
-
+class FreshnessChecker:
     def __init__(self,
                  freshness_timeout):
         self.freshness_timeout = freshness_timeout

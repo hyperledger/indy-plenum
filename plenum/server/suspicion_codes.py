@@ -93,6 +93,7 @@ class Suspicions:
     INCORRECT_NEW_PRIMARY = Suspicion(49, "In view change selected master primary is the same with the "
                                           "current master primary")
     PPR_WITH_WRONG_PRIMARIES = Suspicion(50, "Pre-Prepare message has wrong list of primaries")
+    DEBUG_FORCE_VIEW_CHANGE = Suspicion(777, "DEBUG Need to do forced view change")
 
     @classmethod
     def get_list(cls):
