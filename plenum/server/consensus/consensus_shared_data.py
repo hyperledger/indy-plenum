@@ -93,7 +93,7 @@ class ConsensusSharedData:
         self.last_batch_timestamp = None
 
         # Flag to mark that master reordered after VC
-        self._master_reordered_after_vc = True
+        self.master_reordered_after_vc = True
 
     @property
     def name(self) -> str:

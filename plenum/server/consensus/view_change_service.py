@@ -82,7 +82,7 @@ class ViewChangeService:
         self._data.waiting_for_new_view = True
         self._data.primary_name = None
         if not self._data.is_master:
-            self._data._master_reordered_after_vc = False
+            self._data.master_reordered_after_vc = False
 
         if not self._data.is_master:
             return

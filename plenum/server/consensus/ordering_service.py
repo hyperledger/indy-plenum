@@ -1451,9 +1451,8 @@ class OrderingService:
         """
         Try to order if the Commit message is ready to be ordered.
         """
-        if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo) and \
-                self._data.prev_view_prepare_cert + 1 == commit.ppSeqNo:
-            self._on_first_bacth_in_view_ordered()
+        if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo):
+            self._on_first_batch_in_view_ordered(commit.ppSeqNo)
 
         canOrder, reason = self._can_order(commit)
         if canOrder:
@@ -1464,9 +1463,10 @@ class OrderingService:
 
         return canOrder
 
-    def _on_first_bacth_in_view_ordered(self):
-        self._bus.send(MasterReorderedAfterVC())
-        self._stasher.process_all_stashed(STASH_WAITING_FIRST_BATCH_IN_VIEW)
+    def _on_first_batch_in_view_ordered(self, pp_seq_no):
+        if self._data.prev_view_prepare_cert + 1 == pp_seq_no:
+            self._bus.send(MasterReorderedAfterVC())
+            self._stasher.process_all_stashed(STASH_WAITING_FIRST_BATCH_IN_VIEW)
 
     def _do_order(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
@@ -1537,13 +1537,14 @@ class OrderingService:
         # BLS multi-sig:
         self.l_bls_bft_replica.process_order(key, self._data.quorums, pp)
 
+        # do it after Ordered msg is sent
+        self._on_first_batch_in_view_ordered(key[1])
+
         return True
 
     def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
-        if self._data.prev_view_prepare_cert + 1 == pp_seq_no:
-            self._on_first_bacth_in_view_ordered()
 
     def _get_primaries_for_ordered(self, pp):
         txn_primaries = self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
@@ -1823,7 +1824,7 @@ class OrderingService:
             return False
         if not self._data.is_participating:
             return False
-        if not self.is_master and not self._data._master_reordered_after_vc:
+        if not self.is_master and not self._data.master_reordered_after_vc:
             return False
         if self._data.waiting_for_new_view:
             return False
@@ -2474,4 +2475,4 @@ class OrderingService:
 
     def _finish_master_reordering(self):
         if not self.is_master:
-            self._data._master_reordered_after_vc = True
+            self._data.master_reordered_after_vc = True

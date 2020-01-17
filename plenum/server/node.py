@@ -3215,7 +3215,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             if not replica.isMaster:
                 # ToDo: This line should be changed to sending internal message
                 #  instead of setting attr directly
-                replica._consensus_data._master_reordered_after_vc = True
+                replica._consensus_data.master_reordered_after_vc = True
 
     def _process_node_need_view_change(self, msg: NodeNeedViewChange):
         self.on_view_change_start()
