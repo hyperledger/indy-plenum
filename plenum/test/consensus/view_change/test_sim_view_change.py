@@ -120,11 +120,9 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom,
     pool.network.set_latency(min_latency, max_latency)
 
     # 3. set filters
-    for msg_type in filtered_msg_types:
-        pool.network.add_processor(Processor(selectors=[message_dst(replica_name_to_node_name(pool.nodes[-1].name)),
-                                                        message_type(msg_type)],
-                                             action=Discard(probability=filter_probability)))
-
+    pool.network.add_processor(Discard(probability=filter_probability),
+                               message_type(filtered_msg_types),
+                               message_dst(replica_name_to_node_name(pool.nodes[-1].name)))
     # EXECUTE
 
     # Schedule view change at different time on all nodes

@@ -18,19 +18,25 @@ Stash = NamedTuple('Stash', [])
 Action = Union[Discard, Deliver, Stash]
 
 Selector = Callable[[Any, str, str], bool]  # predicate receiving message and names of source and destination peers
-Processor = NamedTuple('Processor', [('selectors', List[Selector]),
-                                     ('action', Action)])
+Processor = NamedTuple('Processor', [('action', Action),
+                                     ('selectors', Iterable[Selector])])
 
 
-def message_dst(dst: str):
+def message_frm(frm: Union[str, Iterable[str]]) -> Selector:
     def _selector(_msg: Any, _frm: str, _dst: str):
-        return _dst == dst
+        return _frm == frm if isinstance(frm, str) else _frm in frm
     return _selector
 
 
-def message_type(t: type):
+def message_dst(dst: Union[str, Iterable[str]]) -> Selector:
     def _selector(_msg: Any, _frm: str, _dst: str):
-        return isinstance(_msg, t)
+        return _dst == dst if isinstance(dst, str) else _dst in dst
+    return _selector
+
+
+def message_type(t: Union[type, Iterable[type]]) -> Selector:
+    def _selector(_msg: Any, _frm: str, _dst: str):
+        return isinstance(_msg, t) if isinstance(t, type) else isinstance(_msg, tuple(t))
     return _selector
 
 
@@ -112,8 +118,10 @@ class SimNetwork:
         self._peers[name] = bus
         return bus
 
-    def add_processor(self, p: Processor):
+    def add_processor(self, action: Action, *args: Selector) -> Processor:
+        p = Processor(action=action, selectors=args)
         self._processing_chain.add(p)
+        return p
 
     def remove_processor(self, p: Processor):
         self._processing_chain.remove(p)
