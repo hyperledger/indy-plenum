@@ -4,6 +4,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
+from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 
 nodeCount = 7
@@ -31,7 +32,7 @@ def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet
 
     # Force 5 view changes so that we have viewNo == 5 and Zeta is the primary.
     for _ in range(5):
-        start_view_change(txnPoolNodeSet)
+        trigger_view_change(txnPoolNodeSet)
         waitForViewChange(looper, txnPoolNodeSet, view_no + 1)
         ensureElectionsDone(looper, txnPoolNodeSet)
         view_no = checkViewNoForNodes(txnPoolNodeSet)
@@ -63,14 +64,9 @@ def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet
 
     current_view_no = checkViewNoForNodes(fast_nodes)
     expected_view_no = current_view_no + 1
-    start_view_change(txnPoolNodeSet)
+    trigger_view_change(txnPoolNodeSet)
     waitForViewChange(looper, txnPoolNodeSet, expected_view_no)
     ensureElectionsDone(looper, fast_nodes)
 
     looper.run(eventually(complete_vc, lagging_node, timeout=60))
     assert lagging_node.viewNo == expected_view_no
-
-
-def start_view_change(pool):
-    for n in pool:
-        n.view_changer.on_master_degradation()
