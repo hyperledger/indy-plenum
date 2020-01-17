@@ -22,6 +22,18 @@ Processor = NamedTuple('Processor', [('selectors', List[Selector]),
                                      ('action', Action)])
 
 
+def message_dst(dst: str):
+    def _selector(_msg: Any, _frm: str, _dst: str):
+        return _dst == dst
+    return _selector
+
+
+def message_type(t: type):
+    def _selector(_msg: Any, _frm: str, _dst: str):
+        return isinstance(_msg, t)
+    return _selector
+
+
 class ProcessingChain:
     ScheduleDelivery = Callable[[float, Any, str, str], None]  # callable receiving delay, msg, source and destination peers
 
@@ -48,9 +60,8 @@ class ProcessingChain:
 
     def process(self, msg: Any, frm: str, dst: str):
         for p in reversed(self._processors):
-            for selector in p.selectors:
-                if not selector(msg, frm, dst):
-                    continue
+            if not all(selector(msg, frm, dst) for selector in p.selectors):
+                continue
 
             if isinstance(p.action, Discard):
                 if self._random.float(0.0, 1.0) <= p.action.probability:
@@ -88,8 +99,6 @@ class SimNetwork:
         self._serialize_deserialize = serialize_deserialize \
             if serialize_deserialize is not None \
             else lambda x: x
-        self._min_latency = 0.01
-        self._max_latency = 0.5
         self._logger = getLogger()
         self._peers = OrderedDict()  # type: OrderedDict[str, ExternalBus]
         self._processing_chain = ProcessingChain(random, self._schedule_delivery)
@@ -103,15 +112,14 @@ class SimNetwork:
         self._peers[name] = bus
         return bus
 
-    def add_processor(self, selector: Selector, action: Action) -> Processor:
-        return self._processing_chain.add(selector, action)
+    def add_processor(self, p: Processor):
+        self._processing_chain.add(p)
 
     def remove_processor(self, p: Processor):
         self._processing_chain.remove(p)
 
     def set_latency(self, min_value: int, max_value: int):
-        self._min_latency = min_value
-        self._max_latency = max_value
+        self._processing_chain.set_default_latency(min_value, max_value)
 
     def reset_filters(self, names: Iterable=None, messages_types: Iterable=None):
         if names is None:
