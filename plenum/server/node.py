@@ -793,7 +793,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         # 5. Check if master Primary is still in the list of active nodes
         if self.master_replica.primaryName is not None and replica_name_to_node_name(self.master_replica.primaryName) not in self.allNodeNames:
-            self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.NODE_COUNT_CHANGED))
+            self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.PRIMARY_DEMOTED))
 
     def build_ledger_status(self, ledger_id):
         ledger = self.getLedger(ledger_id)

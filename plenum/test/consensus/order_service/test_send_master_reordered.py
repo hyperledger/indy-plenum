@@ -19,7 +19,7 @@ def view_pp(request):
 def test_send_master_reordered_for_non_ordered(orderer, view_pp):
     (view_no, pp_seq_no), should_be_sent = view_pp
     orderer._data.prev_view_prepare_cert = PREV_VIEW_PP_CERT
-    orderer._on_first_batch_in_view_ordered(pp_seq_no)
+    orderer._try_finish_reordering_after_vc(pp_seq_no)
     if should_be_sent:
         assert len(orderer._bus.sent_messages) == 1
         assert isinstance(orderer._bus.sent_messages[0], MasterReorderedAfterVC)

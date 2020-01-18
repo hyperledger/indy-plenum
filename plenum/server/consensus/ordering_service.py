@@ -1452,7 +1452,7 @@ class OrderingService:
         Try to order if the Commit message is ready to be ordered.
         """
         if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo):
-            self._on_first_batch_in_view_ordered(commit.ppSeqNo)
+            self._try_finish_reordering_after_vc(commit.ppSeqNo)
 
         canOrder, reason = self._can_order(commit)
         if canOrder:
@@ -1463,7 +1463,7 @@ class OrderingService:
 
         return canOrder
 
-    def _on_first_batch_in_view_ordered(self, pp_seq_no):
+    def _try_finish_reordering_after_vc(self, pp_seq_no):
         if self._data.prev_view_prepare_cert + 1 == pp_seq_no:
             self._bus.send(MasterReorderedAfterVC())
             self._stasher.process_all_stashed(STASH_WAITING_FIRST_BATCH_IN_VIEW)
@@ -1538,7 +1538,7 @@ class OrderingService:
         self.l_bls_bft_replica.process_order(key, self._data.quorums, pp)
 
         # do it after Ordered msg is sent
-        self._on_first_batch_in_view_ordered(key[1])
+        self._try_finish_reordering_after_vc(key[1])
 
         return True
 

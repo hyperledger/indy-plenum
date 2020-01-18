@@ -80,15 +80,18 @@ class ViewChangeService:
         # 3. Update shared data
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
+        old_primary = self._data.primary_name
         self._data.primary_name = None
         if not self._data.is_master:
             self._data.master_reordered_after_vc = False
-
-        if not self._data.is_master:
             return
 
-        # Backup primaries will be re-selected after re-ordering is done
-        old_primary = self._data.primary_name
+        # Only the master primary is selected at the beginning of view change as we need to get a NEW_VIEW and do re-ordering on master
+        # Backup primaries will not be selected (and backups will not order) until re-ordering of txns from previous view on master is finished
+        # More precisely, it will be done after the first batch in a new view is committed
+        # This is done so as N and F may change as a result of NODE txns ordered in last view,
+        # so we need a synchronous point of updating N, F, number of replicas and backup primaris
+        # Beginning of view (when the first batch in a view is ordered) is such a point.
         self._data.primary_name = generateName(self._primaries_selector.select_master_primary(self._data.view_no),
                                                self._data.inst_id)
 
