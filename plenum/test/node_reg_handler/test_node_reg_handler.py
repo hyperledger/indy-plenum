@@ -446,14 +446,14 @@ def test_update_node_regs_on_revert_in_different_views(node_reg_handler, init_no
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
-    demote_node(write_req_manager, "Beta", view_no=2, commit=False)
+    demote_node(write_req_manager, "Beta", view_no=3, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.active_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']
     assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
-    add_node(write_req_manager, "BBB", view_no=2, commit=False)
+    add_node(write_req_manager, "BBB", view_no=3, commit=False)
     assert node_reg_handler.uncommitted_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.active_node_reg == ['Alpha', 'Delta', 'Epsilon', 'AAA']

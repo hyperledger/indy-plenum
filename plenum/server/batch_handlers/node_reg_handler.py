@@ -73,19 +73,21 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         # find the uncommitted node reg at the beginning of view
         if self._uncommitted_view_no < reverted.view_no:
-            if self._committed_view_no == self._uncommitted_view_no:
-                self.active_node_reg = list(self.node_reg_at_beginning_of_view[self._committed_view_no])
-            else:
-                i = 1
-                while i <= len(self._uncommitted) and self._uncommitted_view_no == self._uncommitted[-i].view_no:
-                    i += 1
-                self.active_node_reg = list(self._uncommitted[-i + 1].uncommitted_node_reg)
+            self.active_node_reg = self._find_uncommitted_node_reg_at_beginning_of_view()
 
         logger.debug("Reverted uncommitted node registry from {} to {}".format(reverted.uncommitted_node_reg,
                                                                                self.uncommitted_node_reg))
         logger.debug(
             "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
         logger.debug("Current active node registry: {}".format(self.active_node_reg))
+
+    def _find_uncommitted_node_reg_at_beginning_of_view(self):
+        if self._committed_view_no == self._uncommitted_view_no:
+            return list(self.node_reg_at_beginning_of_view[self._committed_view_no])
+        i = 1
+        while i <= len(self._uncommitted) and self._uncommitted_view_no == self._uncommitted[-i].view_no:
+            i += 1
+        return list(self._uncommitted[-i + 1].uncommitted_node_reg)
 
     def commit_batch(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         prev_committed = self.committed_node_reg
