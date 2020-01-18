@@ -155,9 +155,6 @@ class FakeNode:
     def no_more_catchups_needed(self):
         pass
 
-    def select_primaries(self):
-        pass
-
     def utc_epoch(self):
         return get_utc_epoch()
 

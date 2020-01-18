@@ -62,7 +62,6 @@ class ReplicaService:
                                         write_manager=self._write_manager,
                                         bls_bft_replica=bls_bft_replica,
                                         freshness_checker=self._freshness_checker,
-                                        primaries_selector=self._primaries_selector,
                                         get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                         stasher=self.stasher)
         self._checkpointer = CheckpointService(self._data, bus, network, self.stasher,
@@ -96,7 +95,6 @@ class ReplicaService:
 
         # ToDo: it should be done in Zero-view stage.
         write_manager.on_catchup_finished()
-        self._data.primaries = self._view_changer._primaries_selector.select_primaries(self._data.view_no)
 
         # Simulate node behavior
         self._internal_bus = bus

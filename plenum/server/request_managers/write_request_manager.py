@@ -11,6 +11,7 @@ from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, AML, TXN_AUTHOR_AG
     TXN_AUTHOR_AGREEMENT_RATIFICATION_TS
 from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
 from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
+from plenum.server.batch_handlers.primary_batch_handler import PrimaryBatchHandler
 
 from plenum.server.request_handlers.utils import VALUE
 from plenum.common.request import Request
@@ -36,6 +37,7 @@ class WriteRequestManager(RequestManager):
         self.state_serializer = pool_state_serializer
         self.audit_b_handler = None
         self.node_reg_handler = None
+        self.primary_reg_handler = None
         self.config = getConfig()
         # TODO: combine dictionary request_handlers with _request_handlers_with_version.
         self._request_handlers_with_version = {}  # type: Dict[Tuple[int, str], List[WriteRequestHandler]]
@@ -85,6 +87,8 @@ class WriteRequestManager(RequestManager):
             self.audit_b_handler = handler
         if isinstance(handler, NodeRegHandler):
             self.node_reg_handler = handler
+        if isinstance(handler, PrimaryBatchHandler):
+            self.primary_reg_handler = handler
 
     def remove_batch_handler(self, ledger_id):
         del self.batch_handlers[ledger_id]

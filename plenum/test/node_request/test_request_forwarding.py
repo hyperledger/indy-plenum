@@ -1,9 +1,6 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
-from plenum.test import waits
 from plenum.test.delayers import delay_3pc_messages
 from plenum.test.batching_3pc.conftest import tconf
-from plenum.test.test_node import ensureElectionsDone
-from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from plenum.test.view_change.conftest import perf_chk_patched
 from plenum.test.helper import sdk_send_signed_requests, sdk_get_replies, \
@@ -50,19 +47,3 @@ def test_all_replicas_hold_request_keys(
     # Replicas should have no request keys with them since they are ordered
     looper.run(eventually(chk, 0))  # Need to wait since one node might not
     # have processed it.
-
-    delay = 1
-    ensure_view_change(looper, txnPoolNodeSet)
-    reqs = sdk_signed_random_requests(looper,
-                                      sdk_wallet_client,
-                                      2 * tconf.Max3PCBatchSize)
-    req_resps = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    looper.run(eventually(chk, 2 * tconf.Max3PCBatchSize))
-
-    # Since each nomination is delayed and there will be multiple nominations
-    # so adding some extra time
-    timeout = waits.expectedPoolElectionTimeout(len(txnPoolNodeSet)) + \
-              len(txnPoolNodeSet) * delay
-    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=timeout)
-    sdk_get_replies(looper, req_resps, timeout=timeout)
-    looper.run(eventually(chk, 0))

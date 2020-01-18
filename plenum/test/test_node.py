@@ -408,7 +408,6 @@ class TestReplica(replica.Replica):
                                    write_manager=self.node.write_manager,
                                    bls_bft_replica=self._bls_bft_replica,
                                    freshness_checker=self._freshness_checker,
-                                   primaries_selector=self.node.primaries_selector,
                                    get_current_time=self.get_current_time,
                                    get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                    stasher=self.stasher,
@@ -780,7 +779,7 @@ async def checkNodesCanRespondToClients(nodes):
 
 
 async def checkNodesConnected(nodes: Iterable[TestNode],
-                              customTimeout=None):
+                              customTimeout=20):
     # run for how long we expect all of the connections to take
     timeout = customTimeout or \
               waits.expectedPoolInterconnectionTime(len(nodes))
@@ -894,6 +893,10 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                               timeout=timeout))
 
 
+def check_not_in_view_change(nodes):
+    assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
+
+
 def checkProtocolInstanceSetup(looper: Looper,
                                nodes: Sequence[TestNode],
                                retryWait: float = 1,
@@ -913,9 +916,7 @@ def checkProtocolInstanceSetup(looper: Looper,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
 
-    def check_not_in_view_change():
-        assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
-    looper.run(eventually(check_not_in_view_change, retryWait=retryWait, timeout=customTimeout))
+    looper.run(eventually(check_not_in_view_change, nodes, retryWait=retryWait, timeout=customTimeout))
 
     if check_primaries:
         for n in nodes[1:]:
@@ -931,7 +932,7 @@ def checkProtocolInstanceSetup(looper: Looper,
 def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
-                        customTimeout: float = None,
+                        customTimeout: float = 20,
                         instances_list: Sequence[int] = None,
                         check_primaries=True) -> Sequence[TestNode]:
     # TODO: Change the name to something like `ensure_primaries_selected`

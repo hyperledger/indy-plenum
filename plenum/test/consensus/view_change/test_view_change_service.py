@@ -66,30 +66,30 @@ def view_change_service(view_change_service_builder, validators, some_item):
 
 def test_updates_shared_data_on_need_view_change(internal_bus, view_change_service, initial_view_no, is_master):
     old_primary = view_change_service._data.primary_name
-    old_primaries = view_change_service._data.primaries
     old_data = copy_shared_data(view_change_service._data)
     internal_bus.send(NeedViewChange())
 
-    if not is_master:
-        assert view_change_service._data._master_reordered_after_vc == False
     assert view_change_service._data.view_no == initial_view_no + 1
     assert view_change_service._data.waiting_for_new_view
-    assert view_change_service._data.primary_name != old_primary
-    assert view_change_service._data.primaries != old_primaries
+    if not is_master:
+        assert view_change_service._data.master_reordered_after_vc == False
+        assert view_change_service._data.primary_name is None
+    else:
+        assert view_change_service._data.primary_name != old_primary
     new_data = copy_shared_data(view_change_service._data)
     check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
 
     old_primary = view_change_service._data.primary_name
-    old_primaries = view_change_service._data.primaries
     old_data = copy_shared_data(view_change_service._data)
     internal_bus.send(NeedViewChange(view_no=initial_view_no + 3))
 
     assert view_change_service._data.view_no == initial_view_no + 3
     assert view_change_service._data.waiting_for_new_view
-    assert view_change_service._data.primary_name != old_primary
-    assert view_change_service._data.primaries != old_primaries
     if not is_master:
-        assert view_change_service._data._master_reordered_after_vc == False
+        assert view_change_service._data.master_reordered_after_vc == False
+        assert view_change_service._data.primary_name is None
+    else:
+        assert view_change_service._data.primary_name != old_primary
     new_data = copy_shared_data(view_change_service._data)
     check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
 

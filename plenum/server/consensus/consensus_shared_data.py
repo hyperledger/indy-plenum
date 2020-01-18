@@ -29,7 +29,6 @@ class ConsensusSharedData:
         self.inst_id = inst_id
         self.view_no = 0
         self.waiting_for_new_view = False
-        self.primaries = []
         self.is_master = is_master
 
         self.legacy_vc_in_progress = False
@@ -94,7 +93,7 @@ class ConsensusSharedData:
         self.last_batch_timestamp = None
 
         # Flag to mark that master reordered after VC
-        self._master_reordered_after_vc = True
+        self.master_reordered_after_vc = True
 
     @property
     def name(self) -> str:
