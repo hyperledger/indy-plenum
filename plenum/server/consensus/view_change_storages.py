@@ -156,12 +156,13 @@ class NewViewVotesForView:
 
     def get_new_view(self, primary_name):
 
+        if self.new_view:
+            return self.new_view
+
         primary_name = replica_name_to_node_name(primary_name)
         for nv_votes in self._votes.values():
             if primary_name in nv_votes.voted_nodes:
                 return nv_votes.msg
-
-        return self.new_view
 
     def _msg_from_primary(self, frm_primary):
         return self._votes[frm_primary]

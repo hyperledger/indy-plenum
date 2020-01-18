@@ -44,6 +44,7 @@ def test_new_view_from_primary(rs, nvm):
                                                          rs._data.view_no)
     rs._data.new_view_votes.add_new_view(nvm, rs._data.primary_name)
     assert rs._data.new_view is not None
+    assert rs._data.new_view == nvm
 
 
 def test_new_view_by_quorums(lt_eq_gt):
