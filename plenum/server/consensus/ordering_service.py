@@ -1228,10 +1228,7 @@ class OrderingService:
                     .format(self, reqCount, Ledger.hashToStr(state.headHash),
                             Ledger.hashToStr(stateRootHash), ledgerId))
         state.revertToHead(stateRootHash)
-        reverted_txns = ledger.discardTxns(reqCount)
-        if reverted_txns:
-            for txn in reverted_txns:
-                self.requestQueues[ledgerId].add(get_digest(txn))
+        ledger.discardTxns(reqCount)
         self.post_batch_rejection(ledgerId)
 
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
@@ -2186,6 +2183,10 @@ class OrderingService:
                 discarded = invalid_index_serializer.deserialize(discarded)
                 logger.debug('{} reverting 3PC key {}'.format(self, key))
                 self._revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
+                pre_prepare = self.get_preprepare(*key)
+                if pre_prepare:
+                    for req_id in pre_prepare.reqIdr:
+                        self.requestQueues[ledger_id].add(req_id)
                 self._lastPrePrepareSeqNo -= 1
                 i += 1
             else:
