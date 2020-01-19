@@ -1464,7 +1464,7 @@ class OrderingService:
         return canOrder
 
     def _try_finish_reordering_after_vc(self, pp_seq_no):
-        if self._data.prev_view_prepare_cert + 1 == pp_seq_no:
+        if self.is_master and self._data.prev_view_prepare_cert + 1 == pp_seq_no:
             self._bus.send(MasterReorderedAfterVC())
             self._stasher.process_all_stashed(STASH_WAITING_FIRST_BATCH_IN_VIEW)
 

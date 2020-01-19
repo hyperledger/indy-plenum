@@ -774,6 +774,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # cause cdp for every replica need to be independent
             r.set_validators(self.allNodeNames)
 
+        # can be in case of a node with None services
+        if len(self.allNodeNames) == 0:
+            return
+
         # 4. Select primaries for backups
         primaries = self.primaries_selector.select_primaries(self.viewNo)
         if len(self.replicas) != len(primaries):
