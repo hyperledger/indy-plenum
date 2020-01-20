@@ -36,7 +36,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self._uncommitted_view_no = 0
         self._committed_view_no = 0
 
-        self.internal_bus = None # type: InternalBus
+        self.internal_bus = None  # type: InternalBus
 
     def set_internal_bus(self, internal_bus: InternalBus):
         self.internal_bus = internal_bus
