@@ -1,13 +1,36 @@
+import pytest
+
 from plenum.test.delayers import cDelay, ppDelay, pDelay, icDelay, msg_rep_delay, vc_delay, nv_delay
-from plenum.test.helper import waitForViewChange, checkViewNoForNodes
+from plenum.test.helper import waitForViewChange, checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
 from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 
+
 nodeCount = 7
+CHK_SIZE = 3
+
+
+@pytest.fixture(scope="module")
+def tconf(tconf):
+
+    old_chk_freq = tconf.CHK_FREQ
+    old_log_size = tconf.LOG_SIZE
+    old_max_b_size = tconf.Max3PCBatchSize
+
+    tconf.CHK_FREQ = CHK_SIZE
+    tconf.LOG_SIZE = 3 * CHK_SIZE
+    tconf. Max3PCBatchSize = 1
+
+    yield tconf
+
+    tconf.Max3PCBatchSize = old_max_b_size
+    tconf.CHK_FREQ = old_chk_freq
+    tconf.LOG_SIZE = old_log_size
 
 
 def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet, sdk_pool_handle,
@@ -70,3 +93,9 @@ def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet
 
     looper.run(eventually(complete_vc, lagging_node, timeout=60))
     assert lagging_node.viewNo == expected_view_no
+
+    # We assume that after 2 Checkpoints receiving lagged node will start catchup and elect right primaries
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 2 * CHK_SIZE)
+    ensureElectionsDone(looper, txnPoolNodeSet)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)

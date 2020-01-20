@@ -210,6 +210,9 @@ class ViewChangeService:
             return result, reason
 
         logger.info("{} processing {} from {}".format(self, msg, frm))
+        if frm != self._data.primary_name:
+            logger.warning("Received NEW_VIEW message from non-primary node. "
+                           "Selected primaries may differ on other nodes")
 
         self._data.new_view_votes.add_new_view(msg, frm)
         self._finish_view_change_if_needed()
