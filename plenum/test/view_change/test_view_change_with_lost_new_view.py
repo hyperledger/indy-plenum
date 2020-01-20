@@ -58,7 +58,7 @@ def test_view_change_with_lost_new_view(txnPoolNodeSet,
     trigger_view_change(txnPoolNodeSet)
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=initial_view_no + 1)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
-                        customTimeout=tconf.NEW_VIEW_TIMEOUT * (call_count + 1))
+                        customTimeout=tconf.NEW_VIEW_TIMEOUT * (call_count + 1) + 5)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     # make sure that the pool is functional

@@ -19,8 +19,6 @@ from plenum.server.suspicion_codes import Suspicions
 from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import copy_shared_data, check_service_changed_only_owned_fields_in_shared_data, \
     create_new_view, create_view_change, create_new_view_from_vc, create_view_change_acks, create_batches
-
-
 DEFAULT_STABLE_CHKP = 10
 
 
@@ -66,30 +64,30 @@ def view_change_service(view_change_service_builder, validators, some_item):
 
 def test_updates_shared_data_on_need_view_change(internal_bus, view_change_service, initial_view_no, is_master):
     old_primary = view_change_service._data.primary_name
-    old_primaries = view_change_service._data.primaries
     old_data = copy_shared_data(view_change_service._data)
     internal_bus.send(NeedViewChange())
 
-    if not is_master:
-        assert view_change_service._data._master_reordered_after_vc == False
     assert view_change_service._data.view_no == initial_view_no + 1
     assert view_change_service._data.waiting_for_new_view
-    assert view_change_service._data.primary_name != old_primary
-    assert view_change_service._data.primaries != old_primaries
+    if not is_master:
+        assert view_change_service._data.master_reordered_after_vc == False
+        assert view_change_service._data.primary_name is None
+    else:
+        assert view_change_service._data.primary_name != old_primary
     new_data = copy_shared_data(view_change_service._data)
     check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
 
     old_primary = view_change_service._data.primary_name
-    old_primaries = view_change_service._data.primaries
     old_data = copy_shared_data(view_change_service._data)
     internal_bus.send(NeedViewChange(view_no=initial_view_no + 3))
 
     assert view_change_service._data.view_no == initial_view_no + 3
     assert view_change_service._data.waiting_for_new_view
-    assert view_change_service._data.primary_name != old_primary
-    assert view_change_service._data.primaries != old_primaries
     if not is_master:
-        assert view_change_service._data._master_reordered_after_vc == False
+        assert view_change_service._data.master_reordered_after_vc == False
+        assert view_change_service._data.primary_name is None
+    else:
+        assert view_change_service._data.primary_name != old_primary
     new_data = copy_shared_data(view_change_service._data)
     check_service_changed_only_owned_fields_in_shared_data(ViewChangeService, old_data, new_data)
 
@@ -138,7 +136,7 @@ def test_setup_prev_view_prepare_cert_on_vc_finished(internal_bus, view_change_s
     view_change_service._data.waiting_for_new_view = True
     view_change_service._data.prev_view_prepare_cert = 1
     new_view = create_new_view(initial_view_no=3, stable_cp=200)
-    view_change_service._data.new_view = new_view
+    view_change_service._data.new_view_votes.add_new_view(new_view, view_change_service._data.primary_name)
     view_change_service._finish_view_change()
     assert view_change_service._data.prev_view_prepare_cert == new_view.batches[-1].pp_seq_no
     assert not view_change_service._data.waiting_for_new_view
@@ -688,3 +686,44 @@ def test_start_vc_by_quorum_of_vc_msgs(view_change_service_builder,
     else:
         # ViewChange message isn't processed on backups
         assert not nnvc_queue
+
+
+def test_new_view_from_malicious(view_change_service_builder, primary, initial_view_no, validators):
+    """
+    This test shows situation, when there is quorum of correct NEW_VIEW msgs
+    and NEW_VIEW msg from malicious primary.
+    In this case, view_change will be completed by quorum of the same NEW_VIEW msgs
+    not by NEW_VIEW from malicious
+    """
+
+    proposed_view_no = initial_view_no + 1
+    primary_name = primary(proposed_view_no)
+    without_primary = [v for v in validators if v != primary_name]
+    vcs_name = without_primary[0]
+
+    vcs = view_change_service_builder(vcs_name)
+    vcs._data.is_master = True
+    vcs.process_need_view_change(NeedViewChange(view_no=proposed_view_no))
+
+    vc_not_malicious = vcs.view_change_votes._get_vote(vcs_name).view_change
+    not_malicious_nv = create_new_view_from_vc(vc_not_malicious, without_primary, checkpoint=vc_not_malicious.checkpoints[-1])
+
+    vc_from_malicious = create_view_change(initial_view_no, stable_cp=20, batches=[])
+
+    for i in range(0, len(without_primary)):
+        vcs.view_change_votes.add_view_change(vc_not_malicious, without_primary[i])
+        vcs._data.new_view_votes.add_new_view(not_malicious_nv, without_primary[i])
+
+    vcs.view_change_votes.add_view_change(vc_from_malicious, primary_name)
+
+    malicious_nv = NewView(viewNo=proposed_view_no,
+                           viewChanges=[[primary_name, view_change_digest(vc_from_malicious)]],
+                           checkpoint=Checkpoint(instId=0,
+                                                 viewNo=initial_view_no,
+                                                 seqNoStart=10,
+                                                 seqNoEnd=20,
+                                                 digest=cp_digest(20)),
+                           batches=[])
+
+    vcs.process_new_view_message(malicious_nv, "{}:{}".format(primary_name, 0))
+    assert not vcs._data.waiting_for_new_view

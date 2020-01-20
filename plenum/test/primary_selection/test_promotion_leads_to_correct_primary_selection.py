@@ -27,8 +27,8 @@ def test_promotion_leads_to_correct_primary_selection(looper,
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)
     assert txnPoolNodeSet[0].master_replica.isPrimary
-    assert txnPoolNodeSet[1].replicas._replicas[1].isPrimary
-    assert txnPoolNodeSet[2].replicas._replicas[2].isPrimary
+    assert txnPoolNodeSet[1].replicas[1].isPrimary
+    assert txnPoolNodeSet[2].replicas[2].isPrimary
     starting_view_number = checkViewNoForNodes(txnPoolNodeSet)
 
     node_1 = txnPoolNodeSet[0]
@@ -43,6 +43,7 @@ def test_promotion_leads_to_correct_primary_selection(looper,
 
     # Checking that view change happened
     waitForViewChange(looper, txnPoolNodeSet, starting_view_number + 1)
+    ensureElectionsDone(looper, txnPoolNodeSet)
     assert all(node.replicas.primary_name_by_inst_id ==
                node_1.replicas.primary_name_by_inst_id
                for node in txnPoolNodeSet)

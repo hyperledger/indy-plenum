@@ -157,15 +157,15 @@ class TxnPoolManager(PoolManager, TxnStackManager):
 
         return nstack, cstack, nodeReg, cliNodeReg
 
-    def onPoolMembershipChange(self, txn):
+    def onPoolMembershipChange(self, txn) -> bool:
         # `onPoolMembershipChange` method can be called only after txn added to ledger
 
         if get_type(txn) != NODE:
-            return
+            return False
 
         txn_data = get_payload_data(txn)
         if DATA not in txn_data:
-            return
+            return False
 
         nodeName = txn_data[DATA][ALIAS]
         nodeNym = txn_data[TARGET_NYM]
@@ -173,8 +173,9 @@ class TxnPoolManager(PoolManager, TxnStackManager):
         self._set_node_ids_in_cache(nodeNym, nodeName)
 
         def _updateNode(txn_data):
+            node_reg_changed = False
             if SERVICES in txn_data[DATA]:
-                self.nodeServicesChanged(txn_data)
+                node_reg_changed = self.nodeServicesChanged(txn_data)
             if txn_data[DATA][ALIAS] in self.node.nodeReg:
                 if {NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT}. \
                         intersection(set(txn_data[DATA].keys())):
@@ -183,18 +184,22 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                     self.nodeKeysChanged(txn_data)
                 if BLS_KEY in txn_data[DATA]:
                     self.node_blskey_changed(txn_data)
+            return node_reg_changed
+
+        node_reg_changed = False
 
         # If nodeNym is never added in self._ordered_node_services,
         # nodeNym is never added in ledger
         if nodeNym not in self._ordered_node_services:
             if VALIDATOR in txn_data[DATA].get(SERVICES, []):
                 self.addNewNodeAndConnect(txn_data)
+                node_reg_changed = True
             self._set_node_services_in_cache(nodeNym, txn_data[DATA].get(SERVICES, []))
         else:
-            _updateNode(txn_data)
+            node_reg_changed = _updateNode(txn_data)
             self._set_node_services_in_cache(nodeNym, txn_data[DATA].get(SERVICES, None))
 
-        self.set_validators_for_replicas()
+        return node_reg_changed
 
     def addNewNodeAndConnect(self, txn_data):
         nodeName = txn_data[DATA][ALIAS]
@@ -208,7 +213,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                    txn_data[DATA][CLIENT_PORT])
         else:
             self.connectNewRemote(txn_data, nodeName, self.node, nodeName != self.name)
-        self.node.nodeJoined(txn_data)
 
     def node_about_to_be_disconnected(self, nodeName):
         if self.node.master_primary_name == nodeName:
@@ -277,48 +281,51 @@ class TxnPoolManager(PoolManager, TxnStackManager):
                 self.node.nodestack.outBoxes.pop(rid, None)
         self.node_about_to_be_disconnected(nodeName)
 
-    def nodeServicesChanged(self, txn_data):
+    def nodeServicesChanged(self, txn_data) -> bool:
         nodeNym = txn_data[TARGET_NYM]
         nodeName = self.getNodeName(nodeNym)
         oldServices = set(self._ordered_node_services.get(nodeNym, []))
         newServices = set(txn_data[DATA].get(SERVICES, []))
         if oldServices == newServices:
             logger.info("Node {} not changing {} since it is same as existing".format(nodeNym, SERVICES))
-            return
-        else:
-            if VALIDATOR in newServices.difference(oldServices):
-                # If validator service is enabled
-                node_info = self.write_manager.get_node_data(nodeNym)
-                self.node.nodeReg[nodeName] = HA(node_info[NODE_IP],
-                                                 node_info[NODE_PORT])
-                self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(node_info[CLIENT_IP],
-                                                                          node_info[CLIENT_PORT])
+            return False
 
-                self.updateNodeTxns({DATA: node_info, }, txn_data)
-                self.node.nodeJoined(txn_data)
+        node_count_changed = False
+        if VALIDATOR in newServices.difference(oldServices):
+            node_count_changed = True
+            # If validator service is enabled
+            node_info = self.write_manager.get_node_data(nodeNym)
+            self.node.nodeReg[nodeName] = HA(node_info[NODE_IP],
+                                             node_info[NODE_PORT])
+            self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX] = HA(node_info[CLIENT_IP],
+                                                                      node_info[CLIENT_PORT])
 
-                if self.name != nodeName:
-                    self.connectNewRemote({DATA: node_info,
-                                           TARGET_NYM: nodeNym}, nodeName, self.node)
-                else:
-                    logger.debug("{} adding itself to node registry".
-                                 format(self.name))
+            self.updateNodeTxns({DATA: node_info, }, txn_data)
 
-            if VALIDATOR in oldServices.difference(newServices):
-                # If validator service is disabled
-                del self.node.nodeReg[nodeName]
-                del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
-                self.node.nodeLeft(txn_data)
+            if self.name != nodeName:
+                self.connectNewRemote({DATA: node_info,
+                                       TARGET_NYM: nodeNym}, nodeName, self.node)
+            else:
+                logger.debug("{} adding itself to node registry".
+                             format(self.name))
 
-                if self.name != nodeName:
-                    try:
-                        rid = TxnStackManager.removeRemote(
-                            self.node.nodestack, nodeName)
-                        if rid:
-                            self.node.nodestack.outBoxes.pop(rid, None)
-                    except RemoteNotFound:
-                        logger.info('{} did not find remote {} to remove'.format(self, nodeName))
-                    self.node_about_to_be_disconnected(nodeName)
+        if VALIDATOR in oldServices.difference(newServices):
+            node_count_changed = True
+            # If validator service is disabled
+            del self.node.nodeReg[nodeName]
+            del self.node.cliNodeReg[nodeName + CLIENT_STACK_SUFFIX]
+
+            if self.name != nodeName:
+                try:
+                    rid = TxnStackManager.removeRemote(
+                        self.node.nodestack, nodeName)
+                    if rid:
+                        self.node.nodestack.outBoxes.pop(rid, None)
+                except RemoteNotFound:
+                    logger.info('{} did not find remote {} to remove'.format(self, nodeName))
+                self.node_about_to_be_disconnected(nodeName)
+
+        return node_count_changed
 
     def node_blskey_changed(self, txn_data):
         # if BLS key changes for my Node, then re-init BLS crypto signer with new keys
@@ -428,12 +435,6 @@ class TxnPoolManager(PoolManager, TxnStackManager):
             if name == node_name:
                 return nym
         return None
-
-    def set_validators_for_replicas(self):
-        for r in self.node.replicas.values():
-            # We set new list of validators for every replica,
-            # cause cdp for every replica need to be independent
-            r.set_validators(self.node_names_ordered_by_rank())
 
     def get_node_ids(self):
         return self._ordered_node_ids

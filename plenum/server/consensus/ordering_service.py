@@ -48,7 +48,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
     PP_CHECK_WRONG_TIME, Stats, OrderedTracker, TPCStat, generateName, PP_WRONG_PRIMARIES
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
-from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP
+from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP, STASH_WAITING_FIRST_BATCH_IN_VIEW
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -66,7 +66,6 @@ class OrderingService:
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica,
                  freshness_checker: FreshnessChecker,
-                 primaries_selector: PrimariesSelector,
                  stasher=None,
                  get_current_time: Optional[Callable[[], float]] = None,
                  get_time_for_3pc_batch: Optional[Callable[[], int]] = None,
@@ -192,8 +191,6 @@ class OrderingService:
 
         self._freshness_checker = freshness_checker
         self._skip_send_3pc_ts = None
-
-        self._primaries_selector = primaries_selector
 
         self._subscription.subscribe(self._stasher, PrePrepare, self.process_preprepare)
         self._subscription.subscribe(self._stasher, Prepare, self.process_prepare)
@@ -1167,7 +1164,6 @@ class OrderingService:
                 pre_prepare,
                 state_root=self.get_state_root_hash(pre_prepare.ledgerId, to_str=False),
                 txn_root=self.get_txn_root_hash(pre_prepare.ledgerId, to_str=False),
-                primaries=self._primaries_selector.select_primaries(view_no=get_original_viewno(pre_prepare)),
                 valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices)
             )
             self.post_batch_creation(three_pc_batch)
@@ -1232,10 +1228,7 @@ class OrderingService:
                     .format(self, reqCount, Ledger.hashToStr(state.headHash),
                             Ledger.hashToStr(stateRootHash), ledgerId))
         state.revertToHead(stateRootHash)
-        reverted_txns = ledger.discardTxns(reqCount)
-        if reverted_txns:
-            for txn in reverted_txns:
-                self.requestQueues[ledgerId].add(get_digest(txn))
+        ledger.discardTxns(reqCount)
         self.post_batch_rejection(ledgerId)
 
     def _track_batches(self, pp: PrePrepare, prevStateRootHash):
@@ -1455,9 +1448,8 @@ class OrderingService:
         """
         Try to order if the Commit message is ready to be ordered.
         """
-        if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo) and \
-                self._data.prev_view_prepare_cert == commit.ppSeqNo:
-            self._bus.send(MasterReorderedAfterVC())
+        if self._validator.has_already_ordered(commit.viewNo, commit.ppSeqNo):
+            self._try_finish_reordering_after_vc(commit.ppSeqNo)
 
         canOrder, reason = self._can_order(commit)
         if canOrder:
@@ -1467,6 +1459,11 @@ class OrderingService:
             logger.trace("{} cannot return request to node: {}".format(self, reason))
 
         return canOrder
+
+    def _try_finish_reordering_after_vc(self, pp_seq_no):
+        if self.is_master and self._data.prev_view_prepare_cert + 1 == pp_seq_no:
+            self._bus.send(MasterReorderedAfterVC())
+            self._stasher.process_all_stashed(STASH_WAITING_FIRST_BATCH_IN_VIEW)
 
     def _do_order(self, commit: Commit):
         key = (commit.viewNo, commit.ppSeqNo)
@@ -1537,32 +1534,46 @@ class OrderingService:
         # BLS multi-sig:
         self.l_bls_bft_replica.process_order(key, self._data.quorums, pp)
 
+        # do it after Ordered msg is sent
+        self._try_finish_reordering_after_vc(key[1])
+
         return True
 
     def _add_to_ordered(self, view_no: int, pp_seq_no: int):
         self.ordered.add(view_no, pp_seq_no)
         self.last_ordered_3pc = (view_no, pp_seq_no)
-        if self._data.prev_view_prepare_cert == pp_seq_no:
-            self._bus.send(MasterReorderedAfterVC())
 
     def _get_primaries_for_ordered(self, pp):
         txn_primaries = self._get_from_audit_for_ordered(pp, AUDIT_TXN_PRIMARIES)
         if txn_primaries is None:
-            txn_primaries = self._data.primaries
+            # TODO: it's possible to get into this case if we have txns being ordered after catch-up is finished
+            # when we have no batches applied (uncommitted txns are  reverted when catchup is started)
+            # Re-applying of batches will be done in apply_stashed_reqs in node.py,
+            # but as we need to fill primaries field in Ordered, we have to emulate what NodeRegHandler would do here
+            # TODO: fix this by getting rid of Ordered msg and using ThreePcBatch instead
+            txn_primaries = self._write_manager.primary_reg_handler.primaries_selector.select_primaries(self.view_no)
         return txn_primaries
 
     def _get_node_reg_for_ordered(self, pp):
         txn_node_reg = self._get_from_audit_for_ordered(pp, AUDIT_TXN_NODE_REG)
         if txn_node_reg is None:
-            txn_node_reg = self._write_manager.node_reg_handler.uncommitted_node_reg
+            # TODO: it's possible to get into this case if we have txns being ordered after catch-up is finished
+            # when we have no batches applied (uncommitted txns are  reverted when catchup is started)
+            # Re-applying of batches will be done in apply_stashed_reqs in node.py,
+            # but as we need to fill node_reg field in Ordered, we have to emulate what NodeRegHandler would do here
+            # TODO: fix this by getting rid of Ordered msg and using ThreePcBatch instead
+            txn_node_reg = list(self._write_manager.node_reg_handler.uncommitted_node_reg)
         return txn_node_reg
 
     def _get_from_audit_for_ordered(self, pp, field):
+        if not self.is_master:
+            return []
         ledger = self.db_manager.get_ledger(AUDIT_LEDGER_ID)
         for index, txn in enumerate(ledger.get_uncommitted_txns()):
             payload_data = get_payload_data(txn)
+            pp_view_no = get_original_viewno(pp)
             if pp.ppSeqNo == payload_data[AUDIT_TXN_PP_SEQ_NO] and \
-                    pp.viewNo == payload_data[AUDIT_TXN_VIEW_NO]:
+                    pp_view_no == payload_data[AUDIT_TXN_VIEW_NO]:
                 txn_data = payload_data.get(field)
                 if isinstance(txn_data, Iterable):
                     return txn_data
@@ -1810,11 +1821,15 @@ class OrderingService:
             return False
         if not self._data.is_participating:
             return False
-        if not self.is_master and not self._data._master_reordered_after_vc:
+        if not self.is_master and not self._data.master_reordered_after_vc:
             return False
         if self._data.waiting_for_new_view:
             return False
         if self._data.prev_view_prepare_cert > self._lastPrePrepareSeqNo:
+            return False
+        # do not send new 3PC batches in a new view until the first batch is ordered
+        if self.view_no > 0 and self._lastPrePrepareSeqNo > self._data.prev_view_prepare_cert \
+                and self.last_ordered_3pc[1] < self._data.prev_view_prepare_cert + 1:
             return False
 
         if self.view_no < self.last_ordered_3pc[0]:
@@ -2028,7 +2043,6 @@ class OrderingService:
         reqs, invalid_indices, rejects = self._consume_req_queue_for_pre_prepare(
             ledger_id, tm, self.view_no, pp_seq_no)
 
-        primaries_for_batch = self._primaries_selector.select_primaries(self.view_no)
         req_ids = [req.digest for req in reqs]
         digest = self.generate_pp_digest(req_ids, self.view_no, tm)
         if self.is_master:
@@ -2040,7 +2054,6 @@ class OrderingService:
                 pp_time=tm,
                 state_root=self.get_state_root_hash(ledger_id, to_str=False),
                 txn_root=self.get_txn_root_hash(ledger_id, to_str=False),
-                primaries=primaries_for_batch,
                 valid_digests=self._get_valid_req_ids_from_all_requests(reqs, invalid_indices),
                 pp_digest=digest,
                 original_view_no=self.view_no,
@@ -2170,6 +2183,10 @@ class OrderingService:
                 discarded = invalid_index_serializer.deserialize(discarded)
                 logger.debug('{} reverting 3PC key {}'.format(self, key))
                 self._revert(ledger_id, prevStateRoot, len_reqIdr - len(discarded))
+                pre_prepare = self.get_preprepare(*key)
+                if pre_prepare:
+                    for req_id in pre_prepare.reqIdr:
+                        self.requestQueues[ledger_id].add(req_id)
                 self._lastPrePrepareSeqNo -= 1
                 i += 1
             else:
@@ -2340,6 +2357,7 @@ class OrderingService:
 
         self._clear_prev_view_pre_prepares()
         self._stasher.process_all_stashed(STASH_CATCH_UP)
+        self._stasher.process_all_stashed(STASH_WAITING_FIRST_BATCH_IN_VIEW)
         self._finish_master_reordering()
 
     def _update_old_view_preprepares(self, pre_prepares: List[PrePrepare]):
@@ -2458,4 +2476,4 @@ class OrderingService:
 
     def _finish_master_reordering(self):
         if not self.is_master:
-            self._data._master_reordered_after_vc = True
+            self._data.master_reordered_after_vc = True

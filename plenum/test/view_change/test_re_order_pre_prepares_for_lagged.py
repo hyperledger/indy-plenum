@@ -57,14 +57,14 @@ def test_re_order_pre_prepares_no_pre_prepares(looper, txnPoolNodeSet,
                          new_master.master_replica._ordering_service.old_view_preprepares.items()])
         new_view_msg = NewView(viewNo=0,
                                viewChanges=[],
-                               checkpoint=None,
+                               checkpoint=new_master.master_replica._consensus_data.initial_checkpoint,
                                batches=batches)
         new_view_chk_applied_msg = NewViewCheckpointsApplied(view_no=0,
                                                              view_changes=[],
                                                              checkpoint=None,
                                                              batches=batches)
         for n in txnPoolNodeSet:
-            n.master_replica._consensus_data.new_view = new_view_msg
+            n.master_replica._consensus_data.new_view_votes.add_new_view(new_view_msg, n.master_replica._consensus_data.primary_name)
             n.master_replica._consensus_data.prev_view_prepare_cert = batches[-1].pp_seq_no
             n.master_replica._ordering_service._bus.send(new_view_chk_applied_msg)
 

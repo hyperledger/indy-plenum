@@ -193,10 +193,10 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
                                   fast_nodes,
                                   expectedViewNo=view_no + 1,
                                   customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
-                wait_for_elections_done_on_given_nodes(looper,
-                                                       fast_nodes,
-                                                       getRequiredInstances(len(nodes)),
-                                                       timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+            wait_for_elections_done_on_given_nodes(looper,
+                                                   fast_nodes,
+                                                   getRequiredInstances(len(nodes)),
+                                                   timeout=waits.expectedPoolElectionTimeout(len(nodes)))
 
             # Now all the nodes receive Commits
             # The slow node will accept Commits and order the 3PC-batch in the old view
@@ -249,10 +249,10 @@ def do_view_change_with_propagate_primary_on_one_delayed_node(
                                   fast_nodes,
                                   expectedViewNo=view_no + 1,
                                   customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(nodes)))
-                wait_for_elections_done_on_given_nodes(looper,
-                                                       fast_nodes,
-                                                       getRequiredInstances(len(nodes)),
-                                                       timeout=waits.expectedPoolElectionTimeout(len(nodes)))
+            wait_for_elections_done_on_given_nodes(looper,
+                                                   fast_nodes,
+                                                   getRequiredInstances(len(nodes)),
+                                                   timeout=waits.expectedPoolElectionTimeout(len(nodes)))
 
             # Now all the nodes receive Commits
             # The slow node will accept Commits and order the 3PC-batch in the old view

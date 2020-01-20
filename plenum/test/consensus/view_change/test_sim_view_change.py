@@ -9,6 +9,7 @@ from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.test.consensus.view_change.helper import some_pool
 from plenum.test.helper import MockNetwork
+from plenum.test.simulation.sim_network import Processor, Discard, message_dst, message_type
 from plenum.test.simulation.sim_random import SimRandom, DefaultSimRandom
 
 
@@ -105,10 +106,10 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom,
     # 2. set latency
     pool.network.set_latency(min_latency, max_latency)
 
-    # 3. set filter
-    pool.network.set_filter([replica_name_to_node_name(pool.nodes[-1].name)],
-                            filtered_msg_types, filter_probability)
-
+    # 3. set filters
+    pool.network.add_processor(Discard(probability=filter_probability),
+                               message_type(filtered_msg_types),
+                               message_dst(replica_name_to_node_name(pool.nodes[-1].name)))
     # EXECUTE
 
     # Schedule view change at different time on all nodes
