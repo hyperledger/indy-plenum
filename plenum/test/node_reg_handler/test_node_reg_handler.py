@@ -661,9 +661,15 @@ def test_load_regs_on_catchup_finished_view_initial_to_0(node_reg_handler, init_
 
     assert node_reg_handler.uncommitted_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
+    if first_txn is None:
+        # as we don't know whether the first Audit txn was for a Pool or other ledger Batch,
+        # get all Nodes for a Pool ledger corresponding to the first audit txn
+        assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+        assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    else:
+        assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
+        assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+        assert len(node_reg_handler.node_reg_at_beginning_of_view) == 1
 
 
 @pytest.mark.parametrize('add_node_reg_to_audit', [True, False])
@@ -686,10 +692,17 @@ def test_load_regs_on_catchup_finished_view_initial_to_X(node_reg_handler, init_
 
     assert node_reg_handler.uncommitted_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.committed_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
+    if first_txn is None:
+        # as we don't know whether the first Audit txn was for a Pool or other ledger Batch,
+        # get all Nodes for a Pool ledger corresponding to the first audit txn
+        assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+        assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+        assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
+    else:
+        assert node_reg_handler.active_node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta']
+        assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+        assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+        assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
 
 
 @pytest.mark.parametrize('add_node_reg_to_audit', ['True', 'False', 'Latest_only'])
@@ -717,7 +730,7 @@ def test_load_regs_on_catchup_finished_views_from_0_to_X_list_as_first_node_reg_
     assert node_reg_handler.uncommitted_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.committed_node_reg == ['Gamma', 'Delta', 'Epsilon', 'BBB']
     assert node_reg_handler.active_node_reg == ['Beta', 'Gamma', 'Delta', 'Epsilon']
-    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
+    assert node_reg_handler.node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon']
     assert node_reg_handler.node_reg_at_beginning_of_view[view_no] == ['Beta', 'Gamma', 'Delta', 'Epsilon']
     assert len(node_reg_handler.node_reg_at_beginning_of_view) == 2
 
