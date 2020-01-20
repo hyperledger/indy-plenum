@@ -207,6 +207,10 @@ class OrderingService:
         # key is (viewNo, ppSeqNo, ppDigest) tuple, and value is PrePrepare
         self.old_view_preprepares = {}
 
+        # TODO: find a better place for calling this setter
+        if self.is_master:
+            self._write_manager.node_reg_handler.set_internal_bus(self._bus)
+
     def cleanup(self):
         self._subscription.unsubscribe_all()
 
