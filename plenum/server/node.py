@@ -524,19 +524,10 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         :param ppTime: PrePrepare request time
         :param reqs_keys: requests keys to be committed
         """
-        current_view_no = self.viewNo
-        node_count_changed = False
         committed_txns = self.default_executer(three_pc_batch)
         for txn in committed_txns:
-            node_count_changed |= self.poolManager.onPoolMembershipChange(txn)
-
-        if node_count_changed and three_pc_batch.original_view_no == current_view_no:
-            self._on_node_count_changed_committed()
-
+            self.poolManager.onPoolMembershipChange(txn)
         return committed_txns
-
-    def _on_node_count_changed_committed(self):
-        self.master_replica.internal_bus.send(VoteForViewChange(Suspicions.NODE_COUNT_CHANGED))
 
     def execute_domain_txns(self, three_pc_batch) -> List:
         committed_txns = self.default_executer(three_pc_batch)
@@ -773,10 +764,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # We set new list of validators for every replica,
             # cause cdp for every replica need to be independent
             r.set_validators(self.allNodeNames)
-
-        # can be in case of a node with None services
-        if len(self.allNodeNames) == 0:
-            return
 
         # 4. Select primaries for backups
         primaries = self.primaries_selector.select_primaries(self.viewNo)

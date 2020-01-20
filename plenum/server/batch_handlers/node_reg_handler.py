@@ -4,6 +4,8 @@ from typing import NamedTuple
 
 from plenum.common.constants import POOL_LEDGER_ID, ALIAS, SERVICES, VALIDATOR, NODE, DATA, AUDIT_LEDGER_ID, \
     AUDIT_TXN_NODE_REG, TYPE, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_LEDGERS_SIZE
+from plenum.common.event_bus import InternalBus
+from plenum.common.messages.internal_messages import VoteForViewChange
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type, get_payload_data, get_seq_no
 from plenum.common.util import SortedDict
@@ -11,6 +13,7 @@ from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandl
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
+from plenum.server.suspicion_codes import Suspicions
 
 UncommittedNodeReg = NamedTuple('UncommittedNodeReg',
                                 [('uncommitted_node_reg', list),
@@ -32,6 +35,11 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self._uncommitted = deque()  # type: deque[UncommittedNodeReg]
         self._uncommitted_view_no = 0
         self._committed_view_no = 0
+
+        self.internal_bus = None # type: InternalBus
+
+    def set_internal_bus(self, internal_bus: InternalBus):
+        self.internal_bus = internal_bus
 
     def on_catchup_finished(self):
         self._load_current_node_reg()
@@ -105,6 +113,12 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             if self._committed_view_no in self.node_reg_at_beginning_of_view else 0
         for view_no in view_nos[:prev_committed_index]:
             self.node_reg_at_beginning_of_view.pop(view_no, None)
+
+        # trigger view change if nodes count changed
+        # TODO: create a new message to pass Suspicious events and make ViewChangeTriggerService the only place for
+        # view change triggering
+        if self.internal_bus and len(prev_committed) != len(self.committed_node_reg):
+            self.internal_bus.send(VoteForViewChange(Suspicions.NODE_COUNT_CHANGED, three_pc_batch_view_no + 1))
 
         if prev_committed != self.committed_node_reg:
             logger.info("Committed node registry: {}".format(self.committed_node_reg))
