@@ -501,7 +501,7 @@ def check_seqno_db_equality(db1, db2):
 
 def check_primaries_equality(node1, node2):
     assert node1.primaries == node2.primaries, \
-        "{} != {}".format(node1.primaries, node2.primaries)
+        "{} != {}, Node1: {}; Node2: {}".format(node1.primaries, node2.primaries, node1, node2)
 
 
 def check_last_ordered_3pc(node1, node2):
