@@ -1,4 +1,3 @@
-from plenum.common.messages.node_messages import Ordered
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.utils import preprepare_to_batch_id
 from plenum.test.helper import create_pre_prepare_no_bls, generate_state_root
@@ -18,10 +17,7 @@ def test_primaries_in_ordered_from_audit(test_node):
     three_pc_batch.node_reg = ["Alpha", "Beta", "Gamma", "Delta", "Eta"]
     test_node.write_manager.audit_b_handler.post_batch_applied(three_pc_batch)
 
-    replica._ordering_service._order_3pc_key(key)
-
-    ordered = replica.outBox.pop()
-    assert ordered.primaries == three_pc_batch.primaries
+    assert replica._ordering_service._get_primaries_for_ordered(pre_prepare) == three_pc_batch.primaries
 
 
 def test_primaries_in_ordered_from_audit_for_tree_txns(test_node):
@@ -43,10 +39,5 @@ def test_primaries_in_ordered_from_audit_for_tree_txns(test_node):
         primaries[key] = three_pc_batch.primaries
 
     for key in reversed(list(primaries.keys())):
-        replica._ordering_service._order_3pc_key(key)
-
-    for ordered in replica.outBox:
-        if not isinstance(ordered, Ordered):
-            continue
-        assert ordered.primaries == primaries[(ordered.viewNo,
-                                               ordered.ppSeqNo)]
+        pp = replica._ordering_service.get_preprepare(*key)
+        assert replica._ordering_service._get_primaries_for_ordered(pp) == primaries[key]

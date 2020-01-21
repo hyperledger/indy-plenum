@@ -3,7 +3,7 @@ from logging import getLogger
 from typing import NamedTuple
 
 from plenum.common.constants import POOL_LEDGER_ID, ALIAS, SERVICES, VALIDATOR, NODE, DATA, AUDIT_LEDGER_ID, \
-    AUDIT_TXN_NODE_REG, TYPE, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT
+    AUDIT_TXN_NODE_REG, TYPE, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_LEDGERS_SIZE
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type, get_payload_data, get_seq_no
 from plenum.common.util import SortedDict

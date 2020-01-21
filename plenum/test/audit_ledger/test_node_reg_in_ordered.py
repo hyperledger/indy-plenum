@@ -18,10 +18,7 @@ def test_node_reg_in_ordered_from_audit(test_node):
     three_pc_batch.primaries = ["Alpha", "Beta"]
     test_node.write_manager.audit_b_handler.post_batch_applied(three_pc_batch)
 
-    replica._ordering_service._order_3pc_key(key)
-
-    ordered = replica.outBox.pop()
-    assert ordered.nodeReg == three_pc_batch.node_reg
+    assert replica._ordering_service._get_node_reg_for_ordered(pre_prepare) == three_pc_batch.node_reg
 
 
 def test_node_reg_in_ordered_from_audit_for_tree_txns(test_node):
@@ -44,10 +41,5 @@ def test_node_reg_in_ordered_from_audit_for_tree_txns(test_node):
         node_regs[key] = three_pc_batch.node_reg
 
     for key in reversed(list(node_regs.keys())):
-        replica._ordering_service._order_3pc_key(key)
-
-    for ordered in replica.outBox:
-        if not isinstance(ordered, Ordered):
-            continue
-        assert ordered.nodeReg == node_regs[(ordered.viewNo,
-                                             ordered.ppSeqNo)]
+        pp = replica._ordering_service.get_preprepare(*key)
+        assert replica._ordering_service._get_node_reg_for_ordered(pp) == node_regs[key]
