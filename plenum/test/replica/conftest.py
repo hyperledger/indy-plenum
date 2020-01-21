@@ -8,6 +8,7 @@ from plenum.common.constants import POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CURRENT_PR
     TXN_PAYLOAD, TXN_PAYLOAD_DATA, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_DIGEST
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
+from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.propagator import Requests
@@ -50,6 +51,7 @@ class ReplicaFakeNode(FakeSomething):
             get_validators=lambda: [],
             db_manager=db_manager,
             write_manager=FakeSomething(database_manager=db_manager,
+                                        node_reg_handler=NodeRegHandler(db_manager),
                                         apply_request=lambda req, cons_time: None),
             timer=QueueTimer(),
             poolManager=FakeSomething(node_names_ordered_by_rank=lambda: node_names),

@@ -6,10 +6,10 @@ from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.messages.internal_messages import RequestPropagates, PrimarySelected
 from plenum.common.startable import Mode, Status
-from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, ViewChange
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import get_utc_epoch
+from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.monitoring.primary_connection_monitor_service import PrimaryConnectionMonitorService
@@ -195,7 +195,9 @@ def db_manager():
 
 @pytest.fixture()
 def write_manager(db_manager):
-    return WriteRequestManager(database_manager=db_manager)
+    wrm = WriteRequestManager(database_manager=db_manager)
+    wrm.node_reg_handler = NodeRegHandler(db_manager)
+    return wrm
 
 
 @pytest.fixture()
