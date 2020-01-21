@@ -9,6 +9,7 @@ from stp_core.common.log import getlogger
 
 logger = getlogger()
 MAX_BATCH_SIZE = 2
+CHK_FREQ = 20
 
 
 def create_requests(count):
@@ -33,8 +34,8 @@ def update_config(config, updated_args: dict):
 def setup_pool(random, config_args=None):
     pool = create_pool(random)
     general_config  = {'Max3PCBatchSize': MAX_BATCH_SIZE,
-                       'CHK_FREQ': 5,
-                       'LOG_SIZE': 3 * 5}
+                       'CHK_FREQ': CHK_FREQ,
+                       'LOG_SIZE': 3 * CHK_FREQ}
     if config_args:
         general_config.update(config_args)
 

@@ -114,7 +114,6 @@ class ReplicaService:
         self._previous_node_reg = self._write_manager.node_reg_handler.committed_node_reg
 
     def setup_view_no(self, view_no=None):
-        self._write_manager.node_reg_handler.node_reg_at_beginning_of_view[view_no] = self._validators
         self._data.view_no = view_no
         self._data.primaries = self._primaries_selector.select_primaries(view_no)
         self._data.primary_name = generateName(self._data.primaries[self._inst_id], self._inst_id)

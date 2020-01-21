@@ -5,16 +5,19 @@ import pytest
 
 from plenum.common.constants import VALIDATOR, POOL_LEDGER_ID, TYPE, NODE, DATA, ALIAS, CLIENT_IP, CLIENT_PORT, NODE_IP, \
     NODE_PORT, BLS_KEY, TARGET_NYM, SERVICES, CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
-from plenum.common.messages.internal_messages import NeedViewChange
+from plenum.common.messages.internal_messages import NeedViewChange, VoteForViewChange
 from plenum.common.request import Request
 from plenum.common.timer import RepeatingTimer
 from plenum.common.txn_util import get_payload_data, get_from
 from plenum.common.util import randomString
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
+from plenum.server.consensus.utils import replica_name_to_node_name
+from plenum.server.suspicion_codes import Suspicions
 from plenum.test.consensus.helper import SimPool
 from plenum.test.consensus.order_service.sim_helper import order_requests, \
     get_pools_ledger_size, setup_pool, check_ledger_size, create_requests
 from plenum.test.greek import Greeks
+from plenum.test.simulation.sim_random import DefaultSimRandom
 from stp_core.common.log import getlogger
 
 
@@ -180,7 +183,7 @@ def pool_with_edge_primaries(sim_pool):
     return sim_pool
 
 
-# ToDo: failed seeds: {458923, 353373}
+# ToDo: failed seeds: {261786, 458923, 353373}
 def test_node_txn_add_new_node(node_req_add, sim_pool, random):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
@@ -213,7 +216,7 @@ def test_node_txn_add_new_node(node_req_add, sim_pool, random):
                 check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
-# ToDo: failed seeds: {277519, 154546, 926597}
+# ToDo: failed seeds: {277519, 154546, 926597,    105981}
 def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demote):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
@@ -242,15 +245,16 @@ def test_node_txn_demote_node(node_req_demote, sim_pool, random, indexes_to_demo
     # ToDo: change this checks for making they on whole pool after INDY-2148 will be implemented
     sim_pool.timer.wait_for(partial(check_node_reg, sim_pool, expected_node_reg))
     for node in sim_pool.nodes:
-        sim_pool.timer.wait_for(
-            partial(
-                check_ledger_size, node, current_pool_ledger_size + len(pool_reqs), POOL_LEDGER_ID))
-        sim_pool.timer.wait_for(
-            partial(
-                check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
+        if replica_name_to_node_name(node.name) in expected_node_reg:
+            sim_pool.timer.wait_for(
+                partial(
+                    check_ledger_size, node, current_pool_ledger_size + len(pool_reqs), POOL_LEDGER_ID))
+            sim_pool.timer.wait_for(
+                partial(
+                    check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
-# ToDo: failed seeds: {77948, 445428}
+# ToDo: failed seeds: {77948, 445428,  95467, 353256, 614663}
 def test_demote_promote_mixed(node_req_demote,
                               sim_pool,
                               random,
@@ -340,7 +344,7 @@ def do_order_and_vc(pool, random, initial_view_no):
     # Step 2. Initiate view change process during request's ordering
     for node in pool.nodes:
         pool.timer.schedule(random_interval + 1.0,
-                                partial(node._view_changer.process_need_view_change, NeedViewChange()))
+                            partial(node._internal_bus.send, VoteForViewChange(Suspicions.DEBUG_FORCE_VIEW_CHANGE)))
 
     # Step 3. Wait for VC completing
     pool.timer.wait_for(lambda: all(not node._data.waiting_for_new_view
