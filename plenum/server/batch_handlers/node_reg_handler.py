@@ -73,7 +73,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         reverted = self._uncommitted.pop()
         if len(self._uncommitted) == 0:
-            self.uncommitted_node_reg = self.committed_node_reg
+            self.uncommitted_node_reg = list(self.committed_node_reg)
             self._uncommitted_view_no = self._committed_view_no
         else:
             last_uncommitted = self._uncommitted[-1]

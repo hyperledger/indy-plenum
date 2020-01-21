@@ -3252,6 +3252,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
 
         self.replicas.subscribe_to_internal_bus(MasterReorderedAfterVC,
                                                 self._process_master_reordered)
+        self.replicas.subscribe_to_internal_bus(Ordered,
+                                                self.try_processing_ordered)
 
     def set_view_change_status(self, value: bool):
         """
