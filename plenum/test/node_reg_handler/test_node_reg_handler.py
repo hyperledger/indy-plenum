@@ -148,13 +148,11 @@ def test_update_node_reg_at_beginning_of_view_updated_on_commit_only(node_reg_ha
     assert node_reg_handler.committed_node_reg_at_beginning_of_view[3] == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon',
                                                                            'AAA']
     assert len(node_reg_handler.committed_node_reg_at_beginning_of_view) == 2
-    assert node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] == ['Alpha', 'Beta', 'Gamma', 'Delta']
-    assert node_reg_handler.uncommitted_node_reg_at_beginning_of_view[1] == ['Alpha', 'Beta', 'Gamma', 'Delta']
     assert node_reg_handler.uncommitted_node_reg_at_beginning_of_view[2] == ['Alpha', 'Beta', 'Gamma', 'Delta',
                                                                              'Epsilon']
     assert node_reg_handler.uncommitted_node_reg_at_beginning_of_view[3] == ['Alpha', 'Beta', 'Gamma', 'Delta',
                                                                              'Epsilon', 'AAA']
-    assert len(node_reg_handler.uncommitted_node_reg_at_beginning_of_view) == 4
+    assert len(node_reg_handler.uncommitted_node_reg_at_beginning_of_view) == 2
     assert three_pc_batch3.node_reg == ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'AAA', 'BBB']
 
 

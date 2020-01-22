@@ -785,13 +785,12 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                              'Number of replicas={}. Expected number of primaries={}'
                              .format(len(self.replicas), len(primaries)))
         for inst_id, r in self.replicas.items():
-            if inst_id == MASTER_REPLICA_INDEX:
-                continue
-            r.primaryName = generateName(primaries[inst_id], inst_id)
-            self.primary_selected(inst_id)
-            logger.display("{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_SELECTION_PREFIX,
-                                   r.primaryName, inst_id, self.viewNo))
+            if r.primaryName is None:
+                r.primaryName = generateName(primaries[inst_id], inst_id)
+                self.primary_selected(inst_id)
+                logger.display("{} selected primary {} for instance {} (view {})"
+                               .format(PRIMARY_SELECTION_PREFIX,
+                                       r.primaryName, inst_id, self.viewNo))
 
         # 5. Check if master Primary is still in the list of active nodes
         if self.master_replica.primaryName is not None and replica_name_to_node_name(self.master_replica.primaryName) not in self.allNodeNames:
