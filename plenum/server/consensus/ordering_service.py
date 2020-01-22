@@ -1514,6 +1514,9 @@ class OrderingService:
         )
         self._discard_ordered_req_keys(pp)
 
+        # BLS multi-sig:
+        self.l_bls_bft_replica.process_order(key, self._data.quorums, pp)
+
         self._bus.send(ordered)
 
         ordered_msg = "{} ordered batch request, view no {}, ppSeqNo {}, ledger {}, " \
@@ -1530,9 +1533,6 @@ class OrderingService:
             self.metrics.add_event(MetricsName.ORDERED_BATCH_INVALID_COUNT, len(invalid_reqIdr))
         else:
             self.metrics.add_event(MetricsName.BACKUP_ORDERED_BATCH_SIZE, len(valid_reqIdr))
-
-        # BLS multi-sig:
-        self.l_bls_bft_replica.process_order(key, self._data.quorums, pp)
 
         # do it after Ordered msg is sent
         self._try_finish_reordering_after_vc(key[1])

@@ -58,17 +58,12 @@ def set_current_time(replica, ts):
     replica.get_time_for_3pc_batch.value = int(OLDEST_TS + ts)
 
 
-def check_and_pop_ordered(replica, ledger_ids):
+def check_and_pop_ordered_pre_prepare(replica, ledger_ids):
     for ledger_id in ledger_ids:
         msg = replica.outBox.popleft()
         assert isinstance(msg, PrePrepare)
         assert msg.ledgerId == ledger_id
         assert len(msg.reqIdr) > 0
-
-    for ledger_id in ledger_ids:
-        msg = replica.outBox.popleft()
-        assert isinstance(msg, Ordered)
-        assert msg.ledgerId == ledger_id
 
     for ledger_id in ledger_ids:
         replica._ordering_service.requestQueues[ledger_id].clear()
@@ -181,8 +176,7 @@ def test_freshness_pre_prepare_only_when_no_requests_for_ledger(tconf,
     # order requests
     for i in range(len(ordered)):
         replica._ordering_service._order_3pc_key((0, i + 1))
-    assert len(replica.outBox) == 2 * len(ordered)
-    check_and_pop_ordered(replica, ordered)
+    check_and_pop_ordered_pre_prepare(replica, ordered)
 
     # refresh state for unordered
     replica.send_3pc_batch()
