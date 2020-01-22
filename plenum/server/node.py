@@ -784,11 +784,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise LogicError('Inconsistent number of replicas and expected primaries. '
                              'Number of replicas={}. Expected number of primaries={}'
                              .format(len(self.replicas), len(primaries)))
-        if self.master_replica.primaryName is not None and \
-                generateName(primaries[0], MASTER_REPLICA_INDEX) != self.master_replica.primaryName:
-            raise LogicError('Master Primary is not expected to be changed. Current master primary {}; selected {}'
-                             .format(self.master_replica.primaryName, primaries[0]))
         for inst_id, r in self.replicas.items():
+            if inst_id == MASTER_REPLICA_INDEX:
+                continue
             r.primaryName = generateName(primaries[inst_id], inst_id)
             self.primary_selected(inst_id)
             logger.display("{} selected primary {} for instance {} (view {})"

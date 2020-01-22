@@ -33,7 +33,7 @@ def test_view_change_primary_selection_dynamic_node_reg(primary_selector, valida
     node_reg_handler.committed_node_reg_at_beginning_of_view[initial_view_no - 1] = validators
     node_reg_handler.committed_node_reg_at_beginning_of_view[initial_view_no - 2] = validators
     node_reg_handler.committed_node_reg_at_beginning_of_view[initial_view_no] = validators
-    node_reg_handler.active_node_reg = validators
+    node_reg_handler.uncommitted_node_reg_at_beginning_of_view = node_reg_handler.committed_node_reg_at_beginning_of_view
 
     instance_count = (len(validators) - 1) // 3 + 1
     primaries = set(primary_selector.select_primaries(initial_view_no))
@@ -61,8 +61,10 @@ def test_view_change_primary_selection_dynamic_node_reg(primary_selector, valida
 
 @pytest.mark.parametrize('has_node_reg_next_view', [True, False])
 def test_select_primaries_for_view_0(primary_selector, node_reg_handler, has_node_reg_next_view):
-    node_reg_handler.committed_node_reg_at_beginning_of_view[0] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-    node_reg_handler.active_node_reg = ["Alpha", "Delta", "Epsilon", "Zeta", "Eta", "Kappa"]
+    node_reg_handler.committed_node_reg_at_beginning_of_view[0] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta",
+                                                                   "Eta"]
+    node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] = ["Alpha", "Delta", "Epsilon", "Zeta", "Eta",
+                                                                     "Kappa"]
 
     # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
@@ -82,8 +84,10 @@ def test_select_primaries_for_view_1_takes_node_reg_from_previous_view(primary_s
                                                                        node_reg_handler,
                                                                        has_node_reg_next_view
                                                                        ):
-    node_reg_handler.committed_node_reg_at_beginning_of_view[0] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-    node_reg_handler.active_node_reg = ["Alpha", "Delta", "Epsilon", "Zeta", "Eta", "Kappa", "Gamma"]
+    node_reg_handler.committed_node_reg_at_beginning_of_view[0] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta",
+                                                                   "Eta"]
+    node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] = ["Alpha", "Delta", "Epsilon", "Zeta", "Eta",
+                                                                     "Kappa", "Gamma"]
 
     # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
@@ -95,7 +99,7 @@ def test_select_primaries_for_view_1_takes_node_reg_from_previous_view(primary_s
     master_primary = primary_selector.select_master_primary(view_no=1)
     primaries = primary_selector.select_primaries(view_no=1)
     assert master_primary == "Beta"
-    assert primaries == ["Beta", "Epsilon", "Zeta"]
+    assert primaries == ["Delta", "Epsilon", "Zeta"]
 
 
 @pytest.mark.parametrize('has_node_reg_next_view', [True, False])
@@ -103,8 +107,10 @@ def test_select_primaries_for_view_greater_than_node_reg(primary_selector,
                                                          node_reg_handler,
                                                          has_node_reg_next_view
                                                          ):
-    node_reg_handler.committed_node_reg_at_beginning_of_view[8] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
-    node_reg_handler.active_node_reg = ["Alpha", "Delta", "Epsilon", "Zeta", "Eta", "Kappa", "Beta"]
+    node_reg_handler.committed_node_reg_at_beginning_of_view[8] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta",
+                                                                   "Eta"]
+    node_reg_handler.uncommitted_node_reg_at_beginning_of_view[8] = ["Alpha", "Delta", "Epsilon", "Zeta", "Eta",
+                                                                     "Kappa", "Beta"]
 
     # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
@@ -113,11 +119,14 @@ def test_select_primaries_for_view_greater_than_node_reg(primary_selector,
         node_reg_handler.committed_node_reg_at_beginning_of_view[7] = ['AAA', 'BBB', 'CCC']
         node_reg_handler.committed_node_reg_at_beginning_of_view[9] = ['AAA', 'BBB', 'CCC']
         node_reg_handler.committed_node_reg_at_beginning_of_view[10] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.uncommitted_node_reg_at_beginning_of_view[6] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.uncommitted_node_reg_at_beginning_of_view[7] = ['AAA', 'BBB', 'CCC']
 
     master_primary = primary_selector.select_master_primary(view_no=9)
     primaries = primary_selector.select_primaries(view_no=9)
     assert master_primary == "Gamma"
-    assert primaries == ["Gamma", "Zeta", "Eta"]
+    assert primaries == ["Epsilon", "Zeta", "Eta"]
 
 
 @pytest.mark.parametrize('has_node_reg_next_view', [True, False])
@@ -126,7 +135,7 @@ def test_select_primaries_dont_select_equal_master_and_backup(primary_selector,
                                                               has_node_reg_next_view
                                                               ):
     node_reg_handler.committed_node_reg_at_beginning_of_view[5] = ["Alpha", "Beta", "Gamma", "Delta"]
-    node_reg_handler.active_node_reg = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon"]
+    node_reg_handler.uncommitted_node_reg_at_beginning_of_view[5] = ["Beta", "Alpha", "Gamma", "Delta", "Epsilon"]
 
     # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
@@ -135,11 +144,14 @@ def test_select_primaries_dont_select_equal_master_and_backup(primary_selector,
         node_reg_handler.committed_node_reg_at_beginning_of_view[7] = ['AAA', 'BBB', 'CCC']
         node_reg_handler.committed_node_reg_at_beginning_of_view[9] = ['AAA', 'BBB', 'CCC']
         node_reg_handler.committed_node_reg_at_beginning_of_view[10] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.uncommitted_node_reg_at_beginning_of_view[1] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.uncommitted_node_reg_at_beginning_of_view[4] = ['AAA', 'BBB', 'CCC']
 
     master_primary = primary_selector.select_master_primary(view_no=6)
     primaries = primary_selector.select_primaries(view_no=6)
     assert master_primary == "Gamma"
-    assert primaries == ["Gamma", "Delta"]
+    assert primaries == ["Alpha", "Gamma"]
 
 
 @pytest.mark.parametrize('has_node_reg_next_view', [True, False])
@@ -148,7 +160,8 @@ def test_select_primaries_num_of_replicas_from_active_node_reg(primary_selector,
                                                                has_node_reg_next_view
                                                                ):
     node_reg_handler.committed_node_reg_at_beginning_of_view[3] = ["Alpha", "Beta", "Gamma"]
-    node_reg_handler.active_node_reg = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta"]
+    node_reg_handler.uncommitted_node_reg_at_beginning_of_view[3] = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon",
+                                                                     "Zeta", "Eta"]
 
     # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
@@ -157,11 +170,14 @@ def test_select_primaries_num_of_replicas_from_active_node_reg(primary_selector,
         node_reg_handler.committed_node_reg_at_beginning_of_view[7] = ['AAA', 'BBB', 'CCC']
         node_reg_handler.committed_node_reg_at_beginning_of_view[9] = ['AAA', 'BBB', 'CCC']
         node_reg_handler.committed_node_reg_at_beginning_of_view[10] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.uncommitted_node_reg_at_beginning_of_view[1] = ['AAA', 'BBB', 'CCC']
+        node_reg_handler.uncommitted_node_reg_at_beginning_of_view[2] = ['AAA', 'BBB', 'CCC']
 
     master_primary = primary_selector.select_master_primary(view_no=4)
     primaries = primary_selector.select_primaries(view_no=4)
     assert master_primary == "Beta"
-    assert primaries == ["Beta", "Zeta", "Eta"]
+    assert primaries == ["Epsilon", "Zeta", "Eta"]
 
 
 @pytest.mark.parametrize('has_node_reg_next_view', [True, False])
@@ -169,9 +185,11 @@ def test_select_primaries_num_of_replicas_from_active_node_reg(primary_selector,
 def test_select_primaries_takes_latest_available_node_reg_for_previous_views(primary_selector, node_reg_handler,
                                                                              has_node_reg_next_view,
                                                                              prev_available_viewno):
-    node_reg_handler.committed_node_reg_at_beginning_of_view[prev_available_viewno] = ["Alpha", "Beta", "Gamma", "Delta",
-                                                                             "Epsilon", "Zeta", "Eta"]
-    node_reg_handler.active_node_reg = ["Alpha", "Beta", "Gamma", "Delta"]
+    node_reg_handler.committed_node_reg_at_beginning_of_view[prev_available_viewno] = ["Alpha", "Beta", "Gamma",
+                                                                                       "Delta",
+                                                                                       "Epsilon", "Zeta", "Eta"]
+    node_reg_handler.uncommitted_node_reg_at_beginning_of_view[prev_available_viewno] = ["Alpha", "Beta", "Gamma",
+                                                                                         "Delta"]
 
     # committed and uncommitted_node_reg can be any
     node_reg_handler.committed_node_reg = ['AAA', 'BBB', 'CCC']
@@ -184,4 +202,4 @@ def test_select_primaries_takes_latest_available_node_reg_for_previous_views(pri
     master_primary = primary_selector.select_master_primary(view_no=4)
     primaries = primary_selector.select_primaries(view_no=4)
     assert master_primary == "Epsilon"
-    assert primaries == ["Epsilon", "Beta"]
+    assert primaries == ["Alpha", "Beta"]
