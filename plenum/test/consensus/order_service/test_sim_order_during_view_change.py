@@ -16,6 +16,11 @@ def test_view_change_while_ordering_with_real_msgs_random_seed(random):
     do_test(random)
 
 
+@pytest.mark.parametrize("seed", [3957])
+def test_view_change_while_ordering_with_real_msgs_fixed_seed(seed):
+    do_test(seed)
+
+
 def do_test(random):
     # 1. Setup pool
     requests_count = REQUEST_COUNT

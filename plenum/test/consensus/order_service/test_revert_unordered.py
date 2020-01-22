@@ -27,7 +27,9 @@ def pool(random):
 def test_get_requestQueues_back_after_revert(pool, requests):
     pool.sim_send_requests(requests)
     primary = [n for n in pool.nodes if n._data.is_primary][0]
+    primary._orderer.last_ordered_3pc = (primary._orderer.last_ordered_3pc[0], 1)
     queue_before = copy.copy(primary._orderer.requestQueues[DOMAIN_LEDGER_ID])
+    assert primary._orderer.can_send_3pc_batch()
     while primary._orderer.requestQueues[DOMAIN_LEDGER_ID]:
         primary._orderer.send_3pc_batch()
 

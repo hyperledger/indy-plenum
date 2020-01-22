@@ -8,6 +8,7 @@ from plenum.common.messages.node_messages import MessageReq, MessageRep, Commit,
 from plenum.common.types import f
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.message_request.message_req_service import MessageReqService
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.consensus.view_change_storages import view_change_digest
 from plenum.test.consensus.helper import create_view_change, create_new_view
 from plenum.test.helper import create_commit_no_bls_sig
@@ -47,6 +48,8 @@ def test_process_message_req_new_view(message_req_service: MessageReqService,
     })
     external_bus.process_incoming(message_req, frm)
     assert len(external_bus.sent_messages) == 1
+    expected_new_view = new_view_message._asdict()
+    expected_new_view.update({f.PRIMARY.nm: replica_name_to_node_name(data.primary_name)})
 
     assert external_bus.sent_messages[0] == (MessageRep(message_req.msg_type,
                                                         message_req.params,
