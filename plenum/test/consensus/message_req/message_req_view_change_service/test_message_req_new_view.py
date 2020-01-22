@@ -48,12 +48,13 @@ def test_process_message_req_new_view(message_req_service: MessageReqService,
     })
     external_bus.process_incoming(message_req, frm)
     assert len(external_bus.sent_messages) == 1
+
     expected_new_view = new_view_message._asdict()
     expected_new_view.update({f.PRIMARY.nm: replica_name_to_node_name(data.primary_name)})
 
     assert external_bus.sent_messages[0] == (MessageRep(message_req.msg_type,
                                                         message_req.params,
-                                                        new_view_message._asdict()),
+                                                        expected_new_view),
                                              [frm])
 
 
