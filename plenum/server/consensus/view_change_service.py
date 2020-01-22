@@ -1,3 +1,4 @@
+import copy
 from operator import itemgetter
 from typing import List, Optional, Union, Dict, Any
 
@@ -322,7 +323,6 @@ class ViewChangeService:
         logger.info("{} finished view change to view {}. Master Primary: {}".format(self._data.name,
                                                                                     self._data.view_no,
                                                                                     self._data.primary_name))
-
         # Cancel View Change timeout task
         self._resend_inst_change_timer.stop()
         # send message to other services

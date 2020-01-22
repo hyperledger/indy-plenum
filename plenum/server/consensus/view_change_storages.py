@@ -5,12 +5,13 @@ from typing import Optional, List, Tuple
 from common.serializers.json_serializer import JsonSerializer
 from plenum.common.messages.internal_messages import VoteForViewChange
 from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
+from plenum.common.types import f
 from plenum.server.consensus.utils import replica_name_to_node_name
 
 
 def view_change_digest(msg: ViewChange) -> str:
     msg_as_dict = msg._asdict()
-#    msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
+    # msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
     serialized = JsonSerializer().dumps(msg_as_dict)
     return sha256(serialized).hexdigest()
 
@@ -149,8 +150,9 @@ class NewViewVotesForView:
     """
     Storage for NewView votes
     """
+
     def __init__(self, quorums):
-        self._votes = {}                    # Dict[str, NewViewVote]]
+        self._votes = {}  # Dict[str, NewViewVote]]
         self._quorums = quorums
         self.new_view = None
 
@@ -161,7 +163,15 @@ class NewViewVotesForView:
 
         primary_name = replica_name_to_node_name(primary_name)
         for nv_votes in self._votes.values():
-            if primary_name in nv_votes.voted_nodes:
+            """
+            We allow to return NEW_VIEW msg from primary only for case, if this msg
+            was received directly from primary without request/reply logic.
+            If there was NEW_VIEW requests/replies then only quorumed msg will be return.
+            'primary' field is a marker that message was requested for some reason
+            """
+            if len(nv_votes.voted_nodes) == 1 and \
+                    primary_name in nv_votes.voted_nodes \
+                    and f.PRIMARY.nm not in nv_votes.msg:
                 return nv_votes.msg
 
     def _msg_from_primary(self, frm_primary):
