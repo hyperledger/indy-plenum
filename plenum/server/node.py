@@ -748,8 +748,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: unify this logic
             self.allNodeNames = set(self.nodeReg.keys())
             # the following is needed to do initial primary selection
-            self.write_manager.node_reg_handler.active_node_reg = list(self.nodeReg.keys())
-            self.write_manager.node_reg_handler.node_reg_at_beginning_of_view[0] = list(self.nodeReg.keys())
+            self.write_manager.node_reg_handler.committed_node_reg_at_beginning_of_view[0] = list(self.nodeReg.keys())
+            self.write_manager.node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] = list(self.nodeReg.keys())
         self.network_i3pc_watcher.set_nodes(self.allNodeNames)
 
         # 2. Update N and F
@@ -784,16 +784,13 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             raise LogicError('Inconsistent number of replicas and expected primaries. '
                              'Number of replicas={}. Expected number of primaries={}'
                              .format(len(self.replicas), len(primaries)))
-        if self.master_replica.primaryName is not None and \
-                generateName(primaries[0], MASTER_REPLICA_INDEX) != self.master_replica.primaryName:
-            raise LogicError('Master Primary is not expected to be changed. Current master primary {}; selected {}'
-                             .format(self.master_replica.primaryName, primaries[0]))
         for inst_id, r in self.replicas.items():
-            r.primaryName = generateName(primaries[inst_id], inst_id)
-            self.primary_selected(inst_id)
-            logger.display("{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_SELECTION_PREFIX,
-                                   r.primaryName, inst_id, self.viewNo))
+            if r.primaryName is None:
+                r.primaryName = generateName(primaries[inst_id], inst_id)
+                self.primary_selected(inst_id)
+                logger.display("{} selected primary {} for instance {} (view {})"
+                               .format(PRIMARY_SELECTION_PREFIX,
+                                       r.primaryName, inst_id, self.viewNo))
 
         # 5. Check if master Primary is still in the list of active nodes
         if self.master_replica.primaryName is not None and replica_name_to_node_name(self.master_replica.primaryName) not in self.allNodeNames:
