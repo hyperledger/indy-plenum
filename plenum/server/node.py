@@ -748,8 +748,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             # TODO: unify this logic
             self.allNodeNames = set(self.nodeReg.keys())
             # the following is needed to do initial primary selection
-            self.write_manager.node_reg_handler.active_node_reg = list(self.nodeReg.keys())
-            self.write_manager.node_reg_handler.node_reg_at_beginning_of_view[0] = list(self.nodeReg.keys())
+            self.write_manager.node_reg_handler.committed_node_reg_at_beginning_of_view[0] = list(self.nodeReg.keys())
+            self.write_manager.node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] = list(self.nodeReg.keys())
         self.network_i3pc_watcher.set_nodes(self.allNodeNames)
 
         # 2. Update N and F

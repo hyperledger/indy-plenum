@@ -177,7 +177,8 @@ class SimPool:
         replica_name = generateName(name, 0)
         handler = partial(self.network._send_message, replica_name)
         write_manager = create_test_write_req_manager(name, self._genesis_txns)
-        write_manager.node_reg_handler.node_reg_at_beginning_of_view[0] = self._genesis_validators
+        write_manager.node_reg_handler.committed_node_reg_at_beginning_of_view[0] = self._genesis_validators
+        write_manager.node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] = self._genesis_validators
         _internal_bus = InternalBus()
         self._internal_buses[name] = _internal_bus
         self._subscribe_to_internal_msgs(name)

@@ -59,12 +59,12 @@ class RoundRobinNodeRegPrimariesSelector(PrimariesSelector):
         # to guarantee that same primaries will be selected on all nodes once view change is started.
         # Remark: It's possible that there is no nodeReg for some views if no txns have been ordered there
         view_no_for_selection = view_no - 1 if view_no > 1 else 0
-        while view_no_for_selection > 0 and view_no_for_selection not in self.node_reg_handler.node_reg_at_beginning_of_view:
+        while view_no_for_selection > 0 and view_no_for_selection not in self.node_reg_handler.committed_node_reg_at_beginning_of_view:
             view_no_for_selection -= 1
-        if view_no_for_selection not in self.node_reg_handler.node_reg_at_beginning_of_view:
+        if view_no_for_selection not in self.node_reg_handler.committed_node_reg_at_beginning_of_view:
             raise LogicError("Can not find view_no {} in node_reg_at_beginning_of_view {}".format(view_no,
-                                                                                                  self.node_reg_handler.node_reg_at_beginning_of_view))
-        node_reg_to_use = self.node_reg_handler.node_reg_at_beginning_of_view[view_no_for_selection]
+                                                                                                  self.node_reg_handler.committed_node_reg_at_beginning_of_view))
+        node_reg_to_use = self.node_reg_handler.committed_node_reg_at_beginning_of_view[view_no_for_selection]
 
         return node_reg_to_use[view_no % len(node_reg_to_use)]
 

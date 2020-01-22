@@ -28,16 +28,20 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self.committed_node_reg = []
 
         # committed node reg at the beginning of view
-        # matches the node reg BEFORE the first txn in a view is applied (that is according to the last txn in the last view)
-        self.node_reg_at_beginning_of_view = SortedDict()
+        # matches the committed node reg BEFORE the first txn in a view is applied (that is according to the last txn in the last view)
+        self.committed_node_reg_at_beginning_of_view = SortedDict()
 
-        # uncommitted node reg at the beginning of the current view
-        # matches the node reg BEFORE the first txn in a view is applied (that is according to the last txn in the last view)
-        self.active_node_reg = []
+        # uncommitted node reg at the beginning of view
+        # matches the uncommittednode reg BEFORE the first txn in a view is applied (that is according to the last txn in the last view)
+        self.uncommitted_node_reg_at_beginning_of_view = SortedDict()
 
         self._uncommitted = deque()  # type: deque[UncommittedNodeReg]
         self._uncommitted_view_no = 0
         self._committed_view_no = 0
+
+    @property
+    def active_node_reg(self):
+        return self.uncommitted_node_reg_at_beginning_of_view.peekitem(-1)[1]
 
     def on_catchup_finished(self):
         self._load_current_node_reg()
@@ -45,7 +49,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self._load_last_view_node_reg()
         logger.info("Loaded current node registry from the ledger: {}".format(self.uncommitted_node_reg))
         logger.info(
-            "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
+            "Current node registry for previous views: {}".format(sorted(self.committed_node_reg_at_beginning_of_view.items())))
         logger.info("Current active node registry: {}".format(self.active_node_reg))
 
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
@@ -67,7 +71,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         logger.debug("Applied uncommitted node registry: {}".format(self.uncommitted_node_reg))
         logger.debug(
-            "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
+            "Current node registry for previous views: {}".format(sorted(self.committed_node_reg_at_beginning_of_view.items())))
         logger.debug("Current active node registry: {}".format(self.active_node_reg))
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
@@ -87,12 +91,12 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         logger.debug("Reverted uncommitted node registry from {} to {}".format(reverted.uncommitted_node_reg,
                                                                                self.uncommitted_node_reg))
         logger.debug(
-            "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
+            "Current node registry for previous views: {}".format(sorted(self.committed_node_reg_at_beginning_of_view.items())))
         logger.debug("Current active node registry: {}".format(self.active_node_reg))
 
     def _find_uncommitted_node_reg_at_beginning_of_view(self):
         if self._committed_view_no == self._uncommitted_view_no:
-            return list(self.node_reg_at_beginning_of_view[self._committed_view_no])
+            return list(self.committed_node_reg_at_beginning_of_view[self._committed_view_no])
         i = 1
         while i <= len(self._uncommitted) and self._uncommitted_view_no == self._uncommitted[-i].view_no:
             i += 1
@@ -104,17 +108,17 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         # 1. Update node_reg_at_beginning_of_view first (to match the node reg at the end of last view)
         three_pc_batch_view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
         if three_pc_batch_view_no > self._committed_view_no:
-            self.node_reg_at_beginning_of_view[three_pc_batch_view_no] = list(self.committed_node_reg)
+            self.committed_node_reg_at_beginning_of_view[three_pc_batch_view_no] = list(self.committed_node_reg)
             self._committed_view_no = three_pc_batch_view_no
 
             # make sure that we have node reg for the current and previous view (which can be less than the current for more than 1)
             # Ex.: node_reg_at_beginning_of_view has views {0, 3, 5, 7, 11, 13), committed is now 7, so we need to keep all uncommitted (11, 13),
             # and keep the one from the previous view (5). Views 0 and 3 needs to be deleted.
-            view_nos = list(self.node_reg_at_beginning_of_view.keys())
+            view_nos = list(self.committed_node_reg_at_beginning_of_view.keys())
             prev_committed_index = max(view_nos.index(self._committed_view_no) - 1, 0) \
-                if self._committed_view_no in self.node_reg_at_beginning_of_view else 0
+                if self._committed_view_no in self.committed_node_reg_at_beginning_of_view else 0
             for view_no in view_nos[:prev_committed_index]:
-                self.node_reg_at_beginning_of_view.pop(view_no, None)
+                self.committed_node_reg_at_beginning_of_view.pop(view_no, None)
 
         # 2. update committed node reg
         prev_committed = self.committed_node_reg
@@ -123,12 +127,12 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         if prev_committed != self.committed_node_reg:
             logger.info("Committed node registry: {}".format(self.committed_node_reg))
             logger.info("Current node registry for previous views: {}".format(
-                sorted(self.node_reg_at_beginning_of_view.items())))
+                sorted(self.committed_node_reg_at_beginning_of_view.items())))
             logger.info("Current active node registry: {}".format(self.active_node_reg))
         else:
             logger.debug("Committed node registry: {}".format(self.committed_node_reg))
             logger.debug("Current node registry for previous views: {}".format(
-                sorted(self.node_reg_at_beginning_of_view.items())))
+                sorted(self.committed_node_reg_at_beginning_of_view.items())))
             logger.debug("Current active node registry: {}".format(self.active_node_reg))
 
     def apply_request(self, request: Request, batch_ts, prev_result):
@@ -172,13 +176,13 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self.committed_node_reg = list(node_reg)
 
     def _load_last_view_node_reg(self):
-        self.node_reg_at_beginning_of_view.clear()
+        self.committed_node_reg_at_beginning_of_view.clear()
 
         # 1. check if we have audit ledger at all
         audit_ledger = self.database_manager.get_ledger(AUDIT_LEDGER_ID)
         if not audit_ledger:
             # don't have audit ledger yet, so get aleady loaded values from the pool ledger
-            self.node_reg_at_beginning_of_view[0] = list(self.uncommitted_node_reg)
+            self.committed_node_reg_at_beginning_of_view[0] = list(self.uncommitted_node_reg)
             self.active_node_reg = list(self.uncommitted_node_reg)
             self._committed_view_no = 0
             self._uncommitted_view_no = 0
@@ -198,7 +202,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             node_reg_this_view = self.__load_node_reg_for_first_audit_txn(first_txn_in_this_view)
         else:
             node_reg_this_view = list(self.__load_node_reg_from_audit_txn(audit_ledger, last_txn_in_prev_view))
-        self.node_reg_at_beginning_of_view[self._committed_view_no] = node_reg_this_view
+        self.committed_node_reg_at_beginning_of_view[self._committed_view_no] = node_reg_this_view
         self.active_node_reg = list(node_reg_this_view)
 
         # 5. Check if audit ledger has information about 0 view only
@@ -209,7 +213,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         # get the last view from the pool ledger
         if last_txn_in_prev_view is None:
             # assume last view=0 if we don't know it
-            self.node_reg_at_beginning_of_view[0] = list(
+            self.committed_node_reg_at_beginning_of_view[0] = list(
                 self.__load_node_reg_for_first_audit_txn(first_txn_in_this_view))
             return
 
@@ -224,7 +228,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         else:
             node_reg_last_view = list(self.__load_node_reg_from_audit_txn(audit_ledger, last_txn_in_pre_last_view))
         last_view_no = get_payload_data(first_txn_in_last_view)[AUDIT_TXN_VIEW_NO]
-        self.node_reg_at_beginning_of_view[last_view_no] = node_reg_last_view
+        self.committed_node_reg_at_beginning_of_view[last_view_no] = node_reg_last_view
 
     def __load_node_reg_from_pool_ledger(self, to=None):
         node_reg = []
