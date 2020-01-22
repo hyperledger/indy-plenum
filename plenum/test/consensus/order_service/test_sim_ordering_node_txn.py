@@ -2,11 +2,10 @@ from functools import partial
 from random import shuffle
 
 import pytest
-from _random import Random
 
 from plenum.common.constants import VALIDATOR, POOL_LEDGER_ID, TYPE, NODE, DATA, ALIAS, CLIENT_IP, CLIENT_PORT, NODE_IP, \
     NODE_PORT, BLS_KEY, TARGET_NYM, SERVICES, CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID
-from plenum.common.messages.internal_messages import NeedViewChange, VoteForViewChange
+from plenum.common.messages.internal_messages import VoteForViewChange
 from plenum.common.request import Request
 from plenum.common.timer import RepeatingTimer
 from plenum.common.txn_util import get_payload_data, get_from
@@ -26,10 +25,6 @@ logger = getlogger()
 DOMAIN_REQ_COUNT = 10
 
 
-# TODO: Failed seeds for debugging INDY-2237 and INDY-2148
-# {752248, 659043, 550513, 141156}
-
-
 @pytest.fixture()
 def sim_pool(random):
     return setup_pool(random)
@@ -42,20 +37,15 @@ def indexes_to_demote(sim_pool, random):
     return random.sample(range(1, sim_pool.size), sim_pool.size - 4)
 
 
-# "params" equal to seed
-# @pytest.fixture(params=Random().sample(range(1000000), 100))
-# def random(request):
-#     seed = request.param
-#     # TODO: Remove after we fix INDY-2237 and INDY-2148
-#     if seed in {752248, 659043, 550513, 141156}:
-#         return DefaultSimRandom(0)
-#     return DefaultSimRandom(request.param)
-
-
 @pytest.fixture(
-    params=[306974, 716913, 125696, 20762, 394118, 108575, 605859, 136899, 466216, 989378, 952818, 388333, 384805,
-            125703, 646653, 428522, 928282, 893545, 108575, 605859, 136899, 726384, 466216, 811021, 413903, 851374,
-            388333, 332177])
+    params=[
+            #306974, 716913, 125696, 20762, 394118, 108575, 605859, 136899, 466216, 989378, 952818, 388333, 384805,
+            # 125703, 646653, 428522, 928282, 893545, 108575, 605859, 136899, 726384, 466216, 811021, 413903, 851374,
+            # 388333, 332177,
+            120030,                                      # seed for demoted nodes (case for node_reg_at_beginning_of_view)
+            # 77948, 445428,  95467, 353256, 614663,     # from mixed demotion/promotion
+            # 752248, 659043, 550513, 141156             # general seeds (INDY-2237 and INDY-2148)
+    ])
 def fixed_random(request):
     return DefaultSimRandom(request.param)
 
@@ -96,6 +86,16 @@ def test_node_txn_demote_node_random_seed(random):
 def test_node_txn_demote_node_fixed_seed(fixed_random):
     sim_pool = setup_pool(fixed_random)
     do_test_node_txn_demote_node(sim_pool, fixed_random)
+
+
+def test_node_txn_mixed_fixed_seed(fixed_random):
+    sim_pool = setup_pool(fixed_random)
+    do_test_node_txn_mixed(sim_pool, fixed_random)
+
+
+def test_node_txn_mixed_random_seed(random):
+    sim_pool = setup_pool(random)
+    do_test_node_txn_mixed(sim_pool, random)
 
 
 def do_test_node_txn_add_new_node(sim_pool, random):
@@ -188,10 +188,7 @@ def do_test_node_txn_demote_node(sim_pool, random):
                     check_ledger_size, node, current_domain_ledger_size + len(domain_reqs), DOMAIN_LEDGER_ID))
 
 
-# ToDo: failed seeds: {77948, 445428,  95467, 353256, 614663}
-def test_demote_promote_mixed(sim_pool,
-                              random,
-                              indexes_to_demote):
+def do_test_node_txn_mixed(sim_pool, random):
     # Step 1. Prepare NODE requests and some of params to check
     # Count of NODE requests is random but less then pool size
     indexes_to_demote = random.sample(range(1, sim_pool.size), sim_pool.size - 4)
