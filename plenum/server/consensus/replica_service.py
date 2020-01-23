@@ -36,19 +36,28 @@ class ReplicaService:
     simulation tests, however in future it can replace actual Replica in plenum.
     """
 
-    def __init__(self, name: str, validators: List[str], primary_name: str,
+    def __init__(self, name: str, validators: List[str], view_no: int,
                  timer: TimerService, bus: InternalBus, network: ExternalBus,
                  write_manager: WriteRequestManager,
                  bls_bft_replica: BlsBftReplica = None):
         # ToDo: Maybe ConsensusSharedData should be initiated before and passed already prepared?
+        self._inst_id = 0
+        self._validators = validators
         self._network = network
-        self._data = ConsensusSharedData(name, validators, 0)
-        self._data.primary_name = generateName(primary_name, self._data.inst_id)
+        self._write_manager = write_manager
+
+        self._data = ConsensusSharedData(name, self._validators, self._inst_id)
         self._timer = timer
         self.config = getConfig()
         self.stasher = StashingRouter(self.config.REPLICA_STASH_LIMIT, buses=[bus, network])
-        self._write_manager = write_manager
         self._primaries_selector = RoundRobinNodeRegPrimariesSelector(self._write_manager.node_reg_handler)
+
+        # ToDo: it's imitation of initial catchup.
+        #  Should be removed after catchup_service integration.
+        #  Needs for setting uncommitted_node_reg
+        self._write_manager.node_reg_handler.on_catchup_finished()
+
+        self.setup_view_no(view_no)
 
         self._freshness_checker = FreshnessChecker(freshness_timeout=self.config.STATE_FRESHNESS_UPDATE_INTERVAL)
         for ledger_id in [POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID]:
@@ -103,6 +112,12 @@ class ReplicaService:
 
         # ToDo: ugly way to understand node_reg changing
         self._previous_node_reg = self._write_manager.node_reg_handler.committed_node_reg
+
+    def setup_view_no(self, view_no=None):
+        self._data.view_no = view_no
+        self._data.primaries = self._primaries_selector.select_primaries(view_no)
+        self._data.primary_name = generateName(self._data.primaries[self._inst_id], self._inst_id)
+        self._data.last_ordered_3pc = (view_no, self._data.last_ordered_3pc[1])
 
     def ready_for_3pc(self, req_key):
         fin_req = self._data.requests[req_key.digest].finalised

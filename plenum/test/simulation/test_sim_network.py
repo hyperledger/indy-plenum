@@ -140,12 +140,6 @@ def test_sim_network_raises_on_sending_to_no_one(some_node):
         some_node.network.send(message, [])
 
 
-def test_sim_network_raises_on_sending_to_invalid(some_node):
-    message = create_some_message()
-    with pytest.raises(AssertionError):
-        some_node.network.send(message, [lambda: print("I'm evil!")])
-
-
 def test_sim_network_respects_latencies(random, test_nodes, mock_timer, initial_time, latency_bounds):
     for i in range(100):
         node = random.choice(*test_nodes)

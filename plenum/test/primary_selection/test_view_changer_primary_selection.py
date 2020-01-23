@@ -5,6 +5,7 @@ import base58
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
+from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
@@ -66,7 +67,7 @@ class FakeNode:
         self.nodeStatusDB = None
         self.quorums = Quorums(self.totalNodes)
         self.nodestack = FakeSomething(connecteds=set(self.allNodeNames))
-        self.write_manager = FakeSomething()
+        self.write_manager = FakeSomething(node_reg_handler=NodeRegHandler(self.db_manager))
         self.primaries_selector = RoundRobinConstantNodesPrimariesSelector(node_names)
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),

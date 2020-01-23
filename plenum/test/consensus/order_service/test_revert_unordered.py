@@ -1,19 +1,11 @@
 import copy
-from random import Random
 
 import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.consensus.order_service.sim_helper import create_requests, setup_pool, MAX_BATCH_SIZE, update_config
-from plenum.test.simulation.sim_random import DefaultSimRandom
 
 REQS_COUNT = 10
-
-
-# "params" equal to seed
-@pytest.fixture(params=Random().sample(range(1000000), 100))
-def random(request):
-    return DefaultSimRandom(request.param)
 
 
 @pytest.fixture()
@@ -35,7 +27,9 @@ def pool(random):
 def test_get_requestQueues_back_after_revert(pool, requests):
     pool.sim_send_requests(requests)
     primary = [n for n in pool.nodes if n._data.is_primary][0]
+    primary._orderer.last_ordered_3pc = (primary._orderer.last_ordered_3pc[0], 1)
     queue_before = copy.copy(primary._orderer.requestQueues[DOMAIN_LEDGER_ID])
+    assert primary._orderer.can_send_3pc_batch()
     while primary._orderer.requestQueues[DOMAIN_LEDGER_ID]:
         primary._orderer.send_3pc_batch()
 

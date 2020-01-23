@@ -1,3 +1,4 @@
+import copy
 from operator import itemgetter
 from typing import List, Optional, Union, Dict, Any
 
@@ -10,6 +11,7 @@ from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewV
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
+from plenum.common.types import f
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.primary_selector import PrimariesSelector
@@ -310,14 +312,17 @@ class ViewChangeService:
         self._finish_view_change()
 
     def _finish_view_change(self):
-        logger.info("{} finished view change to view {}. Master Primary: {}".format(self._data.name,
-                                                                                    self._data.view_no,
-                                                                                    self._data.primary_name))
         # Update shared data
         self._data.waiting_for_new_view = False
         self._data.prev_view_prepare_cert = self._data.new_view.batches[-1].pp_seq_no \
             if self._data.new_view.batches else self._data.new_view.checkpoint.seqNoEnd
+        if f.PRIMARY.nm in self._data.new_view:
+            self._data.primary_name = generateName(self._data.new_view.primary,
+                                                   self._data.inst_id)
 
+        logger.info("{} finished view change to view {}. Master Primary: {}".format(self._data.name,
+                                                                                    self._data.view_no,
+                                                                                    self._data.primary_name))
         # Cancel View Change timeout task
         self._resend_inst_change_timer.stop()
         # send message to other services

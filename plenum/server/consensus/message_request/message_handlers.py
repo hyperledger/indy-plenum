@@ -9,6 +9,7 @@ from plenum.common.messages.node_messages import MessageReq, MessageRep, PrePrep
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
+from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.consensus.view_change_storages import view_change_digest
 
 
@@ -296,7 +297,9 @@ class NewViewHandler(AbstractMessagesHandler):
     def _get_reply(self, params: Dict[str, Any]):
         result = self._data.new_view
         if result:
-            result = result._asdict()
+            as_dict = result._asdict()
+            as_dict.update({f.PRIMARY.nm: replica_name_to_node_name(self._data.primary_name)})
+            result = as_dict
         return result
 
     def _validate_message_rep(self, msg: NewView) -> None:

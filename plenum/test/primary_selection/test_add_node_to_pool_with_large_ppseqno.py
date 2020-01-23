@@ -57,7 +57,7 @@ def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, 
 
     # Disable view change after adding new node as it will not be able to finish due to fake ppSeqNo set
     for n in txnPoolNodeSet:
-        n._on_node_count_changed_committed = lambda: None
+        n.write_manager.node_reg_handler.internal_bus = None
 
     new_steward_name = "testClientSteward" + randomString(4)
     new_node_name = "TestTheta" + randomString(4)

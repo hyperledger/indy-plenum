@@ -1,6 +1,5 @@
 from collections import Counter
 from functools import partial
-from random import Random
 
 import pytest
 
@@ -29,22 +28,8 @@ def filter(request):
     return request.param[0], request.param[1]
 
 
-@pytest.fixture(params=range(100))
-def default_random(request):
-    return DefaultSimRandom(request.param)
-
-
-@pytest.fixture(params=Random().sample(range(1000000), 100))
-def random_random(request):
-    return DefaultSimRandom(request.param)
-
-
-def test_view_change_completes_under_normal_conditions_default_seeds(default_random, latency, filter):
-    check_view_change_completes_under_normal_conditions(default_random, *latency, *filter)
-
-
-def test_view_change_completes_under_normal_conditions_random_seeds(random_random, latency, filter):
-    check_view_change_completes_under_normal_conditions(random_random, *latency, *filter)
+def test_view_change_completes_under_normal_conditions_default_seeds(random, latency, filter):
+    check_view_change_completes_under_normal_conditions(random, *latency, *filter)
 
 
 @pytest.mark.parametrize(argnames="seed", argvalues=[290370, 749952, 348636, 919685, 674863, 378187])
@@ -53,9 +38,9 @@ def test_view_change_completes_under_normal_conditions_regression_seeds(seed, la
     check_view_change_completes_under_normal_conditions(random, *latency, *filter)
 
 
-def test_view_change_permutations(random_random):
+def test_view_change_permutations(random):
     # Create pool in some random initial state
-    pool, _ = some_pool(random_random)
+    pool, _ = some_pool(random)
     quorums = pool.nodes[0]._data.quorums
 
     # Get view change votes from all nodes
@@ -67,16 +52,17 @@ def test_view_change_permutations(random_random):
         view_change_messages.append(network.sent_messages[0][0])
 
     # Select random number of view change votes
-    num_view_changes = random_random.integer(quorums.view_change.value, quorums.n)
-    view_change_messages = random_random.sample(view_change_messages, num_view_changes)
+    num_view_changes = random.integer(quorums.view_change.value, quorums.n)
+    view_change_messages = random.sample(view_change_messages, num_view_changes)
 
     # Check that all committed requests are present in final batches
     new_view_builder = pool.nodes[0]._view_changer._new_view_builder
-    cps = {new_view_builder.calc_checkpoint(random_random.shuffle(view_change_messages))
+    cps = {new_view_builder.calc_checkpoint(random.shuffle(view_change_messages))
            for _ in range(10)}
     assert len(cps) == 1
 
 
+# ToDo: this test fails on seeds {440868, 925547}
 def test_new_view_combinations(random):
     # Create pool in some random initial state
     pool, _ = some_pool(random)
@@ -115,6 +101,7 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom,
     pool, committed = some_pool(random)
     N = pool.size
     F = (N - 1) // 3
+    initial_view_no = pool._initial_view_no
 
     # 2. set latency
     pool.network.set_latency(min_latency, max_latency)
@@ -134,7 +121,7 @@ def check_view_change_completes_under_normal_conditions(random: SimRandom,
 
     # 1. Make sure all nodes complete view change
     pool.timer.wait_for(lambda: all(not node._data.waiting_for_new_view
-                                    and node._data.view_no > 0
+                                    and node._data.view_no > initial_view_no
                                     for node in pool.nodes))
 
     # 2. check that equal stable checkpoint is set on at least N-F nodes (F nodes may lag behind and will catchup)
