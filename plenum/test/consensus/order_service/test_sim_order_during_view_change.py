@@ -18,7 +18,7 @@ def test_view_change_while_ordering_with_real_msgs_random_seed(random):
 
 @pytest.mark.parametrize("seed", [3957])
 def test_view_change_while_ordering_with_real_msgs_fixed_seed(seed):
-    do_test(seed)
+    do_test(DefaultSimRandom(seed))
 
 
 def do_test(random):

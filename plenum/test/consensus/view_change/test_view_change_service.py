@@ -394,8 +394,6 @@ def test_view_change_finished_is_sent_by_non_primary_once_view_change_certificat
         for ack, ack_frm in create_view_change_acks(vc, vc_frm, non_primaries):
             external_bus.process_incoming(ack, generateName(ack_frm, service._data.inst_id))
 
-        # check that NewViewAccepted hasn't been sent if NewView is from non-primary
-        external_bus.process_incoming(new_view, generateName(non_primary_name, service._data.inst_id))
     handler.assert_not_called()
     assert service._data.view_no == initial_view_no + 1
     assert service._data.waiting_for_new_view
