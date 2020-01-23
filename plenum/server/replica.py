@@ -237,7 +237,6 @@ class Replica(HasActionQueue, MessageProcessor):
         self._consensus_data.node_status = msg.new_status
 
     def _subscribe_to_internal_msgs(self):
-        self._subscription.subscribe(self.internal_bus, Ordered, self._send_ordered)
         self._subscription.subscribe(self.internal_bus, NeedBackupCatchup, self._caught_up_backup)
         self._subscription.subscribe(self.internal_bus, ReqKey, self.readyFor3PC)
         self._subscription.subscribe(self.internal_bus, RaisedSuspicion, self._process_suspicious_node)

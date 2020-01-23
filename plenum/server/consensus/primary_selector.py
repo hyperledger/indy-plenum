@@ -14,12 +14,8 @@ class PrimariesSelector(metaclass=ABCMeta):
     def select_master_primary(self, view_no: int) -> str:
         pass
 
-    def select_primaries(self, view_no: int) -> List[str]:
-        master_primary = self.select_master_primary(view_no)
-        return [master_primary] + self._select_backup_primaries(view_no, master_primary)
-
     @abstractmethod
-    def _select_backup_primaries(self, view_no: int, master_primary: str) -> List[str]:
+    def select_primaries(self, view_no: int) -> List[str]:
         pass
 
 
@@ -30,6 +26,10 @@ class RoundRobinConstantNodesPrimariesSelector(PrimariesSelector):
 
     def select_master_primary(self, view_no: int) -> str:
         return self.validators[view_no % len(self.validators)]
+
+    def select_primaries(self, view_no: int) -> List[str]:
+        master_primary = self.select_master_primary(view_no)
+        return [master_primary] + self._select_backup_primaries(view_no, master_primary)
 
     def _select_backup_primaries(self, view_no: int, master_primary) -> List[str]:
         N = len(self.validators)
@@ -55,16 +55,27 @@ class RoundRobinNodeRegPrimariesSelector(PrimariesSelector):
         self.node_reg_handler = node_reg_handler
 
     def select_master_primary(self, view_no: int) -> str:
+        # use committed node reg at the beginning of view to make sure that N-F nodes selected the same Primary at view change start
+        return self._do_select_master_primary(view_no,
+                                              self.node_reg_handler.committed_node_reg_at_beginning_of_view)
+
+    def select_primaries(self, view_no: int) -> List[str]:
+        # use uncommitted_node_reg_at_beginning_of_view to have correct primaries in audit
+        master_primary = self._do_select_master_primary(view_no,
+                                                        self.node_reg_handler.uncommitted_node_reg_at_beginning_of_view)
+        return [master_primary] + self._select_backup_primaries(view_no, master_primary)
+
+    def _do_select_master_primary(self, view_no: int, node_reg) -> str:
         # Get a list of nodes to be used for selection as the one at the beginning of last view
         # to guarantee that same primaries will be selected on all nodes once view change is started.
         # Remark: It's possible that there is no nodeReg for some views if no txns have been ordered there
         view_no_for_selection = view_no - 1 if view_no > 1 else 0
-        while view_no_for_selection > 0 and view_no_for_selection not in self.node_reg_handler.node_reg_at_beginning_of_view:
+        while view_no_for_selection > 0 and view_no_for_selection not in node_reg:
             view_no_for_selection -= 1
-        if view_no_for_selection not in self.node_reg_handler.node_reg_at_beginning_of_view:
+        if view_no_for_selection not in node_reg:
             raise LogicError("Can not find view_no {} in node_reg_at_beginning_of_view {}".format(view_no,
-                                                                                                  self.node_reg_handler.node_reg_at_beginning_of_view))
-        node_reg_to_use = self.node_reg_handler.node_reg_at_beginning_of_view[view_no_for_selection]
+                                                                                                  node_reg))
+        node_reg_to_use = node_reg[view_no_for_selection]
 
         return node_reg_to_use[view_no % len(node_reg_to_use)]
 
