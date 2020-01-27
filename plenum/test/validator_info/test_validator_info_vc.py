@@ -1,12 +1,12 @@
 import pytest
 
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, assertExp
+from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, sdk_pool_refresh, \
-    reconnect_node_and_ensure_connected
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, sdk_pool_refresh
 from plenum.test.test_node import get_master_primary_node, checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
+from plenum.test.view_change_service.helper import send_test_instance_change, trigger_view_change
 from stp_core.loop.eventually import eventually
 
 
@@ -60,19 +60,19 @@ def test_instance_change_before_vc(looper,
     old_view = master_node.viewNo
     expected_view_no = old_view + 1
     panic_node = txnPoolNodeSet[-1]
-    panic_node.view_changer.on_master_degradation()
+    send_test_instance_change(panic_node)
 
     def has_inst_chng_in_validator_info():
         for node in txnPoolNodeSet:
             latest_info = node._info_tool.info
             ic_queue = latest_info['Node_info']['View_change_status']['IC_queue']
             assert expected_view_no in ic_queue
-            assert ic_queue[expected_view_no]["Voters"][panic_node.name]['reason'] == Suspicions.PRIMARY_DEGRADED.code
+            reason = ic_queue[expected_view_no]["Voters"][panic_node.name]['reason']
+            assert reason == Suspicions.DEBUG_FORCE_VIEW_CHANGE.code
 
     looper.run(eventually(has_inst_chng_in_validator_info))
 
-    for node in txnPoolNodeSet:
-        node.view_changer.on_master_degradation()
+    trigger_view_change(txnPoolNodeSet)
 
     looper.run(eventually(checkViewNoForNodes, txnPoolNodeSet, expected_view_no, retryWait=1,
                           timeout=tconf.NEW_VIEW_TIMEOUT))

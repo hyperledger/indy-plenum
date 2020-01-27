@@ -1,11 +1,12 @@
 import pytest
 
-from plenum.test.delayers import icDelay, vcd_delay, delay_for_view, vc_delay
+from plenum.test.delayers import icDelay, delay_for_view, vc_delay
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkProtocolInstanceSetup, ensureElectionsDone
+from plenum.test.view_change_service.helper import trigger_view_change
 
 nodeCount = 7
 
@@ -27,11 +28,10 @@ def test_catchup_to_next_view_during_view_change_0_to_1_then_1_to_2(txnPoolNodeS
     initial_view_no = checkViewNoForNodes(txnPoolNodeSet)
     initial_last_ordered = lagging_node.master_last_ordered_3PC
 
-    with delay_rules(lagging_node.nodeIbStasher, icDelay(viewNo=2), vcd_delay(viewNo=2), vc_delay(view_no=2)):
+    with delay_rules(lagging_node.nodeIbStasher, icDelay(viewNo=2), vc_delay(view_no=2)):
         with delay_rules(lagging_node.nodeIbStasher, delay_for_view(viewNo=0), delay_for_view(viewNo=1)):
             # view change to viewNo=1
-            for n in txnPoolNodeSet:
-                n.view_changer.on_master_degradation()
+            trigger_view_change(txnPoolNodeSet)
             waitForViewChange(looper,
                               other_nodes,
                               expectedViewNo=initial_view_no + 1)
@@ -43,8 +43,7 @@ def test_catchup_to_next_view_during_view_change_0_to_1_then_1_to_2(txnPoolNodeS
                                       sdk_pool_handle, sdk_wallet_steward, 5)
 
             # view change to viewNo=2
-            for n in txnPoolNodeSet:
-                n.view_changer.on_master_degradation()
+            trigger_view_change(txnPoolNodeSet)
             waitForViewChange(looper,
                               other_nodes,
                               expectedViewNo=initial_view_no + 2)
@@ -93,8 +92,7 @@ def test_catchup_to_next_view_during_view_change_0_to_2(txnPoolNodeSet, looper,
     with delay_rules(lagging_node.nodeIbStasher, delay_for_view(viewNo=0), delay_for_view(viewNo=1),
                      delay_for_view(viewNo=2)):
         # view change to viewNo=1
-        for n in txnPoolNodeSet:
-            n.view_changer.on_master_degradation()
+        trigger_view_change(txnPoolNodeSet)
         waitForViewChange(looper,
                           other_nodes,
                           expectedViewNo=initial_view_no + 1)
@@ -106,8 +104,7 @@ def test_catchup_to_next_view_during_view_change_0_to_2(txnPoolNodeSet, looper,
                                   sdk_pool_handle, sdk_wallet_steward, 5)
 
         # view change to viewNo=2
-        for n in txnPoolNodeSet:
-            n.view_changer.on_master_degradation()
+        trigger_view_change(txnPoolNodeSet)
         waitForViewChange(looper,
                           other_nodes,
                           expectedViewNo=initial_view_no + 2)

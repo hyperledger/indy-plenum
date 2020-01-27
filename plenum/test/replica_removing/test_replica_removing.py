@@ -159,7 +159,7 @@ def test_ordered_request_freed_on_replica_removal(looper,
 
         assert node.requests[f_d].forwardedTo == node.replicas.num_replicas
     looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint))
-    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, exclude_from_check=['check_primaries'])
 
     # Send one more request to stabilize checkpoint
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,

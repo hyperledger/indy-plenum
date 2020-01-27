@@ -1,3 +1,4 @@
+import copy
 from operator import itemgetter
 from typing import List, Optional, Union, Dict, Any
 
@@ -10,6 +11,7 @@ from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewV
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import StashingRouter, DISCARD, PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
+from plenum.common.types import f
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
 from plenum.server.consensus.primary_selector import PrimariesSelector
@@ -80,21 +82,20 @@ class ViewChangeService:
         # 3. Update shared data
         self._data.view_no = view_no
         self._data.waiting_for_new_view = True
-        if not self._data.is_master:
-            self._data._master_reordered_after_vc = False
-        self._data.primaries = self._primaries_selector.select_primaries(view_no=self._data.view_no)
-        for i, primary_name in enumerate(self._data.primaries):
-            logger.display("{} selected primary {} for instance {} (view {})"
-                           .format(PRIMARY_SELECTION_PREFIX,
-                                   primary_name, i, self._data.view_no),
-                           extra={"cli": "ANNOUNCE",
-                                  "tags": ["node-election"]})
-
         old_primary = self._data.primary_name
-        self._data.primary_name = generateName(self._data.primaries[self._data.inst_id], self._data.inst_id)
-
+        self._data.primary_name = None
         if not self._data.is_master:
+            self._data.master_reordered_after_vc = False
             return
+
+        # Only the master primary is selected at the beginning of view change as we need to get a NEW_VIEW and do re-ordering on master
+        # Backup primaries will not be selected (and backups will not order) until re-ordering of txns from previous view on master is finished
+        # More precisely, it will be done after the first batch in a new view is committed
+        # This is done so as N and F may change as a result of NODE txns ordered in last view,
+        # so we need a synchronous point of updating N, F, number of replicas and backup primaris
+        # Beginning of view (when the first batch in a view is ordered) is such a point.
+        self._data.primary_name = generateName(self._primaries_selector.select_master_primary(self._data.view_no),
+                                               self._data.inst_id)
 
         if old_primary and self._data.primary_name == old_primary:
             logger.info("Selected master primary is the same with the "
@@ -102,6 +103,10 @@ class ViewChangeService:
                         "Propose a new view {}".format(self._data.view_no,
                                                        self._data.view_no + 1))
             self._propose_view_change(Suspicions.INCORRECT_NEW_PRIMARY)
+
+        logger.info("{} started view change to view {}. Expected Master Primary: {}".format(self._data.name,
+                                                                                            self._data.view_no,
+                                                                                            self._data.primary_name))
 
         # 4. Build ViewChange message
         vc = self._build_view_change_msg()
@@ -126,7 +131,7 @@ class ViewChangeService:
         self._clear_old_batches(self._old_prepared)
         self._clear_old_batches(self._old_preprepared)
         self.view_change_votes.clear()
-        self._data.new_view = None
+        self._data.new_view_votes.clear()
 
     def _clear_old_batches(self, batches: Dict[int, Any]):
         for pp_seq_no in list(batches.keys()):
@@ -207,18 +212,11 @@ class ViewChangeService:
             return result, reason
 
         logger.info("{} processing {} from {}".format(self, msg, frm))
-
         if frm != self._data.primary_name:
-            logger.info(
-                "{} Received NewView {} for view {} from non-primary {}; expected primary {}".format(self._data.name,
-                                                                                                     msg,
-                                                                                                     self._data.view_no,
-                                                                                                     frm,
-                                                                                                     self._data.primary_name)
-            )
-            return DISCARD, "New View from non-Primary"
+            logger.warning("Received NEW_VIEW message from non-primary node. "
+                           "Selected primaries may differ on other nodes")
 
-        self._data.new_view = msg
+        self._data.new_view_votes.add_new_view(msg, frm)
         self._finish_view_change_if_needed()
         return PROCESS, None
 
@@ -244,18 +242,23 @@ class ViewChangeService:
     def _send_new_view_if_needed(self):
         confirmed_votes = self.view_change_votes.confirmed_votes
         if not self._data.quorums.view_change.is_reached(len(confirmed_votes)):
+            logger.debug("{} can not send NEW_VIEW: no quorum. Has {}, expects {} votes".format(
+                self._data.name, len(confirmed_votes), self._data.quorums.view_change.value))
             return
 
         view_changes = [self.view_change_votes.get_view_change(*v) for v in confirmed_votes]
         cp = self._new_view_builder.calc_checkpoint(view_changes)
         if cp is None:
+            logger.info("{} can not send NEW_VIEW: can not calculate Checkpoint".format(self._data.name))
             return
 
         batches = self._new_view_builder.calc_batches(cp, view_changes)
         if batches is None:
+            logger.info("{} can not send NEW_VIEW: can not calculate Batches".format(self._data.name))
             return
 
         if cp not in self._data.checkpoints:
+            logger.info("{} can not send NEW_VIEW: does not have Checkpoint {}.".format(self._data.name, str(cp)))
             return
 
         nv = NewView(
@@ -266,7 +269,7 @@ class ViewChangeService:
         )
         logger.info("{} sending {}".format(self, nv))
         self._network.send(nv)
-        self._data.new_view = nv
+        self._data.new_view_votes.add_new_view(nv, self._data.name)
         self._finish_view_change()
 
     def _finish_view_change_if_needed(self):
@@ -309,14 +312,17 @@ class ViewChangeService:
         self._finish_view_change()
 
     def _finish_view_change(self):
-        logger.info("{} finished view change to view {}. Primaries: {}".format(self._data.name,
-                                                                               self._data.view_no,
-                                                                               self._data.primaries))
         # Update shared data
         self._data.waiting_for_new_view = False
         self._data.prev_view_prepare_cert = self._data.new_view.batches[-1].pp_seq_no \
-            if self._data.new_view.batches else 0
+            if self._data.new_view.batches else self._data.new_view.checkpoint.seqNoEnd
+        if f.PRIMARY.nm in self._data.new_view:
+            self._data.primary_name = generateName(self._data.new_view.primary,
+                                                   self._data.inst_id)
 
+        logger.info("{} finished view change to view {}. Master Primary: {}".format(self._data.name,
+                                                                                    self._data.view_no,
+                                                                                    self._data.primary_name))
         # Cancel View Change timeout task
         self._resend_inst_change_timer.stop()
         # send message to other services
@@ -338,7 +344,7 @@ class ViewChangeService:
         self._bus.send(MissingMessage(msg_type=NEW_VIEW,
                                       key=view_no,
                                       inst_id=self._data.inst_id,
-                                      dst=[replica_name_to_node_name(self._data.primary_name)],
+                                      dst=None,
                                       stash_data=None))
 
     def _request_view_change_message(self, key):

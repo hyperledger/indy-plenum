@@ -1,7 +1,6 @@
 import pytest
 
 from plenum.common.constants import LEDGER_STATUS
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.delayers import msg_rep_delay
 from plenum.test.helper import checkViewNoForNodes, waitForViewChange, sdk_send_random_and_check, view_change_timeout
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data

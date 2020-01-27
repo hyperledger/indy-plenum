@@ -10,7 +10,7 @@ from plenum.common.util import compare_3PC_keys
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.replica_validator_enums import STASH_WATERMARKS, STASH_VIEW_3PC, STASH_CATCH_UP, \
     ALREADY_ORDERED, OUTSIDE_WATERMARKS, CATCHING_UP, FUTURE_VIEW, OLD_VIEW, WAITING_FOR_NEW_VIEW, NON_MASTER, \
-    INCORRECT_PP_SEQ_NO, INCORRECT_INSTANCE
+    INCORRECT_PP_SEQ_NO, INCORRECT_INSTANCE, STASH_WAITING_FIRST_BATCH_IN_VIEW, WAITING_FIRST_BATCH_IN_VIEW
 
 
 class OrderingServiceMsgValidator:
@@ -140,6 +140,11 @@ class OrderingServiceMsgValidator:
         if self.has_already_ordered(view_no, pp_seq_no):
             if pp_seq_no > self._data.prev_view_prepare_cert:
                 return DISCARD, ALREADY_ORDERED
+
+        # Stash 3PC msgs from a new view until the first batch in the view is ordered
+        if pp_seq_no is not None and view_no > 0 and pp_seq_no > self._data.prev_view_prepare_cert + 1 \
+                and self._data.last_ordered_3pc[1] < self._data.prev_view_prepare_cert + 1:
+            return STASH_WAITING_FIRST_BATCH_IN_VIEW, WAITING_FIRST_BATCH_IN_VIEW
 
         # PROCESS
         return PROCESS, None

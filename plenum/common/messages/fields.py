@@ -14,7 +14,7 @@ from common.version import (
 )
 from crypto.bls.bls_multi_signature import MultiSignatureValue
 from plenum import PLUGIN_LEDGER_IDS
-from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION
+from plenum.common.constants import VALID_LEDGER_IDS, CURRENT_PROTOCOL_VERSION, GENERAL_LIMIT_SIZE
 from plenum.common.plenum_protocol_version import PlenumProtocolVersion
 from plenum.config import BLS_MULTI_SIG_LIMIT, DATETIME_LIMIT, VERSION_FIELD_LIMIT, DIGEST_FIELD_LIMIT
 from plenum.server.consensus.batch_id import BatchID
@@ -129,7 +129,7 @@ class NonEmptyStringField(FieldBase):
 class LimitedLengthStringField(FieldBase):
     _base_types = (str,)
 
-    def __init__(self, max_length: int, can_be_empty=False, **kwargs):
+    def __init__(self, max_length=GENERAL_LIMIT_SIZE, can_be_empty=False, **kwargs):
         if not max_length > 0:
             raise PlenumValueError('max_length', max_length, '> 0')
         super().__init__(**kwargs)

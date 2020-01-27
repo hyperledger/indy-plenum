@@ -4,7 +4,7 @@ from plenum.test.helper import sdk_send_random_and_check, \
     sdk_send_random_requests, sdk_get_replies, sdk_check_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
-from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica
+from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica, check_not_in_view_change
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
@@ -162,10 +162,11 @@ def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(loop
 
         # trigger view change on all nodes
         ensure_view_change(looper, txnPoolNodeSet)
-        # wait for view change done on all nodes
-        ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=60)
+        looper.run(eventually(check_not_in_view_change, txnPoolNodeSet))
+    # wait for view change done on all nodes
+    ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=60)
 
-        batches_count += 1
+    batches_count += 1
 
     replies = sdk_get_replies(looper, requests)
     for reply in replies:

@@ -48,6 +48,7 @@ def testNodePortChanged(looper, txnPoolNodeSet,
     """
     A running node's port is changed
     """
+    orig_view_no = txnPoolNodeSet[0].viewNo
     new_steward_wallet, new_node = sdk_node_theta_added
 
     node_new_ha = genHa(1)
@@ -63,6 +64,9 @@ def testNodePortChanged(looper, txnPoolNodeSet,
                                    cli_ha.host, cli_ha.port,
                                    tdir, tconf)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
+
+    # Make sure that no additional view changes happened
+    assert all(n.viewNo == orig_view_no for n in txnPoolNodeSet)
 
 
 def test_fail_node_bls_key_validation(looper,

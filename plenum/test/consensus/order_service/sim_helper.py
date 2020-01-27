@@ -9,6 +9,7 @@ from stp_core.common.log import getlogger
 
 logger = getlogger()
 MAX_BATCH_SIZE = 2
+CHK_FREQ = 20
 
 
 def create_requests(count):
@@ -25,14 +26,22 @@ def setup_consensus_data(cd):
     cd.node_mode = Mode.participating
 
 
-def setup_pool(random):
+def update_config(config, updated_args: dict):
+    for name, value in updated_args.items():
+        setattr(config, name, value)
+
+
+def setup_pool(random, config_args=None):
     pool = create_pool(random)
+    general_config  = {'Max3PCBatchSize': MAX_BATCH_SIZE,
+                       'CHK_FREQ': CHK_FREQ,
+                       'LOG_SIZE': 3 * CHK_FREQ}
+    if config_args:
+        general_config.update(config_args)
 
     for node in pool.nodes:
         # TODO: This propagates to global config and sometimes breaks other tests
-        node._orderer._config.Max3PCBatchSize = MAX_BATCH_SIZE
-        node._orderer._config.CHK_FREQ = 5
-        node._orderer._config.LOG_SIZE = 3 * node._orderer._config.CHK_FREQ
+        update_config(node._orderer._config, general_config)
         setup_consensus_data(node._data)
         node._orderer._network._connecteds = list(set(node._data.validators) -
                                                   {replica_name_to_node_name(node._data.name)})

@@ -329,7 +329,8 @@ class NewView(MessageBase):
         (f.VIEW_NO.nm, NonNegativeNumberField()),
         (f.VIEW_CHANGES.nm, IterableField(ViewChangeField())),  # list of tuples (node_name, view_change_digest)
         (f.CHECKPOINT.nm, AnyField()),  # Checkpoint to be selected as stable (TODO: or tuple?)
-        (f.BATCHES.nm, IterableField(BatchIDField()))  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
+        (f.BATCHES.nm, IterableField(BatchIDField())),  # list of tuples (view_no, pp_view_no, pp_seq_no, pp_digest)
+        (f.PRIMARY.nm, LimitedLengthStringField(optional=True))
         # that should get into new view
     )
 

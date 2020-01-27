@@ -16,6 +16,7 @@ from plenum.server.batch_handlers.config_batch_handler import ConfigBatchHandler
 from plenum.server.batch_handlers.domain_batch_handler import DomainBatchHandler
 from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from plenum.server.batch_handlers.pool_batch_handler import PoolBatchHandler
+from plenum.server.batch_handlers.primary_batch_handler import PrimaryBatchHandler
 from plenum.server.request_handlers.audit_handler import AuditTxnHandler
 from plenum.server.request_handlers.get_txn_author_agreement_aml_handler import GetTxnAuthorAgreementAmlHandler
 from plenum.server.request_handlers.get_txn_author_agreement_handler import GetTxnAuthorAgreementHandler
@@ -187,9 +188,13 @@ class LedgersBootstrap:
 
     def _register_node_reg_handlers(self):
         node_reg_handler = NodeRegHandler(self.db_manager)
+        primary_reg_handler = PrimaryBatchHandler(self.db_manager, node_reg_handler)
         self.write_manager.register_req_handler(node_reg_handler)
         for lid in self.ledger_ids:
+            # register NodeRegHandler first
             self.write_manager.register_batch_handler(node_reg_handler, ledger_id=lid)
+            self.write_manager.register_batch_handler(primary_reg_handler, ledger_id=lid)
+        return node_reg_handler
 
     def _register_common_handlers(self):
         pass
