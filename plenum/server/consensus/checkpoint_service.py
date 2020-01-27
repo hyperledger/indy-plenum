@@ -116,13 +116,6 @@ class CheckpointService:
         last_key = sorted(unknown_stabilized, key=lambda v: (v.view_no, v.pp_seq_no))[-1]
 
         if self.is_master:
-            # TODO: This code doesn't seem to be needed, but it was there. Leaving just in case
-            #  tests explain why it was really needed.
-            # logger.display(
-            #     '{} has lagged for {} checkpoints so updating watermarks to {}'.format(
-            #         self, lag_in_checkpoints, last_key.pp_seq_no))
-            # self.set_watermarks(low_watermark=last_key.pp_seq_no)
-
             if not self._data.is_primary:
                 logger.display('{} has lagged for {} checkpoints so the catchup procedure starts'.
                                format(self, lag_in_checkpoints))

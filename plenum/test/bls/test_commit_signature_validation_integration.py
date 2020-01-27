@@ -16,15 +16,15 @@ def ord_delay(nodes):
     processing_methods = dict()
     for n in nodes:
         delay_msgs.setdefault(n.name, OrderedSet())
-        processing_methods[n.name] = n.try_processing_ordered
-        n.try_processing_ordered = lambda msg: delay_msgs[n.name].add(msg)
+        processing_methods[n.name] = n.processOrdered
+        n.processOrdered = lambda msg: delay_msgs[n.name].add(msg)
 
     yield
 
     for n in nodes:
-        n.try_processing_ordered = processing_methods[n.name]
+        n.processOrdered = processing_methods[n.name]
         for msg in delay_msgs[n.name]:
-            n.try_processing_ordered(msg)
+            n.processOrdered(msg)
 
 
 def test_commit_signature_validation_integration(looper,

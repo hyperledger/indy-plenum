@@ -69,6 +69,8 @@ class ViewChangeTriggerService:
         # if suspicion == Suspicions.INSTANCE_CHANGE_TIMEOUT or not self.view_change_in_progress:
         if msg.suspicion != Suspicions.STATE_SIGS_ARE_NOT_UPDATED or not self._data.waiting_for_new_view:
             proposed_view_no += 1
+        if msg.view_no is not None:
+            proposed_view_no = msg.view_no
         self._send_instance_change(proposed_view_no, msg.suspicion)
 
     def process_instance_change(self, msg: InstanceChange, frm: str):

@@ -28,7 +28,6 @@ def do_plugin_initialisation_for_tests():
     importlib.reload(plenum.server.catchup.ledger_leecher_service)
     importlib.reload(plenum.server.catchup.node_leecher_service)
     importlib.reload(plenum.server.catchup.seeder_service)
-    importlib.reload(plenum.server.view_change.view_changer)
     importlib.reload(plenum.server.message_handlers)
     importlib.reload(plenum.server.observer.observable)
     importlib.reload(plenum.common.ledger_manager)

@@ -5,6 +5,7 @@ import pytest
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import cDelay
 from plenum.test.stasher import delay_rules
+from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import sdk_send_random_and_check, sdk_send_batches_of_random_and_check, \
     waitForViewChange, max_3pc_batch_limits
@@ -44,8 +45,7 @@ def test_replica_clear_collections_after_view_change(looper,
         sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_steward, 1)
 
-        for node in txnPoolNodeSet:
-            node.view_changer.on_master_degradation()
+        trigger_view_change(txnPoolNodeSet)
 
         waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=1,
                           customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)

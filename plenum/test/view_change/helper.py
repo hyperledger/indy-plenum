@@ -2,8 +2,6 @@ import types
 
 from plenum.common.messages.node_messages import ThreePhaseKey
 from plenum.common.util import randomString
-from plenum.server.view_change.node_view_changer import create_view_changer
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.spy_helpers import get_count
 from stp_core.types import HA
 
@@ -15,7 +13,7 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
-    TestNode, checkNodesConnected
+    TestNode, checkNodesConnected, check_not_in_view_change
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
 from plenum.test import waits
@@ -304,9 +302,13 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes,
     if wait:
         looper.runFor(wait)
 
-    ensure_view_change_complete(looper, nodes, customTimeout=60)
+    ensure_view_change(looper, nodes)
+    looper.run(eventually(check_not_in_view_change, nodes))
 
     reset_delays_and_process_delayeds(slow_nodes)
+
+    ensureElectionsDone(looper=looper, nodes=nodes)
+    ensure_all_nodes_have_same_data(looper, nodes)
 
     sdk_send_random_and_check(looper, nodes, sdk_pool_handle,
                               sdk_wallet_client, 5, total_timeout=30)
@@ -342,20 +344,21 @@ def view_change_in_between_3pc_random_delays(
 
 
 def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
-                 tdir, tconf, all_plugins_path, name=None):
+                 tdir, tconf, all_plugins_path, name=None, wait_till_added=True):
     node_name = name or "Psi"
     new_steward_name = "testClientSteward" + randomString(3)
     _, new_node = sdk_add_new_steward_and_node(
         looper, sdk_pool_handle, sdk_wallet_steward,
         new_steward_name, node_name, tdir, tconf,
-        allPluginsPath=all_plugins_path)
-    nodes.append(new_node)
-    looper.run(checkNodesConnected(nodes))
-    timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
-    waitNodeDataEquality(looper, new_node, *nodes[:-1],
-                         customTimeout=timeout,
-                         exclude_from_check=['check_last_ordered_3pc_backup'])
-    sdk_pool_refresh(looper, sdk_pool_handle)
+        allPluginsPath=all_plugins_path, wait_till_added=wait_till_added)
+    if wait_till_added:
+        nodes.append(new_node)
+        looper.run(checkNodesConnected(nodes))
+        timeout = waits.expectedPoolCatchupTime(nodeCount=len(nodes))
+        waitNodeDataEquality(looper, new_node, *nodes[:-1],
+                             customTimeout=timeout,
+                             exclude_from_check=['check_last_ordered_3pc_backup'])
+        sdk_pool_refresh(looper, sdk_pool_handle)
     return new_node
 
 
@@ -370,7 +373,6 @@ def restart_node(looper, txnPoolNodeSet, node_to_disconnect, tconf, tdir,
     # add node_to_disconnect to pool
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
                                             tdir, allPluginsPath)
-    node_to_disconnect.view_changer = create_view_changer(node_to_disconnect, ViewChanger)
 
     txnPoolNodeSet[idx] = node_to_disconnect
     looper.run(checkNodesConnected(txnPoolNodeSet))

@@ -1,6 +1,5 @@
 import pytest
 
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.helper import view_change_timeout
 from plenum.test.view_change.helper import node_sent_instance_changes_count
 

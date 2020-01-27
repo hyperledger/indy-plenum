@@ -6,7 +6,7 @@ from plenum.test.helper import sdk_send_random_requests, check_missing_pre_prepa
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
-from plenum.test.test_node import ensureElectionsDone
+from plenum.test.test_node import ensureElectionsDone, check_not_in_view_change
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 
@@ -33,12 +33,11 @@ def test_missing_pp_before_starting_vc(tconf, txnPoolNodeSet, looper,
                      delay_3pc(view_no=1, before=4, msgs=PrePrepare)):
         # 2. do view change for view=1
         ensure_view_change(looper, txnPoolNodeSet)
-        ensureElectionsDone(looper, txnPoolNodeSet)
+        looper.run(eventually(check_not_in_view_change, txnPoolNodeSet))
 
         # 3. send requests
         sdk_send_random_requests(looper, sdk_pool_handle,
                                  sdk_wallet_steward, 10)
-        looper.run(eventually(check_missing_pre_prepares, txnPoolNodeSet, 2, timeout=20))
 
         # 4. do view change for view=2
         ensure_view_change(looper, txnPoolNodeSet)

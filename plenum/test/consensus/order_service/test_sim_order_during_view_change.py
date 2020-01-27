@@ -12,23 +12,22 @@ from plenum.test.simulation.sim_random import DefaultSimRandom
 REQUEST_COUNT = 10
 
 
-@pytest.mark.parametrize("seed", range(100))
-def test_view_change_while_ordering_with_real_msgs_default_seed(seed):
-    do_test(seed)
+def test_view_change_while_ordering_with_real_msgs_random_seed(random):
+    do_test(random)
 
 
-@pytest.mark.parametrize("seed", Random().sample(range(1000000), 100))
-def test_view_change_while_ordering_with_real_msgs_random_seed(seed):
-    do_test(seed)
+@pytest.mark.parametrize("seed", [3957])
+def test_view_change_while_ordering_with_real_msgs_fixed_seed(seed):
+    do_test(DefaultSimRandom(seed))
 
 
-def do_test(seed):
+def do_test(random):
     # 1. Setup pool
     requests_count = REQUEST_COUNT
     batches_count = requests_count // MAX_BATCH_SIZE
-    random = DefaultSimRandom(seed)
     reqs = create_requests(requests_count)
     pool = setup_pool(random)
+    initial_view_no = pool._initial_view_no
     pool.sim_send_requests(reqs)
     initial_ledger_size = get_pools_ledger_size(pool)
 
@@ -37,10 +36,11 @@ def do_test(seed):
     RepeatingTimer(pool.timer, random_interval, partial(order_requests, pool))
 
     for node in pool.nodes:
-        pool.timer.schedule(3, partial(node._view_changer.process_need_view_change, NeedViewChange(view_no=1)))
+        pool.timer.schedule(3, partial(node._view_changer.process_need_view_change, NeedViewChange()))
     # 3. Make sure that view_change is completed
-    for node in pool.nodes:
-        pool.timer.wait_for(lambda: node._view_changer._data.view_no == 1)
+    pool.timer.wait_for(lambda: all(not node._data.waiting_for_new_view
+                                    and node._data.view_no > initial_view_no
+                                    for node in pool.nodes))
 
     # 3. Make sure all nodes ordered all the requests
     for node in pool.nodes:

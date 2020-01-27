@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 from plenum.common.config_util import getConfig
 from plenum.common.messages.node_messages import PrePrepare, Checkpoint
@@ -7,7 +7,7 @@ from sortedcontainers import SortedListWithKey
 from plenum.common.startable import Mode, Status
 from plenum.common.util import SortedDict
 from plenum.server.consensus.batch_id import BatchID
-from plenum.server.consensus.view_change_storages import ViewChangeVotesForView
+from plenum.server.consensus.view_change_storages import ViewChangeVotesForView, NewViewVotesForView
 from plenum.server.models import Prepares, Commits
 from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
@@ -29,7 +29,6 @@ class ConsensusSharedData:
         self.inst_id = inst_id
         self.view_no = 0
         self.waiting_for_new_view = False
-        self.primaries = []
         self.is_master = is_master
 
         self.legacy_vc_in_progress = False
@@ -52,7 +51,7 @@ class ConsensusSharedData:
         self.prepared = []  # type:  List[BatchID]
         self._validators = None
         self.quorums = None
-        self.new_view = None  # type: Optional[NewView]
+        self.new_view_votes = NewViewVotesForView(Quorums(len(validators)))
         self.view_change_votes = ViewChangeVotesForView(Quorums(len(validators)))
         # a list of validator node names ordered by rank (historical order of adding)
         self.set_validators(validators)
@@ -90,8 +89,11 @@ class ConsensusSharedData:
         # Cleared in `gc`
         self.requested_pre_prepares = {}
 
+        # Timestamp of last ordered batch, used for freshness checks
+        self.last_batch_timestamp = None
+
         # Flag to mark that master reordered after VC
-        self._master_reordered_after_vc = True
+        self.master_reordered_after_vc = True
 
     @property
     def name(self) -> str:
@@ -104,6 +106,7 @@ class ConsensusSharedData:
         if self.quorums is None or self.quorums.n != len(validators):
             self.quorums = Quorums(len(validators))
         self.view_change_votes.update_quorums(self.quorums)
+        self.new_view_votes.update_quorums(self.quorums)
 
     @property
     def validators(self) -> List[str]:
@@ -144,3 +147,7 @@ class ConsensusSharedData:
     @property
     def last_checkpoint(self) -> Checkpoint:
         return self.checkpoints[-1]
+
+    @property
+    def new_view(self):
+        return self.new_view_votes.get_new_view(self.primary_name)

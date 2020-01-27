@@ -45,14 +45,16 @@ MissingMessage = NamedTuple('MissingMessage',
                              ('stash_data', Optional[tuple])])
 
 # TODO: This should be merged with RaisedSuspicion
-VoteForViewChange = NamedTuple('VoteForViewChange', [('suspicion', Suspicion)])
+# by default view_no for VoteForViewChange is None meaning that we move to the next view
+VoteForViewChange = NamedTuple('VoteForViewChange', [('suspicion', Suspicion), ('view_no', int)])
+VoteForViewChange.__new__.__defaults__ = (None,) * len(VoteForViewChange._fields)
 
 # TODO: This is a kind of hack to make Node process NeedViewChange before replicas
 #  Possible solution to this (and some other hacks) would be adding separate node internal bus
 #  to which such messages are sent, processed, and then forwarded to replicas buses if needed
 NodeNeedViewChange = NamedTuple('NodeNeedViewChange', [('view_no', int)])
 
-# by default view_no for StartViewChange is None meaning that we move to the next view
+# by default view_no for NeedViewChange is None meaning that we move to the next view
 NeedViewChange = NamedTuple('NeedViewChange',
                             [('view_no', int)])
 NeedViewChange.__new__.__defaults__ = (None,) * len(NeedViewChange._fields)

@@ -166,7 +166,8 @@ def sdk_add_new_steward_and_node(looper,
                                  nodeClass=TestNode,
                                  transformNodeOpFunc=None,
                                  do_post_node_creation: Callable = None,
-                                 services=[VALIDATOR]):
+                                 services=[VALIDATOR],
+                                 wait_till_added=True):
     new_steward_wallet_handle = sdk_add_new_nym(looper,
                                                 sdk_pool_handle,
                                                 sdk_wallet_steward,
@@ -183,7 +184,8 @@ def sdk_add_new_steward_and_node(looper,
         autoStart=autoStart,
         nodeClass=nodeClass,
         do_post_node_creation=do_post_node_creation,
-        services=services)
+        services=services,
+        wait_till_added=wait_till_added)
     return new_steward_wallet_handle, new_node
 
 
@@ -217,7 +219,8 @@ def sdk_add_new_node(looper,
                      tdir, tconf,
                      allPluginsPath=None, autoStart=True, nodeClass=TestNode,
                      do_post_node_creation: Callable = None,
-                     services=[VALIDATOR]):
+                     services=[VALIDATOR],
+                     wait_till_added=True):
     nodeClass = nodeClass or TestNode
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
@@ -240,8 +243,9 @@ def sdk_add_new_node(looper,
     request_couple = sdk_sign_and_send_prepared_request(looper, steward_wallet_handle,
                                                         sdk_pool_handle, node_request)
 
-    # waitng for replies
-    sdk_get_and_check_replies(looper, [request_couple])
+    if wait_till_added:
+        # waiting for replies
+        sdk_get_and_check_replies(looper, [request_couple])
 
     return create_and_start_new_node(looper, new_node_name, tdir, sigseed,
                                      (nodeIp, nodePort), (clientIp, clientPort),
@@ -482,10 +486,6 @@ def reconnectPoolNode(looper: Looper,
         raise AssertionError('The node {} which should be reconnected '
                              'is not found in the passed pool node list {}'
                              .format(connect, poolNodes))
-
-    for node in poolNodes:
-        if node.name != connect:
-            node.nodestack.reconnectRemoteWithName(connect)
 
 
 def disconnect_node_and_ensure_disconnected(looper: Looper,

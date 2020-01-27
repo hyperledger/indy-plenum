@@ -1,11 +1,10 @@
-import pytest
-
-from plenum.common.messages.node_messages import InstanceChange, ViewChangeDone
-from plenum.test.delayers import icDelay, vcd_delay, nv_delay
+from plenum.common.messages.node_messages import ViewChangeDone
+from plenum.test.delayers import icDelay, nv_delay
 from plenum.test.helper import waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change_service.helper import trigger_view_change
 
 nodeCount = 7
 
@@ -42,8 +41,7 @@ def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet
     # delay VCD for the first ViewChange
     with delay_rules(slow_stasher, nv_delay()):
         # Trigger view change
-        for n in nodes:
-            n.view_changer.on_master_degradation()
+        trigger_view_change(nodes)
         waitForViewChange(looper, nodes, expectedViewNo=1)
 
         # make sure view change is finished on all nodes except the slow one
@@ -60,8 +58,7 @@ def test_delayed_instance_changes_after_vcd_for_next_view(looper, txnPoolNodeSet
     with delay_rules(slow_stasher, icDelay()):
 
         # Trigger view change
-        for n in nodes:
-            n.view_changer.on_master_degradation()
+        trigger_view_change(nodes)
         waitForViewChange(looper, fast_nodes, expectedViewNo=2)
 
         # make sure view change is finished on all nodes except the slow one

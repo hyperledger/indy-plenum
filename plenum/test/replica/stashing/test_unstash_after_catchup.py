@@ -1,12 +1,10 @@
 import sys
 
-import pytest as pytest
-
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE, LEDGER_STATUS
 from plenum.common.startable import Mode
 from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_VIEW_3PC
-from plenum.test.delayers import vcd_delay, msg_rep_delay, cDelay, cr_delay
-from plenum.test.helper import waitForViewChange, sdk_send_random_and_check, assertExp, sdk_send_random_request, \
+from plenum.test.delayers import msg_rep_delay, cDelay, cr_delay
+from plenum.test.helper import sdk_send_random_and_check, assertExp, sdk_send_random_request, \
     sdk_get_and_check_replies, get_pp_seq_no
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional

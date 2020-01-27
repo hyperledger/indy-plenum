@@ -44,8 +44,6 @@ from plenum.server import replica
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
 from plenum.server.node import Node
-from plenum.server.view_change.node_view_changer import create_view_changer
-from plenum.server.view_change.view_changer import ViewChanger
 from plenum.test.greek import genNodeNames
 from plenum.test.msgs import TestMsg
 from plenum.test.spy_helpers import getLastMsgReceivedForNode, \
@@ -139,13 +137,6 @@ class TestNodeCore(StackedTester):
     def _serviceActions(self):
         self.actionQueueStasher.process()
         return super()._serviceActions()
-
-    def newViewChanger(self):
-        view_changer = self.view_changer if self.view_changer is not None \
-            else create_view_changer(self, ViewChanger)
-        # TODO: This is a hack for tests compatibility, do something better
-        view_changer.node = self
-        return view_changer
 
     def delayCheckPerformance(self, delay: Seconds):
         logger.debug("{} delaying check performance".format(self))
@@ -328,7 +319,6 @@ class TestNode(TestNodeCore, Node):
             kwargs['bootstrap_cls'] = TestNodeBootstrap
 
         Node.__init__(self, *args, **kwargs)
-        self.view_changer = create_view_changer(self, ViewChanger)
         TestNodeCore.__init__(self, *args, **kwargs)
         # Balances of all client
         self.balances = {}  # type: Dict[str, int]
@@ -418,7 +408,6 @@ class TestReplica(replica.Replica):
                                    write_manager=self.node.write_manager,
                                    bls_bft_replica=self._bls_bft_replica,
                                    freshness_checker=self._freshness_checker,
-                                   primaries_selector=self.node.primaries_selector,
                                    get_current_time=self.get_current_time,
                                    get_time_for_3pc_batch=self.get_time_for_3pc_batch,
                                    stasher=self.stasher,
@@ -790,7 +779,7 @@ async def checkNodesCanRespondToClients(nodes):
 
 
 async def checkNodesConnected(nodes: Iterable[TestNode],
-                              customTimeout=None):
+                              customTimeout=20):
     # run for how long we expect all of the connections to take
     timeout = customTimeout or \
               waits.expectedPoolInterconnectionTime(len(nodes))
@@ -904,6 +893,10 @@ def checkEveryNodeHasAtMostOnePrimary(looper: Looper,
                               timeout=timeout))
 
 
+def check_not_in_view_change(nodes):
+    assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
+
+
 def checkProtocolInstanceSetup(looper: Looper,
                                nodes: Sequence[TestNode],
                                retryWait: float = 1,
@@ -923,9 +916,7 @@ def checkProtocolInstanceSetup(looper: Looper,
                                       retryWait=retryWait,
                                       customTimeout=timeout)
 
-    def check_not_in_view_change():
-        assert all([not n.master_replica._consensus_data.waiting_for_new_view for n in nodes])
-    looper.run(eventually(check_not_in_view_change, retryWait=retryWait, timeout=customTimeout))
+    looper.run(eventually(check_not_in_view_change, nodes, retryWait=retryWait, timeout=customTimeout))
 
     if check_primaries:
         for n in nodes[1:]:
@@ -941,7 +932,7 @@ def checkProtocolInstanceSetup(looper: Looper,
 def ensureElectionsDone(looper: Looper,
                         nodes: Sequence[TestNode],
                         retryWait: float = None,  # seconds
-                        customTimeout: float = None,
+                        customTimeout: float = 20,
                         instances_list: Sequence[int] = None,
                         check_primaries=True) -> Sequence[TestNode]:
     # TODO: Change the name to something like `ensure_primaries_selected`

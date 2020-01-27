@@ -49,7 +49,8 @@ def test_received_checkpoints_removed_on_master_non_primary_replica_after_catchu
     audit_ledger = node.getLedger(AUDIT_LEDGER_ID)
     txn_with_last_seq_no = {'txn': {'data': {AUDIT_TXN_VIEW_NO: 2,
                                              AUDIT_TXN_PP_SEQ_NO: 20,
-                                             AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}}}
+                                             AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}},
+                            'txnMetadata': {}}
     audit_ledger.get_last_committed_txn = lambda *args: txn_with_last_seq_no
     node.write_manager.node_reg_handler.on_catchup_finished = lambda *args: None
     node.allLedgersCaughtUp()
@@ -81,7 +82,8 @@ def test_received_checkpoints_removed_on_backup_non_primary_replica_after_catchu
     audit_ledger = node.getLedger(AUDIT_LEDGER_ID)
     txn_with_last_seq_no = {'txn': {'data': {AUDIT_TXN_VIEW_NO: 2,
                                              AUDIT_TXN_PP_SEQ_NO: 20,
-                                             AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}}}
+                                             AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}},
+                            'txnMetadata': {}}
     audit_ledger.get_last_committed_txn = lambda *args: txn_with_last_seq_no
     node.write_manager.node_reg_handler.on_catchup_finished = lambda *args: None
     node.allLedgersCaughtUp()
@@ -109,7 +111,8 @@ def test_received_checkpoints_removed_on_backup_primary_replica_after_catchup(
     audit_ledger = node.getLedger(AUDIT_LEDGER_ID)
     txn_with_last_seq_no = {'txn': {'data': {AUDIT_TXN_VIEW_NO: 2,
                                              AUDIT_TXN_PP_SEQ_NO: 20,
-                                             AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}}}
+                                             AUDIT_TXN_PRIMARIES: ['Gamma', 'Delta']}},
+                            'txnMetadata': {}}
     audit_ledger.get_last_committed_txn = lambda *args: txn_with_last_seq_no
     node.write_manager.node_reg_handler.on_catchup_finished = lambda *args: None
     node.allLedgersCaughtUp()
