@@ -5,6 +5,7 @@ import base58
 from plenum.common.constants import POOL_LEDGER_ID, CONFIG_LEDGER_ID, DOMAIN_LEDGER_ID
 from plenum.common.timer import QueueTimer
 from plenum.common.util import get_utc_epoch
+from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.server.database_manager import DatabaseManager
@@ -14,7 +15,6 @@ from plenum.server.propagator import Requests
 from plenum.server.node import Node
 
 from plenum.common.metrics_collector import NullMetricsCollector
-from plenum.server.view_change.node_view_changer import create_view_changer
 from plenum.test.testing_utils import FakeSomething
 from stp_core.types import HA
 
@@ -47,6 +47,7 @@ class FakeNode:
         node_names = ['Node1', 'Node2', 'Node3', 'Node4']
         self.basedirpath = tmpdir
         self.name = node_names[0]
+        self.viewNo = 0
         self.db_manager = DatabaseManager()
         self.timer = QueueTimer()
         self.f = 1
@@ -66,7 +67,7 @@ class FakeNode:
         self.nodeStatusDB = None
         self.quorums = Quorums(self.totalNodes)
         self.nodestack = FakeSomething(connecteds=set(self.allNodeNames))
-        self.write_manager = FakeSomething()
+        self.write_manager = FakeSomething(node_reg_handler=NodeRegHandler(self.db_manager))
         self.primaries_selector = RoundRobinConstantNodesPrimariesSelector(node_names)
         self.replicas = {
             0: Replica(node=self, instId=0, isMaster=True, config=self.config),
@@ -81,7 +82,6 @@ class FakeNode:
         self.ledgerManager.addLedger(0, ledger0)
         self.ledgerManager.addLedger(1, ledger1)
         self.quorums = Quorums(self.totalNodes)
-        self.view_changer = create_view_changer(self)
         self.metrics = NullMetricsCollector()
 
         # For catchup testing
@@ -92,10 +92,6 @@ class FakeNode:
 
         # callbacks
         self.onBatchCreated = lambda self, *args, **kwargs: True
-
-    @property
-    def viewNo(self):
-        return None if self.view_changer is None else self.view_changer.view_no
 
     @property
     def ledger_summary(self):
@@ -158,9 +154,6 @@ class FakeNode:
         return False
 
     def no_more_catchups_needed(self):
-        pass
-
-    def select_primaries(self):
         pass
 
     def utc_epoch(self):

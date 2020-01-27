@@ -132,4 +132,4 @@ def append_txn_to_ledger(txn_data, ledger, seq_no):
 
 
 def get_3PC_batch(root_hash, ledger_id=1):
-    return ThreePcBatch(ledger_id, 0, 0, 1, 5000, root_hash, "", ["Alpha", "Beta"], [], pp_digest='')
+    return ThreePcBatch(ledger_id, 0, 0, 1, 5000, root_hash, "", [], pp_digest='', primaries=["Alpha", "Beta"])

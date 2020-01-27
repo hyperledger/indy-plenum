@@ -5,8 +5,8 @@ from plenum.server.consensus.utils import get_original_viewno
 
 
 class ThreePcBatch:
-    def __init__(self, ledger_id, inst_id, view_no, pp_seq_no, pp_time, state_root, txn_root, primaries, valid_digests,
-                 pp_digest, node_reg=None, has_audit_txn=True, original_view_no=None) -> None:
+    def __init__(self, ledger_id, inst_id, view_no, pp_seq_no, pp_time, state_root, txn_root, valid_digests,
+                 pp_digest, primaries=None, node_reg=None, has_audit_txn=True, original_view_no=None) -> None:
         self.ledger_id = ledger_id
         self.inst_id = inst_id
         self.view_no = view_no
@@ -25,7 +25,7 @@ class ThreePcBatch:
         return str(self.__dict__)
 
     @staticmethod
-    def from_pre_prepare(pre_prepare, state_root, txn_root, primaries, valid_digests):
+    def from_pre_prepare(pre_prepare, state_root, txn_root, valid_digests):
         return ThreePcBatch(
             ledger_id=pre_prepare.ledgerId,
             inst_id=pre_prepare.instId,
@@ -35,7 +35,6 @@ class ThreePcBatch:
             # do not trust PrePrepare's root hashes and use the current replica's ones
             state_root=state_root,
             txn_root=txn_root,
-            primaries=primaries,
             valid_digests=valid_digests,
             pp_digest=pre_prepare.digest,
             has_audit_txn=f.AUDIT_TXN_ROOT_HASH.nm in pre_prepare and pre_prepare.auditTxnRootHash is not None,

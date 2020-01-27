@@ -2,6 +2,8 @@ from itertools import combinations
 
 import pytest
 
+from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
+from plenum.test.test_node import check_not_in_view_change, ensureElectionsDone
 from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
@@ -10,7 +12,7 @@ from plenum.test.helper import checkViewNoForNodes, \
     sdk_send_random_and_check, get_pp_seq_no
 from plenum.test.delayers import delay_3pc_messages, \
     reset_delays_and_process_delayeds
-from plenum.test.view_change.helper import ensure_view_change_complete
+from plenum.test.view_change.helper import ensure_view_change_complete, ensure_view_change
 
 
 def check_nodes_last_ordered_3pc(nodes, last_ordered_3pc):
@@ -89,7 +91,8 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     #    -> GC shouldn't remove anything because
     #       last_ordered_3pc (+0, 1) < last message's 3pc key (+1, 1)
     #    -> viewNo = 2
-    ensure_view_change_complete(looper, txnPoolNodeSet)
+    ensure_view_change(looper, txnPoolNodeSet)
+    looper.run(eventually(check_not_in_view_change, txnPoolNodeSet))
     batches_count += 1
 
     viewNoNew = checkViewNoForNodes(txnPoolNodeSet)
@@ -104,6 +107,10 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     #    -> they should be ordered
     #    -> last_ordered_3pc = (+2, 1)
     reset_delays_and_process_delayeds(txnPoolNodeSet)
+
+    ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+
     sdk_get_replies(looper, [requests])
     batches_count += 1
 

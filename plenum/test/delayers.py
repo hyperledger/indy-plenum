@@ -111,13 +111,8 @@ def icDelay(delay: float = DEFAULT_DELAY, viewNo: int = None):
     return delayerMsgTuple(delay, InstanceChange, viewFilter=viewNo)
 
 
-def vcd_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
-    # Delayer of VIEW_CHANGE_DONE requests
-    return delayerMsgTuple(delay, ViewChangeDone, viewFilter=viewNo)
-
-
 def nv_delay(delay: float = DEFAULT_DELAY, viewNo: int = None):
-    # Delayer of VIEW_CHANGE_DONE requests
+    # Delayer of NEW_VIEW requests
     return delayerMsgTuple(delay, NewView, viewFilter=viewNo)
 
 

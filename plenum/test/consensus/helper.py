@@ -137,6 +137,7 @@ class MockBlsBftReplica(BlsBftReplica):
 
 class SimPool:
     def __init__(self, node_count: int = 4, random: Optional[SimRandom] = None):
+        self._initial_view_no = random.integer(0, 1000)
         self._random = random if random else DefaultSimRandom()
         self._timer = MockTimer()
         self._network = SimNetwork(self._timer, self._random, self._serialize_deserialize)
@@ -144,8 +145,6 @@ class SimPool:
         self._genesis_txns = None
         self._genesis_validators = genNodeNames(node_count)
         self.validators = self._genesis_validators
-        # ToDo: maybe it should be a random too?
-        self._primary_name = self._genesis_validators[0]
         self._internal_buses = {}
         self._node_votes = {}
         self._ports = self._random.sample(range(9000, 9999), 2 * len(self._genesis_validators))
@@ -169,7 +168,8 @@ class SimPool:
             crypto_factory=create_default_bls_crypto_factory(),
             get_free_port=self._get_free_port)['txns']
 
-    def add_new_node(self, name):
+    def add_new_node(self, name, view_no=None):
+        _view_no = view_no if view_no is not None else self._initial_view_no
         if name not in self.validators:
             self.validators.append(name)
 
@@ -177,13 +177,14 @@ class SimPool:
         replica_name = generateName(name, 0)
         handler = partial(self.network._send_message, replica_name)
         write_manager = create_test_write_req_manager(name, self._genesis_txns)
-        write_manager.node_reg_handler.node_reg_at_beginning_of_view[0] = self._genesis_validators
+        write_manager.node_reg_handler.committed_node_reg_at_beginning_of_view[0] = self._genesis_validators
+        write_manager.node_reg_handler.uncommitted_node_reg_at_beginning_of_view[0] = self._genesis_validators
         _internal_bus = InternalBus()
         self._internal_buses[name] = _internal_bus
         self._subscribe_to_internal_msgs(name)
         replica = ReplicaService(replica_name,
                                  self.validators,
-                                 self._primary_name,
+                                 _view_no,
                                  self._timer,
                                  _internal_bus,
                                  self.network.create_peer(name, handler),
@@ -301,7 +302,7 @@ class SimPool:
             replica._network.update_connecteds(connecteds)
 
 
-VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primaries', 'prev_view_prepare_cert'
+VIEW_CHANGE_SERVICE_FIELDS = 'view_no', 'waiting_for_new_view', 'primary_name', 'prev_view_prepare_cert'
 ORDERING_SERVICE_FIELDS = 'last_ordered_3pc', 'preprepared', 'prepared'
 CHECKPOINT_SERVICE_FIELDS = 'stable_checkpoint', 'checkpoints', 'low_watermark', 'high_watermark'
 

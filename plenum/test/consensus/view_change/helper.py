@@ -20,6 +20,7 @@ def some_checkpoint(random: SimRandom, view_no: int, pp_seq_no: int) -> Checkpoi
 def some_pool(random: SimRandom) -> (SimPool, List):
     pool_size = random.integer(4, 8)
     pool = SimPool(pool_size, random)
+    view_no = pool._initial_view_no
     log_size = pool.nodes[0].config.LOG_SIZE
 
     # Create simulated history
@@ -27,8 +28,8 @@ def some_pool(random: SimRandom) -> (SimPool, List):
     faulty = (pool_size - 1) // 3
     seq_no_per_cp = 10
     max_batches = 50
-    batches = [BatchID(0, 0, n, random.string(40)) for n in range(1, max_batches)]
-    checkpoints = [some_checkpoint(random, 0, n) for n in range(0, max_batches, seq_no_per_cp)]
+    batches = [BatchID(view_no, view_no, n, random.string(40)) for n in range(1, max_batches)]
+    checkpoints = [some_checkpoint(random, view_no, n) for n in range(0, max_batches, seq_no_per_cp)]
 
     # Preprepares
     pp_count = [random.integer(0, len(batches)) for _ in range(pool_size)]
@@ -68,7 +69,7 @@ def some_pool(random: SimRandom) -> (SimPool, List):
         has_prepared_cert = prepare_count >= pool_size - faulty
         if has_prepared_cert:
             batch_id = batches[i - 1]
-            committed.append(BatchID(1, 0, batch_id.pp_seq_no, batch_id.pp_digest))
+            committed.append(BatchID(batch_id.view_no + 1, batch_id.pp_view_no, batch_id.pp_seq_no, batch_id.pp_digest))
 
     return pool, committed
 

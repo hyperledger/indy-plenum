@@ -1,7 +1,7 @@
 import pytest
 
 
-CHK_FREQ = 4
+CHK_FREQ = 6
 
 
 @pytest.fixture(scope="module")
