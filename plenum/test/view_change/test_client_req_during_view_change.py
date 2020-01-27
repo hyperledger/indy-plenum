@@ -3,14 +3,13 @@ import pytest
 from plenum.common.constants import NODE, TXN_TYPE, GET_TXN
 from plenum.test.helper import sdk_gen_request, checkDiscardMsg
 from plenum.test.test_config_req_handler import READ_CONF, ConfigTestBootstrapClass
-from plenum.test.testing_utils import FakeSomething
 
 
 @pytest.fixture(scope='function')
 def test_node(test_node):
-    test_node.view_changer = FakeSomething(view_change_in_progress=True,
-                                           view_no=1,
-                                           instance_changes=None)
+    for replica in test_node.replicas.values():
+        replica._consensus_data.waiting_for_new_view = True
+        replica._consensus_data.view_no = 1
     bs = ConfigTestBootstrapClass(test_node)
     bs._register_config_req_handlers()
     return test_node

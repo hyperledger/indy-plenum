@@ -12,7 +12,7 @@ from plenum.test.helper import sdk_send_batches_of_random_and_check
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.types import f
 
-nodeCount = 4
+nodeCount = 7
 serializer = Base58Serializer()
 
 

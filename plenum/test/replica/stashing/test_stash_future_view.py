@@ -1,13 +1,11 @@
-import pytest as pytest
-
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE
-from plenum.common.startable import Mode
 from plenum.server.replica_validator_enums import STASH_VIEW_3PC
-from plenum.test.delayers import vcd_delay, msg_rep_delay, nv_delay
-from plenum.test.helper import waitForViewChange, sdk_send_random_and_check, assertExp
+from plenum.test.delayers import msg_rep_delay, nv_delay
+from plenum.test.helper import waitForViewChange, sdk_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
+from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 
 
@@ -31,8 +29,7 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
     with delay_rules([slow_node.nodeIbStasher, ],
                      msg_rep_delay(types_to_delay=[PREPREPARE, PREPARE, COMMIT])):
         with delay_rules([slow_node.nodeIbStasher, ], nv_delay()):
-            for n in txnPoolNodeSet:
-                n.view_changer.on_master_degradation()
+            trigger_view_change(txnPoolNodeSet)
             waitForViewChange(looper, fast_nodes, expectedViewNo=view_no + 1,
                               customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
             ensureElectionsDone(looper=looper,

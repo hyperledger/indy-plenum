@@ -7,6 +7,9 @@ def patch_node_reg_in_audit(node, monkeypatch):
     monkeypatch.setattr(node.write_manager.audit_b_handler,
                         '_fill_node_reg',
                         lambda txn, three_pc_batch, last_audit_txn: None)
+    monkeypatch.setattr(node.master_replica._ordering_service,
+                        '_get_node_reg_for_ordered',
+                        lambda pp: node.primaries)
 
 
 def test_audit_ledger_with_node_reg_feature_added(looper, tconf, txnPoolNodeSet, monkeypatch,

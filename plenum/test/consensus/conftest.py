@@ -1,4 +1,5 @@
 from functools import partial
+from random import Random
 
 import pytest
 
@@ -6,10 +7,10 @@ from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
 from plenum.common.constants import DOMAIN_LEDGER_ID, AUDIT_LEDGER_ID
 from plenum.common.messages.internal_messages import RequestPropagates, PrimarySelected
 from plenum.common.startable import Mode, Status
-from plenum.common.event_bus import InternalBus
 from plenum.common.messages.node_messages import PrePrepare, ViewChange
 from plenum.common.stashing_router import StashingRouter
 from plenum.common.util import get_utc_epoch
+from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.common.messages.node_messages import Checkpoint
 from plenum.server.consensus.monitoring.primary_connection_monitor_service import PrimaryConnectionMonitorService
@@ -24,6 +25,7 @@ from plenum.test.checkpoints.helper import cp_digest
 from plenum.test.consensus.helper import primary_in_view, create_test_write_req_manager
 from plenum.test.greek import genNodeNames
 from plenum.test.helper import MockTimer, MockNetwork, create_pool_txn_data, TestInternalBus
+from plenum.test.simulation.sim_random import DefaultSimRandom
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -195,7 +197,9 @@ def db_manager():
 
 @pytest.fixture()
 def write_manager(db_manager):
-    return WriteRequestManager(database_manager=db_manager)
+    wrm = WriteRequestManager(database_manager=db_manager)
+    wrm.node_reg_handler = NodeRegHandler(db_manager)
+    return wrm
 
 
 @pytest.fixture()
@@ -204,7 +208,7 @@ def stasher(internal_bus, external_bus):
 
 
 @pytest.fixture()
-def replica_service(validators, primary, timer,
+def replica_service(validators, initial_view_no, timer,
                     internal_bus, external_bus):
     genesis_txns = create_pool_txn_data(
         node_names=validators,
@@ -213,7 +217,7 @@ def replica_service(validators, primary, timer,
     write_manager = create_test_write_req_manager("Alpha", genesis_txns)
 
     replica = ReplicaService("Alpha:0",
-                             validators, primary,
+                             validators, initial_view_no,
                              timer,
                              internal_bus,
                              external_bus,
@@ -221,3 +225,8 @@ def replica_service(validators, primary, timer,
                              bls_bft_replica=FakeSomething(gc=lambda key: None))
 
     return replica
+
+
+@pytest.fixture(params=Random().sample(range(1000000), 100))
+def random(request):
+    return DefaultSimRandom(request.param)

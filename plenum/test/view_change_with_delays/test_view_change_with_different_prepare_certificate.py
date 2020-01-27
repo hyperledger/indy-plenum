@@ -9,6 +9,7 @@ from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import check_prepare_certificate
+from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 
 
@@ -33,8 +34,7 @@ def test_view_change_with_different_prepare_certificate(looper, txnPoolNodeSet,
                                   txnPoolNodeSet[0:-1],
                                   last_ordered[1] + 1))
 
-            for n in txnPoolNodeSet:
-                n.view_changer.on_master_degradation()
+            trigger_view_change(txnPoolNodeSet)
             assert slow_node.master_replica._ordering_service.l_last_prepared_certificate_in_view() == \
                    (0, last_ordered[1])
             ensureElectionsDone(looper, txnPoolNodeSet)

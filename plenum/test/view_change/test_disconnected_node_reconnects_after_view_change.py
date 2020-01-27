@@ -92,16 +92,18 @@ def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, lagged_node)
+
+    # The node can start view change, receive NEW_VIEW and start waiting for first ordered in the new view
+    # But since the node is lagged for more than checkpoint, it can not do re-ordering, and has to wait until the
+    # catchjup by checkpoints is started
     waitForViewChange(looper, [lagged_node], 3,
                       customTimeout=waits.expectedPoolElectionTimeout(
                           len(txnPoolNodeSet)))
-    ensureElectionsDone(looper, txnPoolNodeSet)
 
-    # Now, we don't have a catchup during the view_change.
-    # In this case, we need to trying order a 2 checkpoints req for catching up
     sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_reqs=2 * tconf.CHK_FREQ)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     checkViewNoForNodes(txnPoolNodeSet, 3)
+    ensureElectionsDone(looper, txnPoolNodeSet)
 
     sdk_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)

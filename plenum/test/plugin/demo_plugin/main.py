@@ -42,6 +42,8 @@ def integrate_plugin_in_node(node):
                                               add_to_begin=True)
     node.write_manager.register_batch_handler(node.write_manager.node_reg_handler,
                                               ledger_id=AUCTION_LEDGER_ID)
+    node.write_manager.register_batch_handler(node.write_manager.primary_reg_handler,
+                                              ledger_id=AUCTION_LEDGER_ID)
     node.write_manager.register_batch_handler(node.write_manager.audit_b_handler,
                                               ledger_id=AUCTION_LEDGER_ID)
 

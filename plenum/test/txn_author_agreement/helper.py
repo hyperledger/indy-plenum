@@ -45,19 +45,10 @@ def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version: 
                                   text: Optional[str] = None,
                                   ratified: Optional[int] = None,
                                   retired: Optional[int] = None):
-    operation = {
-        TXN_TYPE: TXN_AUTHOR_AGREEMENT,
-        TXN_AUTHOR_AGREEMENT_VERSION: version
-    }
-    if text is not None:
-        operation[TXN_AUTHOR_AGREEMENT_TEXT] = text
-    if ratified is not None:
-        operation[TXN_AUTHOR_AGREEMENT_RATIFICATION_TS] = ratified
-    if retired is not None:
-        operation[TXN_AUTHOR_AGREEMENT_RETIREMENT_TS] = retired
-
-    req = sdk_sign_and_submit_op(looper, sdk_pool_handle, sdk_wallet, operation)
-    return sdk_get_and_check_replies(looper, [req])[0]
+    req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version,
+                                                                            ratified, retired))
+    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    return sdk_get_and_check_replies(looper, [rep])[0]
 
 
 def sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet):
