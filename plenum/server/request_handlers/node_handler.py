@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 
 from indy_crypto.bls import ProofOfPossession, VerKey
 
@@ -61,7 +62,7 @@ class NodeHandler(WriteRequestHandler):
         node_nym = get_payload_data(txn).get(TARGET_NYM)
         return node_nym.encode()
 
-    def dynamic_validation(self, request: Request):
+    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
         node_nym = request.operation.get(TARGET_NYM)
         if self.get_from_state(node_nym, is_committed=False):

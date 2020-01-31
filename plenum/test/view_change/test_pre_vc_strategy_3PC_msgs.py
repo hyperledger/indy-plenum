@@ -33,7 +33,6 @@ def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
         0,
         1
     )
-    node.view_changer = node.newViewChanger()
     node.master_replica._consensus_data.view_no = 0
     node.master_replica.primaryName = 'Alpha'
     """Initiate view_change procedure"""

@@ -3,13 +3,15 @@ from collections import defaultdict
 from typing import Optional, List, Tuple
 
 from common.serializers.json_serializer import JsonSerializer
-from plenum.common.messages.node_messages import ViewChange, ViewChangeAck
+from plenum.common.messages.internal_messages import VoteForViewChange
+from plenum.common.messages.node_messages import ViewChange, ViewChangeAck, NewView
+from plenum.common.types import f
 from plenum.server.consensus.utils import replica_name_to_node_name
 
 
 def view_change_digest(msg: ViewChange) -> str:
     msg_as_dict = msg._asdict()
-#    msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
+    # msg_as_dict['checkpoints'] = [cp.__dict__ for cp in msg_as_dict['checkpoints']]
     serialized = JsonSerializer().dumps(msg_as_dict)
     return sha256(serialized).hexdigest()
 
@@ -127,3 +129,68 @@ class ViewChangeVotesForView:
         if frm not in self._votes:
             self._votes[frm] = ViewChangeVotesForNode(self._quorums)
         return self._votes[frm]
+
+
+class NewViewVotes:
+
+    def __init__(self, msg: NewView):
+        self.view_no = msg.viewNo
+        self.msg = msg
+        self.voted_nodes = []
+
+    def add_vote(self, frm):
+        if frm not in self.voted_nodes:
+            self.voted_nodes.append(frm)
+
+    def __len__(self):
+        return len(self.voted_nodes)
+
+
+class NewViewVotesForView:
+    """
+    Storage for NewView votes
+    """
+
+    def __init__(self, quorums):
+        self._votes = {}  # Dict[str, NewViewVote]]
+        self._quorums = quorums
+        self.new_view = None
+
+    def get_new_view(self, primary_name):
+
+        if self.new_view:
+            return self.new_view
+
+        primary_name = replica_name_to_node_name(primary_name)
+        for nv_votes in self._votes.values():
+            """
+            We allow to return NEW_VIEW msg from primary only for case, if this msg
+            was received directly from primary without request/reply logic.
+            If there was NEW_VIEW requests/replies then only quorumed msg will be return.
+            'primary' field is a marker that message was requested for some reason
+            """
+            if len(nv_votes.voted_nodes) == 1 and \
+                    primary_name in nv_votes.voted_nodes \
+                    and f.PRIMARY.nm not in nv_votes.msg:
+                return nv_votes.msg
+
+    def _msg_from_primary(self, frm_primary):
+        return self._votes[frm_primary]
+
+    def clear(self):
+        self._votes.clear()
+        self.new_view = None
+
+    def update_quorums(self, quorums):
+        self._quorums = quorums
+
+    def _get_msg_digest(self, msg: NewView):
+        msg_dict = msg._asdict()
+        return sha256(JsonSerializer().dumps(msg_dict)).hexdigest()
+
+    def add_new_view(self, msg: NewView, frm: str):
+        frm = replica_name_to_node_name(frm)
+        digest = self._get_msg_digest(msg)
+        self._votes.setdefault(digest, NewViewVotes(msg)).add_vote(frm)
+        if self._quorums.strong.is_reached(len(self._votes[digest])):
+            self.new_view = msg

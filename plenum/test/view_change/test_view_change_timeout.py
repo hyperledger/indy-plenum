@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.delayers import vcd_delay, nv_delay
+from plenum.test.delayers import nv_delay
 from plenum.test.stasher import delay_rules
 from plenum.test.helper import waitForViewChange, perf_monitor_disabled, view_change_timeout
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -53,7 +53,7 @@ def tconf(tconf):
 
 
 def stop_master_primary(nodes, view_no):
-    m_next_primary_name = nodes[0].primaries_selector.select_primaries(view_no)[0]
+    m_next_primary_name = nodes[0].primaries_selector.select_master_primary(view_no)
     next(node for node in nodes if node.name == m_next_primary_name).stop()
     alive_nodes = list(filter(lambda x: x.name != m_next_primary_name, nodes))
     return alive_nodes

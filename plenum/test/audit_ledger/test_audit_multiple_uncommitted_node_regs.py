@@ -31,7 +31,8 @@ def test_audit_multiple_uncommitted_node_regs(looper, tdir, tconf, allPluginsPat
                                 tdir,
                                 tconf,
                                 allPluginsPath,
-                                name='Psi')
+                                name='Psi',
+                                wait_till_added=False)
         txnPoolNodeSet.append(new_node)
         start_delaying(new_node.nodeIbStasher, icDelay())
 
@@ -43,9 +44,10 @@ def test_audit_multiple_uncommitted_node_regs(looper, tdir, tconf, allPluginsPat
                                 tdir,
                                 tconf,
                                 allPluginsPath,
-                                name='Eta')
+                                name='Eta',
+                                wait_till_added=False)
         txnPoolNodeSet.append(new_node)
         start_delaying(new_node.nodeIbStasher, icDelay())
 
-    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
+    ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=20)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)

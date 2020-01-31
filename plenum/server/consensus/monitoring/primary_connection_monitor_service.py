@@ -52,6 +52,7 @@ class PrimaryConnectionMonitorService:
 
     def cleanup(self):
         self._subscription.unsubscribe_all()
+        self._timer.cancel(self._check_primary_connection)
         self._propose_view_change_timer.stop()
 
     def process_connected(self, msg: ExternalBus.Connected, frm: str):
@@ -63,9 +64,7 @@ class PrimaryConnectionMonitorService:
             self._primary_disconnected()
 
     def process_primary_selected(self, msg: PrimarySelected):
-        primary_name = replica_name_to_node_name(self._data.primary_name)
-        primary_connected = self._data.is_primary or primary_name in self._network.connecteds
-        if primary_connected:
+        if self._is_primary_connected():
             self._primary_connected()
         else:
             self._primary_disconnected()
@@ -122,6 +121,16 @@ class PrimaryConnectionMonitorService:
 
         self._propose_view_change()
         self._propose_view_change_timer.start()
+
+    def _is_primary_connected(self):
+        if self._data.is_primary:
+            return True
+
+        primary_name = replica_name_to_node_name(self._data.primary_name)
+        if primary_name in self._network.connecteds:
+            return True
+
+        return primary_name not in self._data.validators
 
     def _propose_view_change(self):
         self._bus.send(VoteForViewChange(suspicion=Suspicions.PRIMARY_DISCONNECTED))

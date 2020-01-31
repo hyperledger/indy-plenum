@@ -1,17 +1,20 @@
+import copy
 from collections import deque
 from logging import getLogger
 from typing import NamedTuple
 
-from sortedcontainers import SortedDict
-
 from plenum.common.constants import POOL_LEDGER_ID, ALIAS, SERVICES, VALIDATOR, NODE, DATA, AUDIT_LEDGER_ID, \
     AUDIT_TXN_NODE_REG, TYPE, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_LEDGERS_SIZE
+from plenum.common.event_bus import InternalBus
+from plenum.common.messages.internal_messages import VoteForViewChange
 from plenum.common.request import Request
 from plenum.common.txn_util import get_type, get_payload_data, get_seq_no
+from plenum.common.util import SortedDict
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
+from plenum.server.suspicion_codes import Suspicions
 
 UncommittedNodeReg = NamedTuple('UncommittedNodeReg',
                                 [('uncommitted_node_reg', list),
@@ -27,19 +30,43 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         self.uncommitted_node_reg = []
         self.committed_node_reg = []
-        self.node_reg_at_beginning_of_view = SortedDict()
+
+        # committed node reg at the beginning of view
+        # matches the committed node reg BEFORE the first txn in a view is applied (that is according to the last txn in the last view)
+        self.committed_node_reg_at_beginning_of_view = SortedDict()
+
+        # uncommitted node reg at the beginning of view
+        # matches the uncommittednode reg BEFORE the first txn in a view is applied (that is according to the last txn in the last view)
+        self.uncommitted_node_reg_at_beginning_of_view = SortedDict()
 
         self._uncommitted = deque()  # type: deque[UncommittedNodeReg]
         self._uncommitted_view_no = 0
         self._committed_view_no = 0
 
+        self.internal_bus = None  # type: InternalBus
+
+    def set_internal_bus(self, internal_bus: InternalBus):
+        self.internal_bus = internal_bus
+
+    @property
+    def active_node_reg(self):
+        if not self.uncommitted_node_reg_at_beginning_of_view:
+            return []
+        return self.uncommitted_node_reg_at_beginning_of_view.peekitem(-1)[1]
+
     def on_catchup_finished(self):
         self._load_current_node_reg()
         # we must have node regs for at least last two views
         self._load_last_view_node_reg()
+        self.uncommitted_node_reg_at_beginning_of_view = copy.deepcopy(self.committed_node_reg_at_beginning_of_view)
         logger.info("Loaded current node registry from the ledger: {}".format(self.uncommitted_node_reg))
         logger.info(
-            "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
+            "Current committed node registry for previous views: {}".format(
+                sorted(self.committed_node_reg_at_beginning_of_view.items())))
+        logger.info(
+            "Current uncommitted node registry for previous views: {}".format(
+                sorted(self.uncommitted_node_reg_at_beginning_of_view.items())))
+        logger.info("Current active node registry: {}".format(self.active_node_reg))
 
     def post_batch_applied(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
         # Observer case:
@@ -47,57 +74,99 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             self.uncommitted_node_reg = list(three_pc_batch.node_reg)
 
         view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
-        self._uncommitted.append(UncommittedNodeReg(list(self.uncommitted_node_reg), view_no))
 
+        # Update active_node_reg to point to node_reg at the end of last view
         if view_no > self._uncommitted_view_no:
-            self.node_reg_at_beginning_of_view[view_no] = list(self.uncommitted_node_reg)
+            self.uncommitted_node_reg_at_beginning_of_view[view_no] = list(
+                self._uncommitted[-1].uncommitted_node_reg) if len(self._uncommitted) > 0 else list(
+                self.committed_node_reg)
             self._uncommitted_view_no = view_no
+
+        self._uncommitted.append(UncommittedNodeReg(list(self.uncommitted_node_reg), view_no))
 
         three_pc_batch.node_reg = list(self.uncommitted_node_reg)
 
         logger.debug("Applied uncommitted node registry: {}".format(self.uncommitted_node_reg))
         logger.debug(
-            "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
+            "Current committed node registry for previous views: {}".format(
+                sorted(self.committed_node_reg_at_beginning_of_view.items())))
+        logger.debug(
+            "Current uncommitted node registry for previous views: {}".format(
+                sorted(self.uncommitted_node_reg_at_beginning_of_view.items())))
+        logger.debug("Current active node registry: {}".format(self.active_node_reg))
 
     def post_batch_rejected(self, ledger_id, prev_handler_result=None):
         reverted = self._uncommitted.pop()
         if len(self._uncommitted) == 0:
-            self.uncommitted_node_reg = self.committed_node_reg
+            self.uncommitted_node_reg = list(self.committed_node_reg)
             self._uncommitted_view_no = self._committed_view_no
         else:
             last_uncommitted = self._uncommitted[-1]
             self.uncommitted_node_reg = last_uncommitted.uncommitted_node_reg
             self._uncommitted_view_no = last_uncommitted.view_no
+
+        # find the uncommitted node reg at the beginning of view
         if self._uncommitted_view_no < reverted.view_no:
-            self.node_reg_at_beginning_of_view.pop(reverted.view_no)
+            self.uncommitted_node_reg_at_beginning_of_view.pop(reverted.view_no)
 
         logger.debug("Reverted uncommitted node registry from {} to {}".format(reverted.uncommitted_node_reg,
                                                                                self.uncommitted_node_reg))
         logger.debug(
-            "Current node registry for previous views: {}".format(sorted(self.node_reg_at_beginning_of_view.items())))
+            "Current committed node registry for previous views: {}".format(
+                sorted(self.committed_node_reg_at_beginning_of_view.items())))
+        logger.debug(
+            "Current uncommitted node registry for previous views: {}".format(
+                sorted(self.uncommitted_node_reg_at_beginning_of_view.items())))
+        logger.debug("Current active node registry: {}".format(self.active_node_reg))
 
     def commit_batch(self, three_pc_batch: ThreePcBatch, prev_handler_result=None):
+        # 1. Update node_reg_at_beginning_of_view first (to match the node reg at the end of last view)
+        three_pc_batch_view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
+        if three_pc_batch_view_no > self._committed_view_no:
+            self.committed_node_reg_at_beginning_of_view[three_pc_batch_view_no] = list(self.committed_node_reg)
+            self._committed_view_no = three_pc_batch_view_no
+
+            self._gc_node_reg_at_beginning_of_view(self.committed_node_reg_at_beginning_of_view)
+            self._gc_node_reg_at_beginning_of_view(self.uncommitted_node_reg_at_beginning_of_view)
+
+        # 2. update committed node reg
         prev_committed = self.committed_node_reg
         self.committed_node_reg = self._uncommitted.popleft().uncommitted_node_reg
-        self._committed_view_no = three_pc_batch.view_no if three_pc_batch.original_view_no is None else three_pc_batch.original_view_no
 
-        # make sure that we have node reg for the current and previous view (which can be less than the current for more than 1)
-        # Ex.: node_reg_at_beginning_of_view has views {0, 3, 5, 7, 11, 13), committed is now 7, so we need to keep all uncommitted (11, 13),
-        # and keep the one from the previous view (5). Views 0 and 3 needs to be deleted.
-        view_nos = list(self.node_reg_at_beginning_of_view.keys())
-        prev_committed_index = max(view_nos.index(self._committed_view_no) - 1, 0) \
-            if self._committed_view_no in self.node_reg_at_beginning_of_view else 0
-        for view_no in view_nos[:prev_committed_index]:
-            self.node_reg_at_beginning_of_view.pop(view_no, None)
+        # trigger view change if nodes count changed
+        # TODO: create a new message to pass Suspicious events and make ViewChangeTriggerService the only place for
+        # view change triggering
+        if self.internal_bus and len(prev_committed) != len(self.committed_node_reg):
+            self.internal_bus.send(VoteForViewChange(Suspicions.NODE_COUNT_CHANGED, three_pc_batch_view_no + 1))
 
         if prev_committed != self.committed_node_reg:
             logger.info("Committed node registry: {}".format(self.committed_node_reg))
-            logger.info("Current node registry for previous views: {}".format(
-                sorted(self.node_reg_at_beginning_of_view.items())))
+            logger.info(
+                "Current committed node registry for previous views: {}".format(
+                    sorted(self.committed_node_reg_at_beginning_of_view.items())))
+            logger.info(
+                "Current uncommitted node registry for previous views: {}".format(
+                    sorted(self.uncommitted_node_reg_at_beginning_of_view.items())))
+            logger.info("Current active node registry: {}".format(self.active_node_reg))
         else:
             logger.debug("Committed node registry: {}".format(self.committed_node_reg))
-            logger.debug("Current node registry for previous views: {}".format(
-                sorted(self.node_reg_at_beginning_of_view.items())))
+            logger.debug(
+                "Current committed node registry for previous views: {}".format(
+                    sorted(self.committed_node_reg_at_beginning_of_view.items())))
+            logger.debug(
+                "Current uncommitted node registry for previous views: {}".format(
+                    sorted(self.uncommitted_node_reg_at_beginning_of_view.items())))
+            logger.debug("Current active node registry: {}".format(self.active_node_reg))
+
+    def _gc_node_reg_at_beginning_of_view(self, node_reg):
+        # make sure that we have node reg for the current and previous view (which can be less than the current for more than 1)
+        # Ex.: node_reg_at_beginning_of_view has views {0, 3, 5, 7, 11, 13), committed is now 7, so we need to keep all uncommitted (11, 13),
+        # and keep the one from the previous view (5). Views 0 and 3 needs to be deleted.
+        committed_view_nos = list(node_reg.keys())
+        prev_committed_index = max(committed_view_nos.index(self._committed_view_no) - 1, 0) \
+            if self._committed_view_no in node_reg else 0
+        for view_no in committed_view_nos[:prev_committed_index]:
+            node_reg.pop(view_no, None)
 
     def apply_request(self, request: Request, batch_ts, prev_result):
         if request.operation.get(TYPE) != NODE:
@@ -126,7 +195,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
     def static_validation(self, request):
         pass
 
-    def dynamic_validation(self, request):
+    def dynamic_validation(self, request, req_pp_time):
         pass
 
     def gen_state_key(self, txn):
@@ -140,45 +209,57 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
         self.committed_node_reg = list(node_reg)
 
     def _load_last_view_node_reg(self):
-        self.node_reg_at_beginning_of_view.clear()
+        self.committed_node_reg_at_beginning_of_view.clear()
 
         # 1. check if we have audit ledger at all
         audit_ledger = self.database_manager.get_ledger(AUDIT_LEDGER_ID)
         if not audit_ledger:
             # don't have audit ledger yet, so get aleady loaded values from the pool ledger
-            self.node_reg_at_beginning_of_view[0] = list(self.uncommitted_node_reg)
-            self._uncommitted_view_no = 0
+            self.committed_node_reg_at_beginning_of_view[0] = list(self.uncommitted_node_reg)
             self._committed_view_no = 0
+            self._uncommitted_view_no = 0
             return
 
-        # 2. get the first txn in the current view
+        # 2. get the first txn in the current view and last txn in the last view
         first_txn_in_this_view, last_txn_in_prev_view = self.__get_first_txn_in_view_from_audit(audit_ledger,
                                                                                                 audit_ledger.get_last_committed_txn())
-        self._uncommitted_view_no = get_payload_data(first_txn_in_this_view)[AUDIT_TXN_VIEW_NO]
-        self._committed_view_no = self._uncommitted_view_no
-        self.node_reg_at_beginning_of_view[self._committed_view_no] = list(
-            self.__load_node_reg_for_view(audit_ledger, first_txn_in_this_view))
 
-        # 4. Check if audit ledger has information about 0 view only
-        if self._uncommitted_view_no == 0:
+        # 3. set view_no
+        self._committed_view_no = get_payload_data(first_txn_in_this_view)[AUDIT_TXN_VIEW_NO]
+        self._uncommitted_view_no = self._committed_view_no
+
+        # 4. Use last txn in last view to get the node reg
+        # get from pool ledger if there is no txns for last view in audit
+        if last_txn_in_prev_view is None:
+            node_reg_this_view = self.__load_node_reg_for_first_audit_txn(first_txn_in_this_view)
+        else:
+            node_reg_this_view = list(self.__load_node_reg_from_audit_txn(audit_ledger, last_txn_in_prev_view))
+        self.committed_node_reg_at_beginning_of_view[self._committed_view_no] = node_reg_this_view
+
+        # 5. Check if audit ledger has information about 0 view only
+        if self._committed_view_no == 0:
             return
 
         # 5. If audit has just 1 txn for the current view (and this view >0), then
         # get the last view from the pool ledger
         if last_txn_in_prev_view is None:
             # assume last view=0 if we don't know it
-            self.node_reg_at_beginning_of_view[0] = list(
+            self.committed_node_reg_at_beginning_of_view[0] = list(
                 self.__load_node_reg_for_first_audit_txn(first_txn_in_this_view))
             return
 
         # 6. Get the first audit txn for the last view
-        first_txn_in_last_view, _ = self.__get_first_txn_in_view_from_audit(audit_ledger, last_txn_in_prev_view)
+        first_txn_in_last_view, last_txn_in_pre_last_view = self.__get_first_txn_in_view_from_audit(audit_ledger,
+                                                                                                    last_txn_in_prev_view)
 
-        # 7. load the last view node reg (either from audit ledger or
-        # the pool one if first_txn_in_last_view is the first txn in audit ledger)
+        # 7. Use last txn in the view before the last one to get the node reg
+        # get from pool ledger if there is no txns for view before the last one in audit
+        if last_txn_in_pre_last_view is None:
+            node_reg_last_view = self.__load_node_reg_for_first_audit_txn(first_txn_in_last_view)
+        else:
+            node_reg_last_view = list(self.__load_node_reg_from_audit_txn(audit_ledger, last_txn_in_pre_last_view))
         last_view_no = get_payload_data(first_txn_in_last_view)[AUDIT_TXN_VIEW_NO]
-        self.node_reg_at_beginning_of_view[last_view_no] = list(
-            self.__load_node_reg_for_view(audit_ledger, first_txn_in_last_view))
+        self.committed_node_reg_at_beginning_of_view[last_view_no] = node_reg_last_view
 
     def __load_node_reg_from_pool_ledger(self, to=None):
         node_reg = []
@@ -220,14 +301,8 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
             return None
         return last_txn_node_reg
 
-    def __load_node_reg_for_view(self, audit_ledger, audit_txn):
-        txn_seq_no = get_seq_no(audit_txn)
+    def __load_node_reg_from_audit_txn(self, audit_ledger, audit_txn):
         audit_txn_data = get_payload_data(audit_txn)
-
-        # If this is the first txn in the audit ledger, so that we don't know a full history,
-        # then get node reg from the pool ledger
-        if txn_seq_no <= 1:
-            return self.__load_node_reg_for_first_audit_txn(audit_txn)
 
         # Get the node reg from audit txn
         node_reg = audit_txn_data.get(AUDIT_TXN_NODE_REG)
@@ -272,9 +347,9 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
 
         return this_view_first_txn, prev_view_last_txn
 
-    def __load_node_reg_for_first_audit_txn(self, audit_txn):
+    def __load_node_reg_for_first_audit_txn(self, first_audit_txn):
         # If this is the first txn in the audit ledger, so that we don't know a full history,
         # then get node reg from the pool ledger
-        audit_txn_data = get_payload_data(audit_txn)
+        audit_txn_data = get_payload_data(first_audit_txn)
         genesis_pool_ledger_size = audit_txn_data[AUDIT_TXN_LEDGERS_SIZE][POOL_LEDGER_ID]
         return self.__load_node_reg_from_pool_ledger(to=genesis_pool_ledger_size)

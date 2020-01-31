@@ -2,7 +2,6 @@
 
 A node uses a process called `catchup` to sync its ledgers with other nodes. It does this process after 
 - Starting up: Any node communicates state of its ledgers to any other node it connects to and learns whether is ahead or behind or at same state as others. 
-- During a view change: After a view change starts, nodes again communicate state of their ledgers to other nodes. 
 - If it realises that it has missed some transactions: Nodes periodically send checkpoints indicating how many transactions they have processed 
 recently, if a node finds out that is missed some txns, it will perform catchup
  (see [Checkpoint-based Catchup Trigger Diagram](diagrams/catchup-trigger.png)).  

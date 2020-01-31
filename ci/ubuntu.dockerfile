@@ -18,7 +18,7 @@ RUN apt-get update -y && apt-get install -y \
     libtool \
     pkg-config \
     libssl-dev \
-    libindy=1.12.0~1365 \
+    libindy=1.13.0~1420 \
 # rocksdb python wrapper
     libbz2-dev \
     zlib1g-dev \

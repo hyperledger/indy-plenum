@@ -17,6 +17,8 @@ def test_send_txns_bls_consensus(looper, txnPoolNodeSet,
     # otherwise we may have 3 commits, but 1 of them may be without BLS, so we will Order this txn, but without multi-sig
     for node in txnPoolNodeSet:
         node.quorums.commit = Quorum(nodeCount)
+        for r in node.replicas.values():
+            r._consensus_data.quorums.commit = Quorum(nodeCount)
     # we expect that although not all nodes can sign with BLS (because not all nodes have BLS keys),
     # we get multi-sig on all nodes (since all nodes can verify signatures)
     sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,

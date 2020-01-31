@@ -1,0 +1,252 @@
+@startuml
+!pragma teoz true
+hide footbox
+
+participant Node1
+participant Node2
+participant Node3
+participant Node4
+
+note over Node1, Node4
+    We assume that current viewNo=2 and wer are moving to viewNo=3.
+    <b>Node4</b> is expected to be a Primary in this case (since we use round-robin)
+end note
+
+== View Change Trigger ==
+
+Node1 -> Node2: INSTANCE_CHANGE(viewNo=3)
+Node1 -> Node3: INSTANCE_CHANGE(viewNo=3)
+Node1 -> Node4: INSTANCE_CHANGE(viewNo=3)
+
+Node2 -> Node1: INSTANCE_CHANGE(viewNo=3)
+Node2 -> Node3: INSTANCE_CHANGE(viewNo=3)
+Node2 -> Node4: INSTANCE_CHANGE(viewNo=3)
+
+Node4 -> Node1: INSTANCE_CHANGE(viewNo=3)
+Node4 -> Node2: INSTANCE_CHANGE(viewNo=3)
+Node4 -> Node3: INSTANCE_CHANGE(viewNo=3)
+
+note right Node1
+    When a node has a quorum of (N-F) INSTANCE_CHANGE messages for the same viewNo,
+    <b>Start a View Change</b>
+end note
+
+Node1 -> Node1: Start View Change to viewNo=3
+Node2 -> Node2: Start View Change to viewNo=3
+Node4 -> Node4: Start View Change to viewNo=3
+
+
+
+== View Change Start ==
+
+loop repeat for Node1, Node2, Node3, Node4
+    Node1 -> Node1: Clear all logs (PrePrepares, Prepares, Commits, etc)
+    Node1 -> Node1: Revert uncommitted ledger and state
+    Node1 -> Node1: Increment viewNo
+    note right Node1
+        In our example:
+        viewNo :=3
+    end note
+
+    Node1 -> Node1: Set new Primaries for all instances
+    note right Node1
+        In our example:
+        master_primary := Node4
+        backup_primary := Node1
+    end note
+
+    Node1 -> Node1: Unstash VIEW_CHANGE, NEW_VIEW,\nVIEW_CHANGE_ACK messages for the new view
+
+    Node1 -> Node1: Schedule a timer to check if View Change is finished on time\n(NEW_VIEW is received from the Primary)
+end loop
+
+== Propagate Prepared Certificates ==
+
+loop repeat for Node1, Node2, Node3
+
+    Node1 -> Node4: VIEW_CHANGE(Node1)
+    Node1 -> Node3: VIEW_CHANGE(Node1)
+    Node1 -> Node2: VIEW_CHANGE(Node1)
+    note right Node1
+          <b>VIEW_CHANGE contains:
+                        - <b>view_no</b> <i>(new view number),
+                        - <b>stable_checkpoint</b> <i>(seq_no of the last stabilized checkpoint),
+                        - <b>prepared</b> <i>(list of tuples BatchId(view_no, pp_view_no, pp_seq_no, pp_digest))
+                        - <b>preprepared</b> <i>(list of BatchId(view_no, pp_view_no, pp_seq_no, pp_digest))
+                        - <b>checkpoints</b> <i>(list of checkpoint messages)
+    end note
+
+    Node3 -> Node4: VIEW_CHANGE_ACK(VIEW_CHANGE(Node1))
+    deactivate Node3
+    Node2 -> Node4: VIEW_CHANGE_ACK(VIEW_CHANGE(Node1))
+    deactivate Node2
+    Node4 -> Node4: VIEW_CHANGE_ACK(VIEW_CHANGE(Node1))
+    deactivate Node4
+    note right Node1
+          <b>VIEW_CHANGE_ACK contains:
+                        - <b>view_no</b> <i>(new view number),
+                        - <b>name</b> <i>(name of the node that sent VIEW_CHANGE message)
+                        - <b>digest</b> <i>(digest of VIEW_CHANGE message)
+    end note
+end loop
+
+== Receive NEW_VIEW from the Primary ==
+
+Node4 -> Node3: NEW_VIEW
+Node4 -> Node2: NEW_VIEW
+Node4 -> Node1: NEW_VIEW
+note right Node1
+    <b>NEW_VIEW contains:
+                        - <b>view_no</b> <i>(new view number),
+                        - <b>view_changes</b> <i>(list of tuples(sender name, digest of VIEW_CHANGE messages)
+                        - <b>checkpoint</b> <i>(checkpoint to be selected as stable)
+                        - <b>batches</b> <i>(list of BatchId(view_no, pp_view_no, pp_seq_no, pp_digest))
+end note
+
+opt If View Change didn't finish in expected time on all Nodes (a new primary is malicious or not available)
+loop repeat for Node1, Node2, Node3, Node4
+    note right Node1
+        Send INSTANCE_CHANGE to go to the next View
+    end note
+    Node1 -> Node2: INSTANCE_CHANGE(viewNo=4)
+    Node1 -> Node3: INSTANCE_CHANGE(viewNo=4)
+    Node1 -> Node4: INSTANCE_CHANGE(viewNo=4)
+
+    note right Node1
+        Request NEW_VIEW from other nodes because there is a chance that Node1 may just lost NEW_VIEW message.
+    end note
+    note right Node1
+        Sends requests for a NEW_VIEW message to all nodes because in theory it could choose a wrong primary
+        it expects NEW_VIEW from because of a different node registry state
+    end note
+
+    Node1 -> Node2: MESSAGE_REQUEST(NEW_VIEW)
+    Node1 -> Node3: MESSAGE_REQUEST(NEW_VIEW)
+    Node1 -> Node4: MESSAGE_REQUEST(NEW_VIEW)
+
+    Node2 -> Node1: INSTANCE_CHANGE(viewNo=4)
+    Node3 -> Node1: INSTANCE_CHANGE(viewNo=4)
+
+    Node1 -> Node1: Start View Change to viewNo=4
+end loop
+end opt
+
+opt If View Change didn't finish in expected time on Node1 only because it lost the NEW_VIEW message from the Primary
+
+note right Node1
+    Sends INSTANCE_CHANGE to go to the next View
+    because there is a chance that all Nodes didn't receive NEW_VIEW
+end note
+Node1 -> Node2: INSTANCE_CHANGE(viewNo=4)
+Node1 -> Node3: INSTANCE_CHANGE(viewNo=4)
+Node1 -> Node4: INSTANCE_CHANGE(viewNo=4)
+
+note right Node1
+    Sends requests for a NEW_VIEW message to all nodes because in theory it could choose a wrong primary
+    it expects NEW_VIEW from because of a different node registry state
+end note
+Node1 -> Node2: MESSAGE_REQUEST(NEW_VIEW)
+Node1 -> Node3: MESSAGE_REQUEST(NEW_VIEW)
+Node1 -> Node4: MESSAGE_REQUEST(NEW_VIEW)
+
+Node2 -> Node1: MESSAGE_RESPONSE(NEW_VIEW)
+Node3 -> Node1: MESSAGE_RESPONSE(NEW_VIEW)
+Node4 -> Node1: MESSAGE_RESPONSE(NEW_VIEW)
+
+end opt
+
+opt If Node1 receives NEW_VIEW from a non-primary node
+Node1 -> Node2: MESSAGE_REQUEST(NEW_VIEW)
+Node1 -> Node3: MESSAGE_REQUEST(NEW_VIEW)
+Node1 -> Node4: MESSAGE_REQUEST(NEW_VIEW)
+
+Node2 -> Node1: MESSAGE_RESPONSE(NEW_VIEW)
+Node3 -> Node1: MESSAGE_RESPONSE(NEW_VIEW)
+Node4 -> Node1: MESSAGE_RESPONSE(NEW_VIEW)
+
+opt F+1 equal NEW_VIEW messages
+    Node1 -> Node1: consider the NEW_VIEW as the one from the Primary
+    Node1 -> Node1: set Primaries according to the received NEW_VIEW
+end opt
+end opt
+
+== Validate NEW_VIEW from the Primary ==
+
+loop for Node1, Node2, Node3
+    Node1 -> Node1: Check that NEW_VIEW matches propagated prepared certificates
+    opt If Node1 lost a VIEW_CHANGE message required for NEW_VIEW check
+    Node1 -> Node2: MESSAGE_REQUEST(VIEW_CHANGE)
+    Node1 -> Node3: MESSAGE_REQUEST(VIEW_CHANGE)
+    Node1 -> Node4: MESSAGE_REQUEST(VIEW_CHANGE)
+    note right Node1
+        Sends requests for a VIEW_CHANGE message to all nodes because in theory it could have a problem
+        with a network connection to the owner of the lost message
+    end note
+
+    Node2 -> Node1: MESSAGE_RESPONSE(VIEW_CHANGE)
+    Node3 -> Node1: MESSAGE_RESPONSE(VIEW_CHANGE)
+    Node4 -> Node1: MESSAGE_RESPONSE(VIEW_CHANGE)
+    note right Node1
+        Expects a VIEW_CHANGE message from either the owner or a quorum of (F+1) nodes
+    end note
+    end opt
+end loop
+
+== Finish View Change ==
+
+loop for Node1, Node2, Node3, Node4
+    Node1 -> Node1: Stabilize the checkpoint according to NEW_VIEW
+    opt Node1 doesn't have the checkpoint to be stabilized
+        Node1 -> Node1: finish
+        Node1 -> Node1: start catchup (TBD)
+    end opt
+    loop for BatchID in NEW_VIEW
+        Node1 -> Node1: find the corresponding PREPREPARE
+        opt PREPREPARE is not ordered yet
+            Node1 -> Node1: Apply the PREPREPARE
+        end opt
+        Node1 -> Node2: send PREPARE
+        Node1 -> Node3: send PREPARE
+        Node1 -> Node4: send PREPARE
+    end loop
+
+    opt There is at least one PREPREPARE not found for a NEW_VIEW's BatchID
+        Node1 -> Node2: OLD_VIEW_PREPREPARE_REQ([PREPREPARE])
+        Node1 -> Node3: OLD_VIEW_PREPREPARE_REQ([PREPREPARE])
+        Node1 -> Node4: OLD_VIEW_PREPREPARE_REQ([PREPREPARE])
+        note right Node1
+            Sends requests for all not found PREPREPARE messages to all nodes
+        end note
+        Node2 -> Node1: OLD_VIEW_PREPREPARE_REP([PREPREPARE])
+        Node3 -> Node1: OLD_VIEW_PREPREPARE_REP([PREPREPARE])
+        Node4 -> Node1: OLD_VIEW_PREPREPARE_REP([PREPREPARE])
+        note right Node1
+            Node1 can trust any nodes for a PREPREPARE message because it can
+            compare its digest with the expected one.
+        end note
+    end opt
+
+    Node1 -> Node1: Unstash 3PC messages waiting for a new view
+
+    Node1 -> Node1: Reset the monitor
+
+    note right Node1
+        Master Primary can start sending new PrePrepares
+        once all PREPREPAREs from the old views (from NEW_VIEW msg) are applied
+    end note
+    Node4 -> Node1: PREPREPARE
+
+    Node1 -> Node1: Order till the previous view prepare certificate\n(all BatchIDs from NEW_VIEW)
+
+    Node1 -> Node1: Start ordering on backup instances
+
+
+end loop
+
+
+
+
+
+
+
+@enduml

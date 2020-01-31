@@ -6,6 +6,7 @@ from plenum.test.stasher import delay_rules, delay_rules_without_processing
 from plenum.test.view_change.helper import ensure_all_nodes_have_same_data
 from plenum.common.constants import PREPREPARE
 from plenum.test.helper import sdk_send_random_and_check, waitForViewChange
+from plenum.test.view_change_service.helper import trigger_view_change
 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -66,8 +67,7 @@ def test_old_view_pre_prepare_reply_processing(looper, txnPoolNodeSet, tconf,
         process_old_pp_num = slow_node.master_replica._ordering_service.spylog.count(
             OrderingService.process_old_view_preprepare_reply)
 
-        for n in txnPoolNodeSet:
-            n.view_changer.on_master_degradation()
+        trigger_view_change(txnPoolNodeSet)
 
         waitForViewChange(looper, other_nodes + [malicious_node], expectedViewNo=start_view_no + 1)
 

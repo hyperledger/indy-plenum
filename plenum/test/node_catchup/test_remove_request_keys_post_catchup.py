@@ -57,8 +57,7 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
     # Reset catchup reply delay so that  catchup can complete
     slow_node.nodeIbStasher.reset_delays_and_process_delayeds(CatchupRep.typename)
 
-    ensure_view_change(looper, txnPoolNodeSet)
-    ensureElectionsDone(looper, txnPoolNodeSet)
+    slow_node.start_catchup()
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 

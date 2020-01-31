@@ -42,7 +42,7 @@ def malicious_dynamic_validation(node, request: Request, req_pp_time: int):
 
     operation = request.operation
     req_handler = node.write_manager.request_handlers[operation[TXN_TYPE]][0]
-    req_handler.dynamic_validation(request)
+    req_handler.dynamic_validation(request, req_pp_time)
 
 
 def wait_one_batch(node, before):
