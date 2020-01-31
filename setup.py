@@ -115,12 +115,11 @@ setup(
                         'psutil==5.4.3',
                         'intervaltree==2.1.0',
                         'msgpack-python==0.4.6',
-                        'indy-crypto==0.4.5',
                         'python-rocksdb==0.6.9',
                         'python-dateutil==2.6.1',
                         'pympler==0.5',
                         'packaging==19.0',
-                        'ursacl==0.1.0',
+                        'python-ursa==0.1.0',
                       ],
 
     setup_requires=['pytest-runner'],
