@@ -61,8 +61,7 @@ def test_view_change_permutations(random):
            for _ in range(10)}
     assert len(cps) == 1
 
-
-# ToDo: this test fails on seeds {440868, 925547}
+# ToDo: this test fails on seeds {440868, 925547, 444939}
 def test_new_view_combinations(random):
     # Create pool in some random initial state
     pool, _ = some_pool(random)
