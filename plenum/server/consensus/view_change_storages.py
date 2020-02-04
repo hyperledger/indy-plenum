@@ -124,6 +124,7 @@ class ViewChangeVotesForView:
     def update_quorums(self, quorums):
         for vote in self._votes.values():
             vote.update_quorums(quorums)
+        self._quorums = quorums
 
     def _get_vote(self, frm):
         if frm not in self._votes:
