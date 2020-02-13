@@ -118,12 +118,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not check_tcp_connection(args.tcp):
-        print("TCP connection is not possible")
+        print("TCP CONNECTION IS NOT POSSIBLE")
         exit(1)
     print("TCP connection check finished and it's possible")
 
     if not check_zmq_connection(args.zmq):
-        print("ZMQ connection is not possible. Sorry")
+        print("ZMQ CONNECTION IS NOT POSSIBLE. Sorry")
         exit(1)
 
     print("Looks like ZMQ connection is possible")
