@@ -1,4 +1,3 @@
-
 from test_zmq.authenticator import MultiZapAuthenticator
 
 try:
@@ -301,8 +300,7 @@ class ZStack():
             assert not os.listdir(self.secretKeysDir)
             # Seed should be present
             assert self.seed, 'Keys are not setup for {}'.format(self)
-            print("Signing and Encryption keys were not found for {}. Creating them now".
-                           format(self))
+            print("Signing and Encryption keys were not found for {}. Creating them now".format(self))
             tdirS = os.path.join(self.homeDir, '__skeys__')
             tdirE = os.path.join(self.homeDir, '__ekeys__')
             os.makedirs(tdirS, exist_ok=True)
@@ -344,7 +342,7 @@ class ZStack():
         self.ctx = zmq.Context()
         restricted = self.restricted if restricted is None else restricted
         print('{} starting with restricted as {} and reSetupAuth '
-                     'as {}'.format(self, restricted, reSetupAuth))
+              'as {}'.format(self, restricted, reSetupAuth))
         self.setupAuth(restricted, force=reSetupAuth)
         self.open()
 
@@ -373,8 +371,7 @@ class ZStack():
         self.listener.curve_publickey = public
         self.listener.curve_server = True
         self.listener.identity = self.publicKey
-        print(
-            '{} will bind its listener at {}:{}'.format(self, self.ha[0], self.ha[1]))
+        print('{} will bind its listener at {}:{}'.format(self, self.ha[0], self.ha[1]))
         self.listener.setsockopt(zmq.TCP_KEEPALIVE, 1)
         self.listener.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 1)
         self.listener.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 20)
@@ -394,7 +391,7 @@ class ZStack():
                 bound = True
             except zmq.error.ZMQError as zmq_err:
                 print("{} can not bind to {}:{}. Will try in {} secs.".
-                               format(self, self.ha[0], self.ha[1], sleep_between_bind_retries))
+                      format(self, self.ha[0], self.ha[1], sleep_between_bind_retries))
                 bind_retry_time += sleep_between_bind_retries
                 if bind_retry_time > self.config.MAX_WAIT_FOR_BIND_SUCCESS:
                     raise zmq_err
@@ -415,7 +412,7 @@ class ZStack():
         self._remotes = {}
         if self.remotesByKeys:
             print('{} found remotes that were only in remotesByKeys and '
-                         'not in remotes. This is suspicious')
+                  'not in remotes. This is suspicious')
             for r in self.remotesByKeys.values():
                 r.disconnect()
             self.remotesByKeys = {}
@@ -491,7 +488,7 @@ class ZStack():
             print("Strange ZMQ behaviour during node-to-node message receiving, experienced {}".format(e))
         if i > 0:
             print('{} got {} messages through listener'.
-                         format(self, i))
+                  format(self, i))
         return i
 
     def _verifyAndAppend(self, msg, ident):
@@ -499,7 +496,7 @@ class ZStack():
             ident.decode()
         except ValueError:
             print("Identifier {} is not decoded into UTF-8 string. "
-                         "Request will not be processed".format(ident))
+                  "Request will not be processed".format(ident))
             return False
         try:
             decoded = msg.decode()
@@ -553,7 +550,7 @@ class ZStack():
                 msg = self.prepare_to_send(msg)
 
             print('{} transmitting message {} to {} by socket {} {}'
-                         .format(self, msg, uid, socket.FD, socket.underlying))
+                  .format(self, msg, uid, socket.FD, socket.underlying))
             socket.send(msg, flags=zmq.NOBLOCK)
 
             return True, err_str
@@ -624,10 +621,7 @@ class ZStack():
         return hexlify(z85.decode(self.publicKey))
 
     def getPublicKey(self, name):
-        try:
-            return self.loadPubKeyFromDisk(self.publicKeysDir, name)
-        except KeyError:
-            raise PublicKeyNotFoundOnDisk(self.name, name)
+        return self.loadPubKeyFromDisk(self.publicKeysDir, name)
 
     @property
     def verKey(self):
@@ -646,12 +640,7 @@ class ZStack():
         return None
 
     def getVerKey(self, name):
-        try:
-            return self.loadPubKeyFromDisk(self.verifKeyDir, name)
-        except KeyError:
-            if self.isRestricted:
-                raise VerKeyNotFoundOnDisk(self.name, name)
-            return None
+        return self.loadPubKeyFromDisk(self.verifKeyDir, name)
 
     @property
     def sigKey(self):
@@ -683,7 +672,7 @@ class ZStack():
     def setRestricted(self, restricted: bool):
         if self.isRestricted != restricted:
             print('{} setting restricted to {}'.
-                         format(self, restricted))
+                  format(self, restricted))
             self.stop()
 
             # TODO: REMOVE, it will make code slow, only doing to allow the
