@@ -60,7 +60,7 @@ def up_tcp_server(server_ha):
         s.bind(server_ha)
         s.listen()
         print("TCP_SERVER: Listen clients on {}".format(server_ha))
-        while True and not QUIT:
+        while True:
             conn, addr = s.accept()
             with conn:
                 print('TCP_SERVER: Connected by', addr)
@@ -76,10 +76,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--zmq_port', help="Port which will be used for ZMQ client's connections")
     parser.add_argument('--tcp_port', help="Port which will be used for TCP client's connections")
+    parser.add_argument('--addr', help="Address which will used for incoming client's connection. 0.0.0.0 by default",
+                        default='0.0.0.0', required=False)
     args = parser.parse_args()
 
-    zmq_server_ha = HA('0.0.0.0', int(args.zmq_port) if args.zmq_port else '9999')
-    tcp_server_ha = HA('0.0.0.0', int(args.tcp_port) if args.tcp_port else 10000)
+    zmq_server_ha = HA(args.addr,
+                       int(args.zmq_port) if args.zmq_port else '9999')
+    tcp_server_ha = HA(args.addr,
+                       int(args.tcp_port) if args.tcp_port else 10000)
 
     with SafeTemporaryDirectory() as base_dir:
 
