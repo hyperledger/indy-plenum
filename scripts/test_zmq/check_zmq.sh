@@ -37,7 +37,7 @@ pushd $V_DIR
 
 if [ ! -d $V_DIR/$V_NAME ]; then
 	virtualenv $V_NAME
-	$V_DIR/$V_NAME/bin/pip install /tmp/test_zmq/dist/plenum-zmq-check-1.0.0.tar.gz
+	$V_DIR/$V_NAME/bin/pip install plenum-zmq-check
 fi
 
 # Activate env
