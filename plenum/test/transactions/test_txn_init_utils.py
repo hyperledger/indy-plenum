@@ -40,6 +40,25 @@ def test_init_empty_txn_with_protocol_ver():
     assert SortedDict(expected) == SortedDict(txn)
 
 
+def test_init_empty_txn_with_payload_ver():
+    txn = init_empty_txn(txn_type=NODE, protocol_version="3", txn_payload_version="10")
+    expected = {
+        "reqSignature": {},
+        "txn": {
+            "data": {},
+            "metadata": {
+            },
+            "protocolVersion": "3",
+            "type": NODE,
+            "ver": "10"
+        },
+        "txnMetadata": {
+        },
+        "ver": CURRENT_TXN_VERSION
+    }
+    assert SortedDict(expected) == SortedDict(txn)
+
+
 def test_set_payload_metadata():
     txn = init_empty_txn(txn_type=NODE, protocol_version="3")
     set_payload_data(txn, {"somekey": "somevalue"})

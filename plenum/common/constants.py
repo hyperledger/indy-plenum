@@ -75,6 +75,7 @@ PORT = "port"
 KEYS = "keys"
 TYPE = "type"
 TXN_TYPE = "type"
+OP_VER = "ver"
 TXN_ID = "txnId"
 ORIGIN = "origin"
 # Use f.IDENTIFIER.nm

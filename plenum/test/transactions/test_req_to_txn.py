@@ -15,15 +15,21 @@ def endorser(request):
     return None
 
 
-@pytest.fixture(params=['all', 'sig_only', 'sigs_only', 'no_protocol_vers',
+@pytest.fixture(params=['all', 'sig_only', 'sigs_only', 'no_protocol_vers', 'custom_version',
                         'all_sdk', 'sig_only_sdk', 'sigs_only_sdk', 'no_protocol_vers_sdk'])
 def req_and_expected(request, looper, sdk_wallet_client, endorser):
+
     op = {'type': '1',
           'something': 'nothing'}
     taaa = {
         'a': 'b',
         'c': 3
     }
+
+    custom_version = '3000'
+    if request.param == 'custom_version':
+        op['ver'] = custom_version
+
     if request.param.endswith('_sdk'):
         request.param = request.param[:-4]
         if request.param == 'sigs_only':
@@ -38,6 +44,7 @@ def req_and_expected(request, looper, sdk_wallet_client, endorser):
                                              endorser=endorser)
         if request.param == 'no_protocol_vers':  # TODO INDY-2072 always false here
             req.pop('protocolVersion')
+
         r = Request(
             req.get(f.IDENTIFIER.nm, None),
             req.get(f.REQ_ID.nm, None),
@@ -108,6 +115,8 @@ def req_and_expected(request, looper, sdk_wallet_client, endorser):
         new_expected["txn"]["metadata"]["payloadDigest"] = payload_digest
     if endorser is not None:
         new_expected["txn"]["metadata"]["endorser"] = endorser
+    if request.param == 'custom_version':
+        new_expected["txn"]["ver"] = custom_version
 
     return req, new_expected
 
