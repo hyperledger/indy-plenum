@@ -1334,8 +1334,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     result_reject = Reject(
                         reject.identifier,
                         reject.reqId,
-                        self.reasonForClientFromException(
-                            reject.reason))
+                        self.reasonForClientFromException(reject.reason),
+                    )
                     # TODO: What the case when reqKey will be not in requestSender dict
                     if digest in self.requestSender:
                         self.transmitToClient(result_reject, self.requestSender[digest])
@@ -1717,14 +1717,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 await self.clientMsgRouter.handle(m)
             except InvalidClientMessageException as ex:
                 self.handleInvalidClientMsg(ex, m)
-
-    # TODO: change sending format from Reject to (digest, Reject)
-    # if you will use this method
-    def _reject_msg(self, msg, frm, reason):
-        reqKey = (msg.identifier, msg.reqId)
-        reject = Reject(*reqKey,
-                        reason)
-        self.transmitToClient(reject, frm)
 
     def postPoolLedgerCaughtUp(self, **kwargs):
         self.mode = Mode.discovered

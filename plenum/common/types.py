@@ -53,6 +53,7 @@ class f:  # provides a namespace for reusable field constants
     ELECTION_DATA = Field('electionData', Any)
     TXN_ID = Field('txnId', str)
     REASON = Field('reason', Any)
+    CODE = Field('code', int)
     IS_SUCCESS = Field('isSuccess', Any)
     SENDER_CLIENT = Field('senderClient', str)
     PP_TIME = Field("ppTime", float)

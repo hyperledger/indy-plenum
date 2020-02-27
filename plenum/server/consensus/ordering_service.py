@@ -1151,13 +1151,13 @@ class OrderingService:
             try:
                 self._process_req_during_batch(req,
                                                pre_prepare.ppTime)
-            except (InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare) as ex:
+            except InvalidClientMessageException as ex:
                 logger.warning('{} encountered exception {} while processing {}, '
                                'will reject'.format(self, ex, req))
-                rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
+                rejects.append((req.key, Reject(req.identifier, req.reqId, ex.reason, ex.code)))
                 invalid_indices.append(idx)
-                if isinstance(ex, SuspiciousPrePrepare):
-                    suspicious = True
+            except SuspiciousPrePrepare:
+                suspicious = True
             finally:
                 reqs.append(req)
             idx += 1
@@ -2136,12 +2136,11 @@ class OrderingService:
                                                    tm)
 
                 except (
-                        InvalidClientMessageException,
-                        UnknownIdentifier
+                        InvalidClientMessageException
                 ) as ex:
                     logger.warning('{} encountered exception {} while processing {}, '
                                    'will reject'.format(self, ex, fin_req))
-                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
+                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex.reason, ex.code)))
                     invalid_indices.append(idx)
                 except SuspiciousPrePrepare:
                     malicious_req = True
