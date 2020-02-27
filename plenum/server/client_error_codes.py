@@ -12,7 +12,7 @@ class Rejects:
     TAA_RETIRED = ClientError(203, "Txn Author Agreement is retired: version {}, seq_no {}, txn_time {}")
     TAA_TOO_PRECISE = ClientError(204, "Txn Author Agreement acceptance time {} is too precise and is a privacy risk")
     TAA_WRONG_ACCEPTANCE_TIME = ClientError(205,
-                                            "Txn Author Agreement acceptance time is inappropriate:  provided {}, expected in [{}, {}]")
+                                            "Txn Author Agreement acceptance time is inappropriate: provided {}, expected in [{}, {}]")
     TAA_AML_INVALID = ClientError(206,
                                   "Txn Author Agreement acceptance mechanism is inappropriate: provided {}, expected one of {}")
 

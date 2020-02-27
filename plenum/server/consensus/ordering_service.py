@@ -33,7 +33,7 @@ from plenum.common.timer import TimerService, RepeatingTimer
 from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time, get_digest
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
-    get_utc_epoch, max_3PC_key
+    get_utc_epoch, max_3PC_key, reasonForClientFromExReason
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
@@ -1154,7 +1154,8 @@ class OrderingService:
             except InvalidClientMessageException as ex:
                 logger.warning('{} encountered exception {} while processing {}, '
                                'will reject'.format(self, ex, req))
-                rejects.append((req.key, Reject(req.identifier, req.reqId, ex.reason, ex.code)))
+                rejects.append((req.key, Reject(req.identifier, req.reqId,
+                                                reasonForClientFromExReason(ex.reason), ex.code)))
                 invalid_indices.append(idx)
             except SuspiciousPrePrepare:
                 suspicious = True
@@ -2140,7 +2141,8 @@ class OrderingService:
                 ) as ex:
                     logger.warning('{} encountered exception {} while processing {}, '
                                    'will reject'.format(self, ex, fin_req))
-                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex.reason, ex.code)))
+                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId,
+                                                        reasonForClientFromExReason(ex.reason), ex.code)))
                     invalid_indices.append(idx)
                 except SuspiciousPrePrepare:
                     malicious_req = True
