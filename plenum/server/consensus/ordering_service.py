@@ -1159,6 +1159,7 @@ class OrderingService:
                 invalid_indices.append(idx)
             except SuspiciousPrePrepare:
                 suspicious = True
+                invalid_indices.append(idx)
             finally:
                 reqs.append(req)
             idx += 1
