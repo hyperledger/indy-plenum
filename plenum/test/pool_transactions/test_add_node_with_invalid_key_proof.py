@@ -15,7 +15,7 @@ def test_add_node_with_invalid_key_proof(looper,
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
     # change key_proof
-    key_proof = key_proof.upper()
+    key_proof = 'AAA' + key_proof[3:]
 
     # filling node request
     _, steward_did = sdk_wallet_steward
