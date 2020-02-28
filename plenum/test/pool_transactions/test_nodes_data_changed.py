@@ -36,7 +36,7 @@ def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
                              node_dest, 'foo',
                              None, None,
                              None, None)
-    assert 'data has conflicts with request data' in e._excinfo[1].reason
+    assert 'data has conflicts with request data' in e._excinfo[1].args[0]
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
@@ -90,4 +90,4 @@ def test_fail_node_bls_key_validation(looper,
                              key_proof=key_proof)
         assert "Proof of possession {} " \
                "is incorrect for BLS key {}".format(key_proof, bls_key) \
-               in e._excinfo[1].reason
+               in e._excinfo[1].args[0]

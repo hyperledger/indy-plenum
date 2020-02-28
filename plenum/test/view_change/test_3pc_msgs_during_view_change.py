@@ -19,7 +19,7 @@ def test_no_requests_processed_during_view_change(looper, txnPoolNodeSet,
         sdk_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_client, 10)
     assert 'Can not process requests when view change is in progress' in \
-           e._excinfo[1].reason
+           e._excinfo[1].args[0]
 
     for node in txnPoolNodeSet:
         check_replica_queue_empty(node)

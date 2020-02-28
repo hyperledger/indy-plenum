@@ -40,7 +40,7 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet,
                          tdir,
                          tconf,
                          allPluginsPath)
-    assert 'already has a node' in e._excinfo[1].reason
+    assert 'already has a node' in e._excinfo[1].args[0]
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
@@ -128,7 +128,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                         node_request1)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
-    assert 'missed fields - node_port' in e._excinfo[1].reason
+    assert 'missed fields - node_port' in e._excinfo[1].args[0]
 
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
         request_json = json.loads(node_request)
@@ -142,7 +142,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
         # because the 'is missed' will check only first few cases
         with pytest.raises(RequestNackedException) as e:
             sdk_get_and_check_replies(looper, [request_couple])
-        assert 'missed fields' in e._excinfo[1].reason
+        assert 'missed fields' in e._excinfo[1].args[0]
 
 
 def testNodesConnect(txnPoolNodeSet):

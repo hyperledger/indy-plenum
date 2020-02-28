@@ -67,7 +67,7 @@ def testLoggingTxnStateForInvalidRequest(
     with pytest.raises(RequestRejectedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
 
-    assert 'Only Steward is allowed to do these transactions' in e._excinfo[1].reason
+    assert 'Only Steward is allowed to do these transactions' in e._excinfo[1].args[0]
     request = request_couple[0]
     req_id = str(request[f.REQ_ID.nm])
     digest = get_key_from_req(request)

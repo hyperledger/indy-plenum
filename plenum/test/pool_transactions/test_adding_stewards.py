@@ -41,7 +41,7 @@ def testOnlyAStewardCanAddAnotherSteward(looper,
     request_couple = sdk_get_replies(looper, [request_couple], total_timeout)[0]
     with pytest.raises(RequestRejectedException) as e:
         sdk_check_reply(request_couple)
-    assert 'Only Steward is allowed to do these transactions' in e._excinfo[1].reason
+    assert 'Only Steward is allowed to do these transactions' in e._excinfo[1].args[0]
 
 
 def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper,
@@ -56,4 +56,4 @@ def testStewardsCanBeAddedOnlyTillAThresholdIsReached(looper,
                         alias='testSteward' + randomString(3), role=STEWARD_STRING)
     error_message = 'New stewards cannot be added by other stewards as there ' \
                     'are already {} stewards in the system'.format(tconf.stewardThreshold)
-    assert error_message in e._excinfo[1].reason
+    assert error_message in e._excinfo[1].args[0]
