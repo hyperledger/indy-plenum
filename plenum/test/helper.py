@@ -1136,7 +1136,7 @@ def sdk_json_couples_to_request_list(json_couples):
 def sdk_get_bad_response(looper, reqs, exception, message):
     with pytest.raises(exception) as e:
         sdk_get_and_check_replies(looper, reqs)
-    assert message in e._excinfo[1].args[0]
+    assert message in e._excinfo[1].reason
 
 
 def sdk_set_protocol_version(looper, version=CURRENT_PROTOCOL_VERSION):

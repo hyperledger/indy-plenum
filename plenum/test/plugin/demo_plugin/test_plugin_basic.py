@@ -47,4 +47,4 @@ def test_plugin_client_req_fields(txn_pool_node_set_post_creation, looper,
 
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, reqs)
-    assert 'should have length' in e._excinfo[1].args[0]
+    assert 'should have length' in e._excinfo[1].reason

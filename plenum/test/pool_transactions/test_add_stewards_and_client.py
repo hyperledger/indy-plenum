@@ -69,7 +69,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
                                                         node_request)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
-    assert 'client request invalid' in e._excinfo[1].args[0]
+    assert 'client request invalid' in e._excinfo[1].reason
 
 
 def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
@@ -121,6 +121,6 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
         # because the 'is invalid' will check only first few cases
         with pytest.raises(RequestNackedException) as e:
             sdk_get_and_check_replies(looper, [request_couple])
-        assert 'invalid network ip address' in e._excinfo[1].args[0] or \
-               'expected types' in e._excinfo[1].args[0] or \
-               'network port out of the range' in e._excinfo[1].args[0]
+        assert 'invalid network ip address' in e._excinfo[1].reason or \
+               'expected types' in e._excinfo[1].reason or \
+               'network port out of the range' in e._excinfo[1].reason

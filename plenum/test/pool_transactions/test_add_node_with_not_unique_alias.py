@@ -25,5 +25,5 @@ def test_add_node_with_not_unique_alias(looper,
                          tconf,
                          allPluginsPath)
     assert 'existing data has conflicts with request data' in \
-           e._excinfo[1].args[0]
+           e._excinfo[1].reason
     sdk_pool_refresh(looper, sdk_pool_handle)

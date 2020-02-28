@@ -41,7 +41,7 @@ def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
                                            request)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
-    assert 'expected one of' in e._excinfo[1].args[0]
+    assert 'expected one of' in e._excinfo[1].reason
 
 
 def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
@@ -60,7 +60,7 @@ def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
                                            request)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
-    assert 'cannot be smaller' in e._excinfo[1].args[0]
+    assert 'cannot be smaller' in e._excinfo[1].reason
 
 
 def test_get_txn_for_existing_seq_no(looper, txnPoolNodeSet,

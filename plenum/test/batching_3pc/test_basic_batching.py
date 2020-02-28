@@ -85,4 +85,4 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
     with pytest.raises(RequestRejectedException) as e:
         sdk_get_and_check_replies(looper, reqs[-1:])
 
-    assert 'Simulated rejection' in e._excinfo[1].args[0]
+    assert 'Simulated rejection' in e._excinfo[1].reason
