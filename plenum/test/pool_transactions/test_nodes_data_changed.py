@@ -80,7 +80,7 @@ def test_fail_node_bls_key_validation(looper,
     node_dest = hexToFriendly(new_node.nodestack.verhex)
     bls_key, key_proof = init_bls_keys(new_node.keys_dir, new_node.name)
     # change key_proof
-    key_proof = 'AAA' + key_proof[3:]
+    key_proof = 'AAAAA' + key_proof[5:]
     with pytest.raises(RequestNackedException) as e:
         sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
                              node_dest, new_node.name,
