@@ -57,6 +57,7 @@ class RequestNack(MessageBase):
         (f.IDENTIFIER.nm, AnyValueField()),
         (f.REQ_ID.nm, AnyValueField()),
         (f.REASON.nm, AnyValueField()),
+        (f.CODE.nm, IntegerField(optional=True))
     )
 
 
@@ -67,6 +68,8 @@ class Reject(MessageBase):
         (f.IDENTIFIER.nm, AnyValueField()),
         (f.REQ_ID.nm, AnyValueField()),
         (f.REASON.nm, AnyValueField()),
+        (f.CODE.nm, IntegerField(optional=True,
+                                 nullable=True))
     )
 
 

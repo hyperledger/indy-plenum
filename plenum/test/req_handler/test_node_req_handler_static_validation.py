@@ -43,13 +43,14 @@ def test_node_req_handler_static_validation_with_full_bls(bls_keys,
 def test_node_req_handler_static_validation_with_incorrect_proof(bls_keys,
                                                                  node_req_handler):
     bls_ver_key, key_proof = bls_keys
+    invalid_key_proof = key_proof.upper()
     node_request = _generate_node_request(bls_key=bls_ver_key,
-                                          bls_key_proof=key_proof.upper())
+                                          bls_key_proof=invalid_key_proof)
     with pytest.raises(InvalidClientRequest) as e:
         node_req_handler.static_validation(node_request)
-        assert "Proof of possession {} " \
-               "is incorrect for BLS key {}".format(key_proof, bls_ver_key) \
-               in e._excinfo[1].args[0]
+    assert "Proof of possession {} " \
+           "is incorrect for BLS key {}".format(invalid_key_proof, bls_ver_key) \
+           in e._excinfo[1].reason
 
 
 def test_node_req_handler_static_validation_with_full_proof(bls_keys,
@@ -59,8 +60,8 @@ def test_node_req_handler_static_validation_with_full_proof(bls_keys,
                                           bls_key_proof=None)
     with pytest.raises(InvalidClientRequest) as e:
         node_req_handler.static_validation(node_request)
-        assert "A Proof of possession must be provided with BLS key" \
-               in e._excinfo[1].args[0]
+    assert "A Proof of possession must be provided with BLS key" \
+           in e._excinfo[1].reason
 
 
 def test_node_req_handler_static_validation_with_not_full_proof(bls_keys,
@@ -74,8 +75,8 @@ def test_node_req_handler_static_validation_with_not_full_proof(bls_keys,
                                           bls_key_proof=key_proof)
     with pytest.raises(InvalidClientRequest) as e:
         node_req_handler.static_validation(node_request)
-        assert "A Proof of possession is not needed without BLS key" \
-               in e._excinfo[1].args[0]
+    assert "A Proof of possession is not needed without BLS key" \
+           in e._excinfo[1].reason
 
 
 def _generate_node_request(bls_key=None,

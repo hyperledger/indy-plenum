@@ -377,6 +377,16 @@ def friendlyEx(ex: Exception) -> str:
     return friendly
 
 
+def reasonForClientFromException(ex: Exception):
+    friendly = friendlyEx(ex)
+    reason = "client request invalid: {}".format(friendly)
+    return reason
+
+
+def reasonForClientFromExReason(reason: str):
+    return "client request invalid: {}".format(reason)
+
+
 def updateFieldsWithSeqNo(fields):
     r = OrderedDict()
     r[F.seqNo.name] = (str, int)

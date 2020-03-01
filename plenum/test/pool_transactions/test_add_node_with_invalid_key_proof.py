@@ -15,7 +15,7 @@ def test_add_node_with_invalid_key_proof(looper,
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
     # change key_proof
-    key_proof = key_proof.upper()
+    key_proof = 'AAAAA' + key_proof[5:]
 
     # filling node request
     _, steward_did = sdk_wallet_steward
@@ -40,6 +40,6 @@ def test_add_node_with_invalid_key_proof(looper,
     # waitng for replies
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, [request_couple])
-        assert "Proof of possession {} " \
-               "is incorrect for BLS key {}".format(key_proof, bls_key) \
-               in e._excinfo[1].args[0]
+    assert "Proof of possession {} " \
+           "is incorrect for BLS key {}".format(key_proof, bls_key) \
+           in e._excinfo[1].args[0]
