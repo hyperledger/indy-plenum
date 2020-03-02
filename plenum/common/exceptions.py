@@ -197,7 +197,7 @@ class InvalidClientMessageException(InvalidMessageException):
         self.reason = reason
 
     def __str__(self):
-        return self.reason
+        return self.reason or ""
 
 
 class InvalidNodeMsg(InvalidNodeMessageException):
