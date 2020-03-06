@@ -196,9 +196,6 @@ class InvalidClientMessageException(InvalidMessageException):
         self.reqId = reqId
         self.reason = reason
 
-    def __str__(self):
-        return self.reason or ""
-
 
 class InvalidNodeMsg(InvalidNodeMessageException):
     pass
