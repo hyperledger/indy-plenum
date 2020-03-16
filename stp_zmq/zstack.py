@@ -38,7 +38,7 @@ from stp_core.network.network_interface import NetworkInterface
 from stp_zmq.util import createEncAndSigKeys, \
     moveKeyFilesToCorrectLocations, createCertsFromKeys
 from stp_zmq.remote import Remote, set_keepalive, set_zmq_internal_queue_size
-from plenum.common.exceptions import InvalidMessageExceedingSizeException
+from plenum.common.exceptions import InvalidMessageExceedingSizeException, BaseExc
 from stp_core.validators.message_length_validator import MessageLenValidator
 
 logger = getlogger()
@@ -526,7 +526,14 @@ class ZStack(NetworkInterface):
         incoming_size = 0
         while i < quota.count and incoming_size < quota.size:
             try:
-                ident, msg = self.listener.recv_multipart(flags=zmq.NOBLOCK)
+                received = self.listener.recv_multipart(flags=zmq.NOBLOCK)
+                # If client was connected in DEALER mode then is expected
+                # to get exactly 2 values from recv_multipart function
+                if len(received) > 2:
+                    logger.debug("Got too many values for unpack. "
+                                 "It seems that client's socket is open not in DEALER mode")
+                    continue
+                ident, msg = received
                 if not msg:
                     # Router probing sends empty message on connection
                     continue

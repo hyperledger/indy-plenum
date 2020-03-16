@@ -1603,13 +1603,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     "Reason: {}. ".format(self, frm, ex.args[0]))
         # Since client can't yet handle denial of LEDGER_STATUS,
         # node send his LEDGER_STATUS back
-        self.send_ledger_status_to_client(msg.get(f.LEDGER_ID.nm),
-                                          msg.get(f.TXN_SEQ_NO.nm),
-                                          msg.get(f.VIEW_NO.nm),
-                                          msg.get(f.PP_SEQ_NO.nm),
-                                          msg.get(f.MERKLE_ROOT.nm),
-                                          CURRENT_PROTOCOL_VERSION,
-                                          frm)
+        self.send_ledger_status_to_client(msg, frm)
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -1928,9 +1922,8 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         else:
             logger.info("{} not sending ledger {} status to {} as it is null".format(self, ledgerId, nodeName))
 
-    def send_ledger_status_to_client(self, lid, txn_s_n, v, p, merkle, protocol, client):
-        ls = LedgerStatus(lid, txn_s_n, v, p, merkle, protocol)
-        self.transmitToClient(ls, client)
+    def send_ledger_status_to_client(self, msg, client):
+        self.transmitToClient(msg, client)
 
     def _get_manager_for_txn_type(self, txn_type):
         if self.write_manager.is_valid_type(txn_type):
