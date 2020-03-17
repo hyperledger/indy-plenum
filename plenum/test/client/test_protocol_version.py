@@ -49,8 +49,8 @@ def test_client_send_incorrect_ledger_status(looper, txnPoolNodeSet):
     # node sent LEDGER_STATUS back to this client
     sends = spy.getAll(Node.transmitToClient)
     assert len([send for send in sends if
-                send.params['remoteName'] == sender and
-                isinstance(send.params['msg'], LedgerStatus)]) == 1
+                isinstance(send.params['msg'], dict) and
+                'op' in send.params['msg'] and send.params['msg']['op'] == LedgerStatus.typename]) == 1
 
 
 def test_client_send_correct_ledger_status(looper,
