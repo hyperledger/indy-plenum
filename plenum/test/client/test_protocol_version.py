@@ -12,7 +12,7 @@ from plenum.test.helper import sdk_send_signed_requests, \
     sdk_sign_request_objects, sdk_get_bad_response, sdk_send_random_and_check
 
 error_msg = 'Make sure that the latest LibIndy is used ' \
-            'and `set_protocol_version({})` is called'\
+            'and `set_protocol_version({})` is called' \
     .format(CURRENT_PROTOCOL_VERSION)
 
 
@@ -49,8 +49,8 @@ def test_client_send_incorrect_ledger_status(looper, txnPoolNodeSet):
     # node sent LEDGER_STATUS back to this client
     sends = spy.getAll(Node.transmitToClient)
     assert len([send for send in sends if
-                isinstance(send.params['msg'], dict) and
-                'op' in send.params['msg'] and send.params['msg']['op'] == LedgerStatus.typename]) == 1
+                send.params['remoteName'] == sender and
+                isinstance(send.params['msg'], LedgerStatus)]) == 1
 
 
 def test_client_send_correct_ledger_status(looper,
