@@ -86,3 +86,4 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
         sdk_get_and_check_replies(looper, reqs[-1:])
 
     assert 'Simulated rejection' in e._excinfo[1].args[0]
+    assert 'InvalidClientRequest' in e._excinfo[1].args[0]
