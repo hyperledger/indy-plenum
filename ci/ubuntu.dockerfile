@@ -25,5 +25,5 @@ RUN indy_ci_add_user $uid $user $venv
 RUN indy_image_clean
 
 USER $user
-WORKDIR /home//$user
+WORKDIR /home/$user
 
