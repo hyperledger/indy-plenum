@@ -346,7 +346,7 @@ def z85_to_friendly(z):
 
 def runWithLoop(loop, callback, *args, **kwargs):
     if loop.is_running():
-        loop.call_soon(asyncio.async, callback(*args, **kwargs))
+        loop.call_soon(asyncio.ensure_future, callback(*args, **kwargs))
     else:
         loop.run_until_complete(callback(*args, **kwargs))
 
