@@ -2,7 +2,6 @@ import asyncio
 import collections
 import dateutil.tz
 import functools
-import glob
 import inspect
 import ipaddress
 import itertools
@@ -81,7 +80,6 @@ def random_from_alphabet(size, alphabet):
     :param size:
     :param alphabet:
     """
-    import random
     return list(random.choice(alphabet) for _ in range(size))
 
 
@@ -533,9 +531,9 @@ def getCallableName(callable: Callable):
         elif hasattr(callable, "func"):
             return callable.func.__name__
         else:
-            RuntimeError("Do not know how to get name of this callable")
+            raise RuntimeError("Do not know how to get name of this callable")
     else:
-        TypeError("This is not a callable")
+        raise TypeError("This is not a callable")
 
 
 def updateNestedDict(d, u, nestedKeysToUpdate=None):
