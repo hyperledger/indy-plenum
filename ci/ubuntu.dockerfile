@@ -7,11 +7,9 @@ ARG venv=venv
 
 RUN echo "To invalidate cache"
 
-
 RUN apt-get update -y && apt-get install -y \
     python3-nacl \
     libindy=1.13.0~1420 \
-    libssl-dev \
 # rocksdb python wrapper
     libbz2-dev \
     zlib1g-dev \
@@ -26,4 +24,3 @@ RUN indy_image_clean
 
 USER $user
 WORKDIR /home/$user
-
