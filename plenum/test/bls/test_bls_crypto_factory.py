@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from indy_crypto.bls import VerKey, ProofOfPossession
+from ursa.bls import VerKey, ProofOfPossession
 
 from crypto.bls.bls_crypto import BlsCryptoSigner
 from crypto.bls.bls_key_manager import LoadBLSKeyError

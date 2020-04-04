@@ -9,7 +9,7 @@ from crypto.bls.bls_crypto import GroupParams, BlsGroupParamsLoader, BlsCryptoVe
 from ursa.bls import BlsEntity, Generator, VerKey, SignKey, Bls, \
     Signature, MultiSignature, ProofOfPossession
 
-logging.getLogger("indy_crypto").setLevel(logging.WARNING)
+logging.getLogger("ursa").setLevel(logging.WARNING)
 logger = getLogger()
 
 

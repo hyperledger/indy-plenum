@@ -1,4 +1,4 @@
-from indy_crypto.bls import VerKey, SignKey
+from ursa.bls import VerKey, SignKey
 
 from crypto.bls.bls_crypto import BlsGroupParamsLoader, GroupParams
 from crypto.bls.bls_factory import BlsFactoryCrypto
