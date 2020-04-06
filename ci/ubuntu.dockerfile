@@ -15,8 +15,13 @@ RUN apt-get update -y && apt-get install -y \
     zlib1g-dev \
     liblz4-dev \
     libsnappy-dev \
-    ursa=0.3.2-1  \
+    ursa=0.3.2-2  \
     rocksdb=5.8.8
+
+# TODO: This needs to be removed after ursa python wrapper is fixed
+RUN git clone https://github.com/hyperledger/ursa-python.git
+RUN pip install -e ursa-python
+
 
 RUN indy_ci_add_user $uid $user $venv
 
