@@ -3,10 +3,9 @@ import pytest
 from ursa.bls import VerKey, SignKey, ProofOfPossession
 
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, \
-    BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto
+    BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto, IndyCryptoBlsUtils
 from ursa.indy_error import IndyCryptoError
 from ursa.indy_error import ErrorCode
-
 
 
 @pytest.fixture()
