@@ -18,14 +18,13 @@ RUN apt-get update -y && apt-get install -y \
     ursa=0.3.2-2  \
     rocksdb=5.8.8
 
-# TODO: This needs to be removed after ursa python wrapper is fixed
-RUN git clone https://github.com/hyperledger/ursa-python.git
-RUN pip install -e ursa-python
-
-
 RUN indy_ci_add_user $uid $user $venv
 
 RUN indy_image_clean
 
 USER $user
 WORKDIR /home/$user
+
+# TODO: This needs to be removed after ursa python wrapper is fixed
+RUN git clone https://github.com/hyperledger/ursa-python.git
+RUN pip install -e ursa-python
