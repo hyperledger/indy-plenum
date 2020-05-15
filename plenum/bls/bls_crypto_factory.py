@@ -1,10 +1,12 @@
-from indy_crypto.bls import VerKey, SignKey
+from ursa.bls import VerKey, SignKey
 
 from crypto.bls.bls_crypto import BlsGroupParamsLoader, GroupParams
 from crypto.bls.bls_factory import BlsFactoryCrypto
 from crypto.bls.bls_key_manager import BlsKeyManager
+
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, BlsCryptoSignerIndyCrypto, \
     BlsCryptoVerifierIndyCrypto, IndyCryptoBlsUtils
+
 from plenum.bls.bls_key_manager_file import BlsKeyManagerFile
 
 

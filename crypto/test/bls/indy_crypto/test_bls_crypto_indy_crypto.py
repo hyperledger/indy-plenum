@@ -1,11 +1,11 @@
 import base58
 import pytest
-from indy_crypto.bls import VerKey, SignKey, ProofOfPossession
+from ursa.bls import VerKey, SignKey, ProofOfPossession
 
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import BlsGroupParamsLoaderIndyCrypto, \
     BlsCryptoSignerIndyCrypto, BlsCryptoVerifierIndyCrypto, IndyCryptoBlsUtils
-from indy_crypto import IndyCryptoError
-from indy_crypto.error import ErrorCode
+from ursa.indy_error import IndyCryptoError
+from ursa.indy_error import ErrorCode
 
 
 @pytest.fixture()

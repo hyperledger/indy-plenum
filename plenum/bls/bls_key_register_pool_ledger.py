@@ -1,6 +1,6 @@
 from logging import getLogger
 
-from indy_crypto.bls import VerKey
+from ursa.bls import VerKey
 
 from crypto.bls.bls_key_register import BlsKeyRegister
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils

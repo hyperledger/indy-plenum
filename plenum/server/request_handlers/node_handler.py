@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Optional
 
-from indy_crypto.bls import ProofOfPossession, VerKey
+from ursa.bls import ProofOfPossession, VerKey
 
 from common.serializers.serialization import pool_state_serializer
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils

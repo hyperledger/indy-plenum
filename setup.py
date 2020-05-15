@@ -93,6 +93,7 @@ setup(
         '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
+
     install_requires=[
                         'jsonpickle==0.9.6',
                         'ujson==1.33',
@@ -114,12 +115,13 @@ setup(
                         'psutil==5.4.3',
                         'intervaltree==2.1.0',
                         'msgpack-python==0.4.6',
-                        'indy-crypto==0.4.5',
                         'python-rocksdb==0.6.9',
                         'python-dateutil==2.6.1',
                         'pympler==0.8',
                         'packaging==19.0',
+                        'python-ursa==0.1.0',
                       ],
+
     setup_requires=['pytest-runner'],
     extras_require={
         'tests': tests_require,
