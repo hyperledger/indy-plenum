@@ -106,6 +106,21 @@ def test_taa_acceptance_mechanism_inappropriate(
         validate_taa_acceptance(request_dict)
 
 
+def test_taa_acceptance_with_incorrect_time(
+    validate_taa_acceptance, validation_error,
+    request_dict
+):
+    request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] *= 1000
+    with pytest.raises(
+        validation_error,
+        match=(
+            r"TAA_ACCEPTANCE_TIME = {} is "
+            r"out of range.".format(request_dict[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm])
+        )
+    ):
+        validate_taa_acceptance(request_dict)
+
+
 def test_taa_acceptance_time_near_lower_threshold(
     tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
     turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
