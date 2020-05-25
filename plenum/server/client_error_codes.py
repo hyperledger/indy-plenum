@@ -15,6 +15,7 @@ class Rejects:
                                             "Txn Author Agreement acceptance time is inappropriate: provided {}, expected in [{}, {}]")
     TAA_AML_INVALID = ClientError(206,
                                   "Txn Author Agreement acceptance mechanism is inappropriate: provided {}, expected one of {}")
+    TAA_INCORRECT_ACCEPTANCE_TIME_FORMAT = ClientError(207, "TAA_ACCEPTANCE_TIME = {} is out of range")
 
 
 class Nacks:

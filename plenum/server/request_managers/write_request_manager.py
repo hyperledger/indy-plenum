@@ -347,7 +347,13 @@ class WriteRequestManager(RequestManager):
             )
 
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
-        datetime_r_taa = datetime.utcfromtimestamp(r_taa_a_ts)
+        try:
+            datetime_r_taa = datetime.utcfromtimestamp(r_taa_a_ts)
+        except ValueError:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                Rejects.TAA_INCORRECT_ACCEPTANCE_TIME_FORMAT.reason.format(r_taa_a_ts),
+                Rejects.TAA_INCORRECT_ACCEPTANCE_TIME_FORMAT.code)
         if datetime_r_taa.time() != time(0):
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
