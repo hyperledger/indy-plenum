@@ -97,6 +97,29 @@ def test_create_txn_author_agreement_with_ratified_from_future_fails(looper, set
                                       ratified=get_utc_epoch() + 600)
 
 
+def test_create_txn_author_agreement_with_milliseconds_ratified_fails(looper, set_txn_author_agreement_aml,
+                                                                     sdk_pool_handle, sdk_wallet_trustee):
+    ratified = get_utc_epoch() * 1000
+    with pytest.raises(RequestNackedException,
+                       match="{} = {} is out of range.".format(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, ratified)):
+        sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                      version=randomString(16),
+                                      text=randomString(1024),
+                                      ratified=ratified)
+
+
+def test_create_txn_author_agreement_with_milliseconds_retired_fails(looper, set_txn_author_agreement_aml,
+                                                                     sdk_pool_handle, sdk_wallet_trustee):
+    retired = get_utc_epoch() * 1000
+    with pytest.raises(RequestNackedException,
+                       match="{} = {} is out of range.".format(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, retired)):
+        sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee,
+                                      version=randomString(16),
+                                      text=randomString(1024),
+                                      ratified=get_utc_epoch() - 600,
+                                      retired=retired)
+
+
 @pytest.mark.parametrize('retired_offset', [-600, 600])
 def test_create_txn_author_agreement_with_retired_date_fails(looper, set_txn_author_agreement_aml,
                                                              sdk_pool_handle, sdk_wallet_trustee,

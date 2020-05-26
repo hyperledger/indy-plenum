@@ -346,7 +346,12 @@ class WriteRequestManager(RequestManager):
             )
 
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
-        datetime_r_taa = datetime.utcfromtimestamp(r_taa_a_ts)
+        try:
+            datetime_r_taa = datetime.utcfromtimestamp(r_taa_a_ts)
+        except ValueError:
+            raise InvalidClientTaaAcceptanceError(
+                request.identifier, request.reqId,
+                "TAA_ACCEPTANCE_TIME = {} is out of range".format(r_taa_a_ts))
         if datetime_r_taa.time() != time(0):
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from common.exceptions import LogicError
@@ -19,7 +20,12 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
         super().__init__(database_manager, TXN_AUTHOR_AGREEMENT, CONFIG_LEDGER_ID)
 
     def static_validation(self, request: Request):
-        pass
+        self._validate_request_type(request)
+        operation, identifier, req_id = request.operation, request.identifier, request.reqId
+        self._validate_ts(operation.get(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS),
+                          identifier, req_id, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS)
+        self._validate_ts(operation.get(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS),
+                          identifier, req_id, TXN_AUTHOR_AGREEMENT_RATIFICATION_TS)
 
     def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
@@ -134,3 +140,12 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
         if last_taa_digest == digest:
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        "The latest transaction author agreement cannot be retired.")
+
+    def _validate_ts(self, ts, identifier, req_id, field_name):
+        if not ts:
+            return
+        try:
+            datetime.utcfromtimestamp(ts)
+        except ValueError:
+            raise InvalidClientRequest(identifier, req_id,
+                                       "{} = {} is out of range.".format(field_name, ts))
