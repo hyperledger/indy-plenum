@@ -7,7 +7,7 @@ from common.serializers.serialization import pool_state_serializer
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.constants import POOL_LEDGER_ID, NODE, DATA, BLS_KEY, \
     BLS_KEY_PROOF, TARGET_NYM, DOMAIN_LEDGER_ID, NODE_IP, \
-    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, VERKEY
+    NODE_PORT, CLIENT_IP, CLIENT_PORT, ALIAS, VERKEY, SERVICES, VALIDATOR
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_from
@@ -139,7 +139,10 @@ class NodeHandler(WriteRequestHandler):
         for nodeNym, nodeData in self.state.as_dict.items():
             nodeData = self.state_serializer.deserialize(nodeData)
             if nodeData.get(f.IDENTIFIER.nm) == steward_nym:
-                return True
+                services = nodeData.get(SERVICES)
+                if services:
+                    if VALIDATOR in services:
+                        return True
         return False
 
     @staticmethod
