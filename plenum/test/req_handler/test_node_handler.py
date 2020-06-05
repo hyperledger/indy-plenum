@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import NODE, BLS_KEY, BLS_KEY_PROOF, TARGET_NYM, NODE_IP, NODE_PORT, CLIENT_IP, \
-    CLIENT_PORT, ALIAS, DATA, IDENTIFIER
+    CLIENT_PORT, ALIAS, DATA, IDENTIFIER, SERVICES, VALIDATOR
 from plenum.common.exceptions import InvalidClientRequest, UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
@@ -109,6 +109,77 @@ def test_node_handler_dynamic_validation_new_node_fails_same_ha(node_handler,
     with pytest.raises(UnauthorizedClientRequest) as e:
         node_handler.dynamic_validation(node_request, 0)
     e.match('node and client ha cannot be same')
+
+
+def test_node_handler_dynamic_validation_new_node_succeeds_has_node_not_validator(node_handler):
+    # Create Request
+    node_request = Request(identifier='12121212121212',
+                           reqId=5,
+                           operation={
+                               'type': NODE,
+                               'dest': '12121212121212',
+                               TARGET_NYM: '2m3hkiDTTseSLxw6arffwyMrfTpoaadEhjLxGFSz4RLa',
+                               'data': {
+                                   BLS_KEY: randomString(),
+                                   BLS_KEY_PROOF: randomString(),
+                                   ALIAS: 'Node1',
+                                   NODE_IP: 5,
+                                   NODE_PORT: 2,
+                                   CLIENT_IP: 6,
+                                   CLIENT_PORT: 4,
+                                   SERVICES: [VALIDATOR]
+                               }})
+
+    # Modify bls verifier
+    node_handler.bls_crypto_verifier = None
+
+    # write node transaction to ledger
+    seq_no = 1
+    txn_time = 1560241033
+    txn_id = "id"
+    txn = reqToTxn(node_request)
+    append_txn_metadata(txn, seq_no, txn_time, txn_id)
+    node_handler.static_validation(node_request)
+    node_handler.dynamic_validation(node_request, 0)
+    node_handler.update_state(txn, None, node_request)
+
+    # demote node
+    seq_no = 2
+    txn_time = 1560242033
+    txn_id = "id"
+    node_request.operation['data'][SERVICES] = []
+    txn = reqToTxn(node_request)
+    append_txn_metadata(txn, seq_no, txn_time, txn_id)
+    node_handler.static_validation(node_request)
+    node_handler.dynamic_validation(node_request, 0)
+    node_handler.update_state(txn, None, node_request)
+    # Create New Request
+    node_request = Request(identifier='12121212121212',
+                           reqId=6,
+                           operation={
+                               'type': NODE,
+                               'dest': '12121212121212',
+                               TARGET_NYM: '2EcmfdGn5zE2drojZxL9EVaWU2JeKMpYMRfsxLwD2jvG',
+                               'data': {
+                                   BLS_KEY: randomString(),
+                                   BLS_KEY_PROOF: randomString(),
+                                   ALIAS: 'Node2',
+                                   NODE_IP: 7,
+                                   NODE_PORT: 2,
+                                   CLIENT_IP: 8,
+                                   CLIENT_PORT: 4,
+                                   SERVICES: [VALIDATOR]
+                               }})
+    # write new node transaction to ledger
+    seq_no = 3
+    txn_time = 1560243033
+    txn_id = "id"
+    txn = reqToTxn(node_request)
+    append_txn_metadata(txn, seq_no, txn_time, txn_id)
+    node_handler.static_validation(node_request)
+    node_handler.dynamic_validation(node_request, 0)
+    node_handler.update_state(txn, None, node_request)
+    # celebrate success
 
 
 def test_node_handler_dynamic_validation_new_node_fails_has_node(node_handler,
