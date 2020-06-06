@@ -95,8 +95,9 @@ class NodeHandler(WriteRequestHandler):
         if error:
             return error
 
-        if self._steward_has_node(origin):
-            return "{} already has a node".format(origin)
+        node = self._steward_has_node(origin)
+        if node:
+            return "{} already has node {} as a validator".format(origin, node)
         error = self._is_node_data_conflicting(data)
         if error:
             return "existing data has conflicts with " \
@@ -107,6 +108,11 @@ class NodeHandler(WriteRequestHandler):
         # conflict with any existing node's data
         operation = request.operation
         node_nym = operation.get(TARGET_NYM)
+        origin = request.identifier
+        node = self._steward_has_node(origin)
+        if node:
+            if node != node_nym.encode():
+                return "{} already has node {} as a validator".format(origin, node)
 
         data = operation.get(DATA, {})
         return self._data_error_while_validating_update(data, node_nym)
@@ -132,7 +138,7 @@ class NodeHandler(WriteRequestHandler):
         node_data = self.get_from_state(node_nym, is_committed=is_committed)
         return node_data and node_data[f.IDENTIFIER.nm] == steward_nym
 
-    def _steward_has_node(self, steward_nym) -> bool:
+    def _steward_has_node(self, steward_nym):
         # Cannot use lru_cache since a steward might have a node in future and
         # unfortunately lru_cache does not allow single entries to be cleared
         # TODO: Modify lru_cache to clear certain entities
@@ -142,8 +148,7 @@ class NodeHandler(WriteRequestHandler):
                 services = nodeData.get(SERVICES)
                 if services:
                     if VALIDATOR in services:
-                        return True
-        return False
+                        return nodeNym
 
     @staticmethod
     def _data_error_while_validating(data, skip_keys):
