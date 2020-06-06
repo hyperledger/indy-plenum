@@ -117,16 +117,15 @@ def test_node_handler_dynamic_validation_new_node_succeeds_has_node_not_validato
                            reqId=5,
                            operation={
                                'type': NODE,
-                               'dest': '12121212121212',
                                TARGET_NYM: '2m3hkiDTTseSLxw6arffwyMrfTpoaadEhjLxGFSz4RLa',
                                'data': {
                                    BLS_KEY: randomString(),
                                    BLS_KEY_PROOF: randomString(),
                                    ALIAS: 'Node1',
-                                   NODE_IP: 5,
-                                   NODE_PORT: 2,
-                                   CLIENT_IP: 6,
-                                   CLIENT_PORT: 4,
+                                   NODE_IP: 2,
+                                   NODE_PORT: 3,
+                                   CLIENT_IP: 4,
+                                   CLIENT_PORT: 5,
                                    SERVICES: [VALIDATOR]
                                }})
 
@@ -147,29 +146,24 @@ def test_node_handler_dynamic_validation_new_node_succeeds_has_node_not_validato
     seq_no = 2
     txn_time = 1560242033
     txn_id = "id"
+    node_request.reqId = 6
     node_request.operation['data'][SERVICES] = []
     txn = reqToTxn(node_request)
     append_txn_metadata(txn, seq_no, txn_time, txn_id)
     node_handler.static_validation(node_request)
     node_handler.dynamic_validation(node_request, 0)
     node_handler.update_state(txn, None, node_request)
+
     # Create New Request
-    node_request = Request(identifier='12121212121212',
-                           reqId=6,
-                           operation={
-                               'type': NODE,
-                               'dest': '12121212121212',
-                               TARGET_NYM: '2EcmfdGn5zE2drojZxL9EVaWU2JeKMpYMRfsxLwD2jvG',
-                               'data': {
-                                   BLS_KEY: randomString(),
-                                   BLS_KEY_PROOF: randomString(),
-                                   ALIAS: 'Node2',
-                                   NODE_IP: 7,
-                                   NODE_PORT: 2,
-                                   CLIENT_IP: 8,
-                                   CLIENT_PORT: 4,
-                                   SERVICES: [VALIDATOR]
-                               }})
+    node_request.reqId = 7
+    node_request.operation[TARGET_NYM] = '2EcmfdGn5zE2drojZxL9EVaWU2JeKMpYMRfsxLwD2jvG'
+    node_request.operation['data'][BLS_KEY] = randomString()
+    node_request.operation['data'][BLS_KEY_PROOF] = randomString()
+    node_request.operation['data'][ALIAS] = 'Node2'
+    node_request.operation['data'][NODE_IP] = 5
+    node_request.operation['data'][CLIENT_IP] = 6
+    node_request.operation['data'][SERVICES] = [VALIDATOR]
+
     # write new node transaction to ledger
     seq_no = 3
     txn_time = 1560243033
@@ -184,20 +178,20 @@ def test_node_handler_dynamic_validation_new_node_succeeds_has_node_not_validato
 
 def test_node_handler_dynamic_validation_new_node_fails_has_node(node_handler):
     # Create Request
-    node_request = Request(identifier='12121212121212',
+    node_request = Request(identifier='23232323232323',
                            reqId=6,
                            operation={
                                'type': NODE,
-                               'dest': '12121212121212',
-                               TARGET_NYM: '2m3hkiDTTseSLxw6arffwyMrfTpoaadEhjLxGFSz4RLa',
+                               'dest': '23232323232323',
+                               TARGET_NYM: '2m3hkiDTTseSLxw6arffwyMrfTpoaadEhjLxGFSz4RLc',
                                'data': {
                                    BLS_KEY: randomString(),
                                    BLS_KEY_PROOF: randomString(),
-                                   ALIAS: 'Node1',
-                                   NODE_IP: 5,
-                                   NODE_PORT: 2,
-                                   CLIENT_IP: 6,
-                                   CLIENT_PORT: 4,
+                                   ALIAS: 'Node3',
+                                   NODE_IP: 7,
+                                   NODE_PORT: 8,
+                                   CLIENT_IP: 9,
+                                   CLIENT_PORT: 10,
                                    SERVICES: [VALIDATOR]
                                }})
 
@@ -205,8 +199,8 @@ def test_node_handler_dynamic_validation_new_node_fails_has_node(node_handler):
     node_handler.bls_crypto_verifier = None
 
     # write node transaction to ledger
-    seq_no = 1
-    txn_time = 1560241033
+    seq_no = 4
+    txn_time = 1560244033
     txn_id = "id"
     txn = reqToTxn(node_request)
     append_txn_metadata(txn, seq_no, txn_time, txn_id)
@@ -215,32 +209,117 @@ def test_node_handler_dynamic_validation_new_node_fails_has_node(node_handler):
     node_handler.update_state(txn, None, node_request)
 
     # Create New Request
-    node_request = Request(identifier='12121212121212',
-                           reqId=6,
-                           operation={
-                               'type': NODE,
-                               'dest': '12121212121212',
-                               TARGET_NYM: '2EcmfdGn5zE2drojZxL9EVaWU2JeKMpYMRfsxLwD2jvG',
-                               'data': {
-                                   BLS_KEY: randomString(),
-                                   BLS_KEY_PROOF: randomString(),
-                                   ALIAS: 'Node2',
-                                   NODE_IP: 7,
-                                   NODE_PORT: 2,
-                                   CLIENT_IP: 8,
-                                   CLIENT_PORT: 4,
-                                   SERVICES: [VALIDATOR]
-                               }})
+    node_request.reqId = 7
+    node_request.operation[TARGET_NYM] = '2EcmfdGn5zE2drojZxL9EVaWU2JeKMpYMRfsxLwD2jvt'
+    node_request.operation['data'][BLS_KEY] = randomString()
+    node_request.operation['data'][BLS_KEY_PROOF] = randomString()
+    node_request.operation['data'][ALIAS] = 'Node4'
+    node_request.operation['data'][NODE_IP] = 11
+    node_request.operation['data'][CLIENT_IP] = 12
+
     # write new node transaction to ledger
-    seq_no = 3
-    txn_time = 1560243033
+    seq_no = 5
+    txn_time = 1560245033
     txn_id = "id"
     txn = reqToTxn(node_request)
     append_txn_metadata(txn, seq_no, txn_time, txn_id)
     node_handler.static_validation(node_request)
     with pytest.raises(UnauthorizedClientRequest) as e:
         node_handler.dynamic_validation(node_request, 0)
-    e.match('already has a node')
+    e.match("23232323232323 already has node b'2m3hkiDTTseSLxw6arffwyMrfTpoaadEhjLxGFSz4RLc' as a validator")
+
+
+def test_node_handler_dynamic_validation_update_node_fails_has_node(node_handler):
+    # Create Request
+    node_request = Request(identifier='34343434343434',
+                           reqId=8,
+                           operation={
+                               'type': NODE,
+                               'dest': '34343434343434',
+                               TARGET_NYM: '2EcmfdGn5zE2drojZxL9EVaWU2JeKMpYMRfsxLwD2jve',
+                               'data': {
+                                   BLS_KEY: randomString(),
+                                   BLS_KEY_PROOF: randomString(),
+                                   ALIAS: 'Node5',
+                                   NODE_IP: 13,
+                                   NODE_PORT: 14,
+                                   CLIENT_IP: 15,
+                                   CLIENT_PORT: 16,
+                                   SERVICES: [VALIDATOR]
+                               }})
+
+    # Modify bls verifier
+    node_handler.bls_crypto_verifier = None
+
+    # write node transaction to ledger
+    seq_no = 6
+    txn_time = 1560246033
+    txn_id = "id"
+    txn = reqToTxn(node_request)
+    append_txn_metadata(txn, seq_no, txn_time, txn_id)
+    node_handler.static_validation(node_request)
+    node_handler.dynamic_validation(node_request, 0)
+    node_handler.update_state(txn, None, node_request)
+
+    # demote node
+    seq_no = 7
+    txn_time = 1560247033
+    txn_id = "id"
+    node_request.reqId = 9
+    node_request.operation['data'][SERVICES] = []
+    txn = reqToTxn(node_request)
+    append_txn_metadata(txn, seq_no, txn_time, txn_id)
+    node_handler.static_validation(node_request)
+    node_handler.dynamic_validation(node_request, 0)
+    node_handler.update_state(txn, None, node_request)
+
+    # Create New Request
+    node_request.reqId = 10
+    node_request.operation[TARGET_NYM] = '2EcmfdGn5zE2drojZxL9EVaWU2JeKMpYMRfsxLwD2jvb'
+    node_request.operation['data'][BLS_KEY] = randomString()
+    node_request.operation['data'][BLS_KEY_PROOF] = randomString()
+    node_request.operation['data'][ALIAS] = 'Node6'
+    node_request.operation['data'][NODE_IP] = 16
+    node_request.operation['data'][CLIENT_IP] = 17
+    node_request.operation['data'][SERVICES] = [VALIDATOR]
+
+    # write new node transaction to ledger
+    seq_no = 8
+    txn_time = 1560248033
+    txn_id = "id"
+    txn = reqToTxn(node_request)
+    append_txn_metadata(txn, seq_no, txn_time, txn_id)
+    node_handler.static_validation(node_request)
+    node_handler.dynamic_validation(node_request, 0)
+    node_handler.update_state(txn, None, node_request)
+
+    # try to promote original node
+    node_request = Request(identifier='34343434343434',
+                           reqId=11,
+                           operation={
+                               'type': NODE,
+                               'dest': '34343434343434',
+                               TARGET_NYM: '2EcmfdGn5zE2drojZxL9EVaWU2JeKMpYMRfsxLwD2jve',
+                               'data': {
+                                   BLS_KEY: randomString(),
+                                   BLS_KEY_PROOF: randomString(),
+                                   ALIAS: 'Node5',
+                                   NODE_IP: 13,
+                                   NODE_PORT: 14,
+                                   CLIENT_IP: 15,
+                                   CLIENT_PORT: 16,
+                                   SERVICES: [VALIDATOR]
+                               }})
+    seq_no = 9
+    txn_time = 1560249033
+    txn_id = "id"
+    txn = reqToTxn(node_request)
+    append_txn_metadata(txn, seq_no, txn_time, txn_id)
+    node_handler.static_validation(node_request)
+    with pytest.raises(UnauthorizedClientRequest) as e:
+        node_handler.dynamic_validation(node_request, 0)
+    e.match("34343434343434 already has node b'2EcmfdGn5zE2drojZxL9EVaWU2JeKMpYMRfsxLwD2jvb' as a validator")
+    # celebrate success
 
 
 def test_node_handler_dynamic_validation_new_node_fails_conflict(node_handler,
@@ -277,9 +356,3 @@ def test_node_handler_dynamic_validation_update_node_fails_conflict_data(node_ha
     with pytest.raises(UnauthorizedClientRequest) as e:
         node_handler.dynamic_validation(node_request, 0)
     e.match('existing data has conflicts with')
-
-
-def test_node_handler_dynamic_validation_update_node_passes(node_handler,
-                                                            node_request):
-    node_handler._is_node_data_conflicting = lambda new_data, updating_nym=None: False
-    node_handler.dynamic_validation(node_request, 0)
