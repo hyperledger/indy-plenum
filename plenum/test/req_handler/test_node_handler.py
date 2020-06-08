@@ -389,7 +389,7 @@ def test_node_handler_dynamic_validation_update_node_succeeds_old_node(node_hand
 
 def test_node_handler_dynamic_validation_new_node_fails_conflict(node_handler,
                                                                  node_request):
-    node_handler._steward_has_node = lambda origin: False
+    node_handler._steward_has_validator_node = lambda origin: False
     node_handler._is_node_data_conflicting = lambda data: 'smth'
 
     with pytest.raises(UnauthorizedClientRequest) as e:
