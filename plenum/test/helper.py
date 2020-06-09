@@ -1499,9 +1499,9 @@ def create_pool_txn_data(node_names: List[str],
     nodeCount = len(node_names)
     data = {'txns': [], 'seeds': {}, 'nodesWithBls': {}}
     for i, node_name in zip(range(1, nodeCount + 1), node_names):
-        data['seeds'][node_name] = node_name + '0' * (32 - len(node_name))
+        data['seeds'][node_name] = node_name + 'N' + '0' * (31 - len(node_name))
         steward_name = 'Steward' + str(i)
-        data['seeds'][steward_name] = steward_name + '0' * (32 - len(steward_name))
+        data['seeds'][steward_name] = steward_name + 'S' + '0' * (31 - len(steward_name))
 
         n_idr = SimpleSigner(seed=data['seeds'][node_name].encode()).identifier
         s_idr = DidSigner(seed=data['seeds'][steward_name].encode())
@@ -1536,8 +1536,7 @@ def create_pool_txn_data(node_names: List[str],
     # Add 4 Trustees
     for i in range(4):
         trustee_name = 'Trs' + str(i)
-        data['seeds'][trustee_name] = trustee_name + '0' * (
-                32 - len(trustee_name))
+        data['seeds'][trustee_name] = trustee_name + 'T' + '0' * (31 - len(trustee_name))
         t_sgnr = DidSigner(seed=data['seeds'][trustee_name].encode())
         data['txns'].append(
             Member.nym_txn(nym=t_sgnr.identifier,
