@@ -40,7 +40,7 @@ def testStewardCannotAddMoreThanOneNode(looper, txnPoolNodeSet,
                          tdir,
                          tconf,
                          allPluginsPath)
-    assert 'already has a node' in e._excinfo[1].args[0]
+    assert 'already has node' in e._excinfo[1].args[0]
     sdk_pool_refresh(looper, sdk_pool_handle)
 
 
