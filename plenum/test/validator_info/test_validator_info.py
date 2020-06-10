@@ -29,7 +29,7 @@ def test_validator_info_file_bindings_field_valid(info, node):
 
 
 def test_validator_info_file_did_field_valid(info):
-    assert info['Node_info']['did'] == 'JpYerf4CssDrH76z7jyQPJLnZ1vwYgvKbvcp16AB5RQ'
+    assert info['Node_info']['did'] == 'DsTNiwxtWVJhjcDZ3K6gTnySQDAXEcPPekntVNbcJQPM'
 
 
 def test_validator_info_file_bls_field_valid(info, node):
