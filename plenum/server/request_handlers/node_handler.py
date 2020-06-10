@@ -110,7 +110,7 @@ class NodeHandler(WriteRequestHandler):
         node_nym = operation.get(TARGET_NYM)
         origin = request.identifier
         node = self._steward_has_validator_node(origin)
-        if node and VALIDATOR in operation['data'][SERVICES]:
+        if node:
             if node != node_nym.encode():
                 return "{} already has node {} as a validator".format(origin, node)
 
