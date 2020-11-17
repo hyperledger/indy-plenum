@@ -107,7 +107,7 @@ setup(
                         'base58==1.0.0',
                         'orderedset==2.0.3',
                         'sortedcontainers==1.5.7',
-                        'psutil==5.4.3',
+                        'psutil==5.6.6',
                         'pip<10.0.0',
                         'portalocker==0.5.7',
                         'libnacl==1.6.1',
