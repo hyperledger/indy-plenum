@@ -112,7 +112,6 @@ setup(
                         'portalocker==0.5.7',
                         'libnacl==1.6.1',
                         'six==1.11.0',
-                        'psutil==5.4.3',
                         'intervaltree==2.1.0',
                         'msgpack-python==0.4.6',
                         'python-rocksdb==0.6.9',
