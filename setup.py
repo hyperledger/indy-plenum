@@ -118,7 +118,7 @@ setup(
                         'python-dateutil==2.6.1',
                         'pympler==0.8',
                         'packaging==19.0',
-                        'python-ursa==0.1.0',
+                        'python-ursa==0.1.1',
                       ],
 
     setup_requires=['pytest-runner'],
