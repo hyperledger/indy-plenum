@@ -16,4 +16,4 @@ def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
     req_obj = sdk_gen_request(op, identifier=sdk_wallet[1])
     req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle,
                                       sdk_wallet, req_obj)
-    sdk_get_and_check_replies(looper, [req])
+    return sdk_get_and_check_replies(looper, [req])
