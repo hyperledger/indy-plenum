@@ -1,18 +1,21 @@
 import pytest
 
+from plenum.common.constants import DATA
+from plenum.common.exceptions import RequestNackedException
+
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.plugin.demo_plugin.constants import GET_AUCTION, AUCTION_START
 from plenum.test.restart.helper import restart_nodes
 from plenum.test.test_node import ensureElectionsDone
 
 from plenum.test.pool_transactions.helper import sdk_build_get_txn_request, sdk_sign_and_send_prepared_request
 
-from plenum.common.txn_util import get_seq_no
-from plenum.test.freshness.helper import get_multi_sig_values_for_all_nodes, \
-    check_updated_bls_multi_sig_for_ledger, check_freshness_updated_for_ledger
-from plenum.test.helper import freshness, sdk_get_and_check_replies
+from plenum.common.txn_util import get_seq_no, get_payload_data
+from plenum.test.freshness.helper import check_freshness_updated_for_ledger
+from plenum.test.helper import freshness, sdk_get_and_check_replies, sdk_send_random_and_check
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
-from plenum.test.plugin.demo_plugin.helper import send_auction_txn
+from plenum.test.plugin.demo_plugin.helper import send_auction_txn, send_get_auction_txn
 from stp_core.loop.eventually import eventually
 
 FRESHNESS_TIMEOUT = 5
@@ -31,7 +34,7 @@ def check_get_auction_txn(expected_result,
     seqNo = get_seq_no(expected_result)
 
     _, steward_did = sdk_wallet_steward
-    request = sdk_build_get_txn_request(looper, steward_did, seqNo)
+    request = sdk_build_get_txn_request(looper, steward_did, seqNo, ledger_type=str(AUCTION_LEDGER_ID))
 
     request_couple = \
         sdk_sign_and_send_prepared_request(looper,
@@ -50,7 +53,7 @@ def check_get_auction_txn(expected_result,
 
 
 def test_update_bls_multi_sig_for_auction_ledger_by_timeout(looper, tconf, txn_pool_node_set_post_creation,
-                                                            sdk_pool_handle, sdk_wallet_steward):
+                                                            sdk_pool_handle, sdk_wallet_steward, tdir, allPluginsPath):
     """
     Send a transaction from the plugin
     Wait for recording a freshness txn
@@ -63,34 +66,45 @@ def test_update_bls_multi_sig_for_auction_ledger_by_timeout(looper, tconf, txn_p
     """
     txnPoolNodeSet = txn_pool_node_set_post_creation
 
-    # 1. Update auction ledger
-    result = send_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
+    # Update auction ledger
+    result = send_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)[0][1]["result"]
 
     # get txn
-    check_get_auction_txn(result[0][1]['result'], looper,
-                                           sdk_wallet_steward,
-                                           sdk_pool_handle)
+    auction_id, auction_name = list(get_payload_data(result)[DATA].items())[0]
+    get_auction_result = send_get_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
+    assert get_auction_result[0][1]["result"][auction_id] == auction_name
+    # check_get_auction_txn(result[0][1]['result'], looper,
+    #                                        sdk_wallet_steward,
+    #                                        sdk_pool_handle)
 
-    # 2. Wait for the first freshness update
+    # Wait for the first freshness update
     looper.run(eventually(
         check_freshness_updated_for_ledger, txnPoolNodeSet, AUCTION_LEDGER_ID,
         timeout=3 * FRESHNESS_TIMEOUT)
     )
 
-    # 3. restart pool
-    restart_nodes(looper, txnPoolNodeSet, txnPoolNodeSet, tconf, tdir, allPluginsPath, start_one_by_one=False)
+    # restart pool
+    restart_nodes(looper, txnPoolNodeSet, txnPoolNodeSet, tconf, tdir, allPluginsPath, start_one_by_one=True)
 
     # get txn should failed with "ledger not exists"
-    check_get_auction_txn(result, looper,
+    with pytest.raises(RequestNackedException,
+                           match="unknown value '" + str(AUCTION_LEDGER_ID)):
+        check_get_auction_txn(result, looper,
                                            sdk_wallet_steward,
                                            sdk_pool_handle)
 
-
     # should failed with "unknown txn"
-    send_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
+    with pytest.raises(RequestNackedException,
+                       match="invalid type: " + GET_AUCTION):
+        send_get_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
 
+    with pytest.raises(RequestNackedException,
+                       match="invalid type: " + AUCTION_START):
+        send_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
+
+    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
 
     # make sure that all node have equal Priamries and can order
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=20)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)

@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from plenum import setup_plugins, PLUGIN_LEDGER_IDS, PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.pkg_util import update_module_vars
+from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
 from plenum.test.plugin.demo_plugin.main import integrate_plugin_in_node
 
 
@@ -47,7 +48,7 @@ def tconf(tconf, request):
                            'PLUGIN_ROOT': 'plenum.test.plugin',
                            'ENABLED_PLUGINS': ['demo_plugin', ],
                        })
-    PLUGIN_LEDGER_IDS = set()
+    PLUGIN_LEDGER_IDS = {AUCTION_LEDGER_ID}
     PLUGIN_CLIENT_REQUEST_FIELDS = {}
     setup_plugins()
     do_plugin_initialisation_for_tests()

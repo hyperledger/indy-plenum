@@ -43,6 +43,6 @@ class AbstractAuctionReqHandler(WriteRequestHandler, metaclass=ABCMeta):
                                             'unknown auction')
 
     def update_state(self, txn, prev_result, request, is_committed=False):
-        data = get_payload_data(txn)
+        data = get_payload_data(txn)[DATA]
         for k, v in data.items():
             self.state.set(k.encode(), JsonSerializer.dumps(v))
