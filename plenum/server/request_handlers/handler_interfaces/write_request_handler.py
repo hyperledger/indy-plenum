@@ -1,9 +1,13 @@
 from abc import ABCMeta, abstractmethod
 from typing import Optional
 
+from plenum.common.constants import CONFIG_LEDGER_ID, VALID_LEDGER_IDS
+
 from common.exceptions import LogicError
+from plenum.common.exceptions import InvalidClientRequest
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.request_handler import RequestHandler
+from plenum.server.request_handlers.ledgers_freeze_handler import LedgersFreezeHandler
 from plenum.server.request_handlers.utils import decode_state_value
 from stp_core.common.log import getlogger
 
@@ -29,6 +33,19 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
 
     @abstractmethod
     def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+        self._validate_request_type(request)
+        self.authorize(request)
+        if self.ledger_id in VALID_LEDGER_IDS:
+            return
+        state = self.database_manager.get_state(CONFIG_LEDGER_ID)
+        encoded = state.get(LedgersFreezeHandler.make_state_path_for_frozen_ledgers(), isCommitted=True)
+        frozen_ledgers, _, _ = self._decode_state_value(encoded)
+        if self.ledger_id in frozen_ledgers:
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "'{}' transaction is forbidden because of "
+                                       "'{}' ledger is frozen".format(self.txn_type, self.ledger_id))
+
+    def authorize(self, request):
         pass
 
     def apply_request(self, request: Request, batch_ts, prev_result):

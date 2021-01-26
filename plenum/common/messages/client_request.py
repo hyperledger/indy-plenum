@@ -7,14 +7,14 @@ from plenum.common.constants import NODE_IP, NODE_PORT, CLIENT_IP, \
     TXN_AUTHOR_AGREEMENT_VERSION, GET_TXN_AUTHOR_AGREEMENT, GET_TXN_AUTHOR_AGREEMENT_VERSION, \
     GET_TXN_AUTHOR_AGREEMENT_DIGEST, GET_TXN_AUTHOR_AGREEMENT_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML_VERSION, \
     GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP, GET_TXN_AUTHOR_AGREEMENT_AML, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, \
-    TXN_AUTHOR_AGREEMENT_DISABLE, TXN_AUTHOR_AGREEMENT_RATIFICATION_TS
+    TXN_AUTHOR_AGREEMENT_DISABLE, TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, LEDGERS_FREEZE, LEDGERS_IDS, GET_FROZEN_LEDGERS
 from plenum.common.messages.fields import NetworkIpAddressField, \
     NetworkPortField, IterableField, \
     ChooseField, ConstantField, DestNodeField, VerkeyField, DestNymField, \
     RoleField, TxnSeqNoField, IdentifierField, \
     NonNegativeNumberField, SignatureField, MapField, LimitedLengthStringField, \
     ProtocolVersionField, LedgerIdField, Base58Field, \
-    Sha256HexField, TimestampField, AnyMapField, NonEmptyStringField, BooleanField
+    Sha256HexField, TimestampField, AnyMapField, NonEmptyStringField, BooleanField, IntegerField
 from plenum.common.messages.message_base import MessageValidator
 from plenum.common.types import OPERATION, f
 from plenum.config import ALIAS_FIELD_LIMIT, DIGEST_FIELD_LIMIT, \
@@ -116,6 +116,20 @@ class ClientGetTxnAuthorAgreementAMLOperation(MessageValidator):
     )
 
 
+class ClientLedgersFreezeOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(LEDGERS_FREEZE)),
+        # Not LedgerIdField because the ledger may be already removed
+        (LEDGERS_IDS, IterableField(inner_field_type=IntegerField()))
+    )
+
+
+class ClientGetFrozenLedgersOperation(MessageValidator):
+    schema = (
+        (TXN_TYPE, ConstantField(GET_FROZEN_LEDGERS)),
+    )
+
+
 class ClientOperationField(MessageValidator):
 
     def __init__(self, *args, **kwargs):
@@ -128,7 +142,9 @@ class ClientOperationField(MessageValidator):
             TXN_AUTHOR_AGREEMENT_DISABLE: ClientTxnAuthorAgreementDisableOperation(schema_is_strict=strict),
             TXN_AUTHOR_AGREEMENT_AML: ClientTxnAuthorAgreementOperationAML(schema_is_strict=strict),
             GET_TXN_AUTHOR_AGREEMENT: ClientGetTxnAuthorAgreementOperation(schema_is_strict=strict),
-            GET_TXN_AUTHOR_AGREEMENT_AML: ClientGetTxnAuthorAgreementAMLOperation(schema_is_strict=strict)
+            GET_TXN_AUTHOR_AGREEMENT_AML: ClientGetTxnAuthorAgreementAMLOperation(schema_is_strict=strict),
+            LEDGERS_FREEZE: ClientLedgersFreezeOperation(),
+            GET_FROZEN_LEDGERS: ClientGetFrozenLedgersOperation()
         }
         super().__init__(*args, **kwargs)
 

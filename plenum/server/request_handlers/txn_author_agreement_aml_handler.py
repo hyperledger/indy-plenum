@@ -25,8 +25,7 @@ class TxnAuthorAgreementAmlHandler(WriteRequestHandler):
                                        "must contain at least one acceptance mechanism")
 
     def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        self._validate_request_type(request)
-        self.authorize(request)
+        super().dynamic_validation(request, req_pp_time)
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
         version = operation.get(AML_VERSION)
         if StaticTAAHelper.get_taa_aml_data(self.state, version, isCommitted=False) is not None:
