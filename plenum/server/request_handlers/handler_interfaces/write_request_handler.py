@@ -31,19 +31,22 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
     def static_validation(self, request: Request):
         pass
 
-    @abstractmethod
     def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
+        if self.ledger_id not in VALID_LEDGER_IDS:
+            state = self.database_manager.get_state(CONFIG_LEDGER_ID)
+            encoded = state.get(LedgersFreezeHandler.make_state_path_for_frozen_ledgers(), isCommitted=True)
+            frozen_ledgers, _, _ = self._decode_state_value(encoded)
+            if self.ledger_id in frozen_ledgers:
+                raise InvalidClientRequest(request.identifier, request.reqId,
+                                           "'{}' transaction is forbidden because of "
+                                           "'{}' ledger is frozen".format(self.txn_type, self.ledger_id))
         self.authorize(request)
-        if self.ledger_id in VALID_LEDGER_IDS:
-            return
-        state = self.database_manager.get_state(CONFIG_LEDGER_ID)
-        encoded = state.get(LedgersFreezeHandler.make_state_path_for_frozen_ledgers(), isCommitted=True)
-        frozen_ledgers, _, _ = self._decode_state_value(encoded)
-        if self.ledger_id in frozen_ledgers:
-            raise InvalidClientRequest(request.identifier, request.reqId,
-                                       "'{}' transaction is forbidden because of "
-                                       "'{}' ledger is frozen".format(self.txn_type, self.ledger_id))
+        self.additional_dynamic_validation(request, req_pp_time)
+
+    @abstractmethod
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+        pass
 
     def authorize(self, request):
         pass

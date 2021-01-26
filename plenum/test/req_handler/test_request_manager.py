@@ -218,7 +218,7 @@ def test_write_request_manager_restore_state(write_req_manager: WriteRequestMana
         def static_validation(self, request: Request):
             pass
 
-        def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+        def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
             pass
 
         def update_state(self, txn, prev_result, request, is_committed=False):

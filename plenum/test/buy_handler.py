@@ -21,8 +21,8 @@ class BuyHandler(WriteRequestHandler):
     def static_validation(self, request: Request):
         self._validate_request_type(request)
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        super().dynamic_validation(request, req_pp_time)
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+        pass
 
     def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)

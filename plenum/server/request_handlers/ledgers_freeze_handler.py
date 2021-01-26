@@ -29,9 +29,14 @@ class LedgersFreezeHandler(WriteRequestHandler):
             raise InvalidClientRequest(request.identifier, request.reqId,
                                        "{} ledgers can't be frozen".format(VALID_LEDGER_IDS))
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        super().dynamic_validation(request, req_pp_time)
-        # TODO: add a check for existing ledgers_ids in audit
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+        audit_ledger = self.database_manager.get_ledger(AUDIT_LEDGER_ID)
+        if not audit_ledger:
+            return None, None, None
+        last_txn = audit_ledger.get_last_committed_txn()
+        if any(lid not in get_payload_data(last_txn) for lid in request.operation.get(LEDGERS_IDS)):
+            raise InvalidClientRequest(request.identifier, request.reqId,
+                                       "One or more ledgers form {} have never existed".format(VALID_LEDGER_IDS))
 
     def authorize(self, request):
         domain_state = self.database_manager.get_database(DOMAIN_LEDGER_ID).state

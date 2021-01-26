@@ -30,8 +30,10 @@ class NymHandler(WriteRequestHandler):
     def static_validation(self, request: Request):
         pass
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        self._validate_request_type(request)
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+        pass
+
+    def authorize(self, request):
         identifier, req_id, operation = get_request_data(request)
         error = None
         if not is_steward(self.state,

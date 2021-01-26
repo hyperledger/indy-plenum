@@ -33,7 +33,7 @@ class AbstractAuctionReqHandler(WriteRequestHandler, metaclass=ABCMeta):
             msg = '{} attribute is missing or not in proper format'.format(DATA)
             raise InvalidClientRequest(identifier, req_id, msg)
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
         operation = request.operation
         data = operation.get(DATA)
