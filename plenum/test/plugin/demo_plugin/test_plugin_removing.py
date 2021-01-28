@@ -2,6 +2,7 @@ import pytest
 
 from plenum.common.constants import DATA
 from plenum.common.exceptions import RequestNackedException
+from plenum.test.freeze_ledgers.helper import sdk_send_freeze_ledgers
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
@@ -42,7 +43,7 @@ def check_get_auction_txn(expected_result,
                                            sdk_pool_handle,
                                            request)
     result = sdk_get_and_check_replies(looper,
-                                        [request_couple])[0][1]['result']
+                                       [request_couple])[0][1]['result']
 
     assert expected_result['reqSignature'] == result['data']['reqSignature']
     assert expected_result['txn'] == result['data']['txn']
@@ -52,8 +53,8 @@ def check_get_auction_txn(expected_result,
     assert expected_result['auditPath'] == result['data']['auditPath']
 
 
-def test_update_bls_multi_sig_for_auction_ledger_by_timeout(looper, tconf, txn_pool_node_set_post_creation,
-                                                            sdk_pool_handle, sdk_wallet_steward, tdir, allPluginsPath):
+def test_plugin_removing(looper, tconf, txn_pool_node_set_post_creation,
+                         sdk_pool_handle, sdk_wallet_steward, sdk_wallet_trustee, tdir, allPluginsPath):
     """
     Send a transaction from the plugin
     Wait for recording a freshness txn
@@ -83,15 +84,21 @@ def test_update_bls_multi_sig_for_auction_ledger_by_timeout(looper, tconf, txn_p
         timeout=3 * FRESHNESS_TIMEOUT)
     )
 
+    sdk_send_freeze_ledgers(
+        looper, sdk_pool_handle,
+        [sdk_wallet_trustee],
+        [AUCTION_LEDGER_ID]
+    )
+
     # restart pool
     restart_nodes(looper, txnPoolNodeSet, txnPoolNodeSet, tconf, tdir, allPluginsPath, start_one_by_one=True)
 
     # get txn should failed with "ledger not exists"
     with pytest.raises(RequestNackedException,
-                           match="unknown value '" + str(AUCTION_LEDGER_ID)):
+                       match="unknown value '" + str(AUCTION_LEDGER_ID)):
         check_get_auction_txn(result, looper,
-                                           sdk_wallet_steward,
-                                           sdk_pool_handle)
+                              sdk_wallet_steward,
+                              sdk_pool_handle)
 
     # should failed with "unknown txn"
     with pytest.raises(RequestNackedException,

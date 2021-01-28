@@ -4,13 +4,14 @@ from common.exceptions import LogicError
 from ledger.ledger import Ledger
 from plenum.common.constants import AUDIT_LEDGER_ID, TXN_VERSION, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PP_SEQ_NO, \
     AUDIT_TXN_LEDGERS_SIZE, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST, \
-    AUDIT_TXN_NODE_REG, CURRENT_TXN_PAYLOAD_VERSIONS, AUDIT, CURRENT_TXN_VERSION
+    AUDIT_TXN_NODE_REG, CURRENT_TXN_PAYLOAD_VERSIONS, AUDIT, CURRENT_TXN_VERSION, CONFIG_LEDGER_ID
 from plenum.common.ledger_uncommitted_tracker import LedgerUncommittedTracker
 from plenum.common.transactions import PlenumTransactions
 from plenum.common.txn_util import init_empty_txn, set_payload_data, get_payload_data, get_seq_no
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.database_manager import DatabaseManager
+from plenum.server.request_handlers.ledgers_freeze.ledger_freeze_helper import StaticLedgersFreezeHelper
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -102,6 +103,8 @@ class AuditBatchHandler(BatchRequestHandler):
             # 3. ledger root (either root_hash or seq_no to last changed)
             # TODO: support setting for multiple ledgers
             self._fill_ledger_root_hash(txn, lid, ledger, last_audit_txn, three_pc_batch)
+
+        self._fill_for_frozen_ledgers(txn, last_audit_txn)
 
         # 5. set primaries field
         self._fill_primaries(txn, three_pc_batch, last_audit_txn)
@@ -223,3 +226,17 @@ class AuditBatchHandler(BatchRequestHandler):
             else:
                 raise LogicError('Value, mentioned in nodeReg field must be a '
                                  'seq_no of a txn with nodeReg')
+
+    def _fill_for_frozen_ledgers(self, txn, last_audit_txn_data):
+        frozen_ledgers = StaticLedgersFreezeHelper.get_frozen_ledgers(
+            self.database_manager.get_state(CONFIG_LEDGER_ID))
+        for lid, ledger_info in frozen_ledgers.items():
+            if not isinstance(last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid], int):
+                continue
+
+            txn[AUDIT_TXN_LEDGERS_SIZE][lid] = StaticLedgersFreezeHelper.get_seq_no(ledger_info)
+            txn[AUDIT_TXN_LEDGER_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid] + 1
+            if lid in last_audit_txn_data[AUDIT_TXN_STATE_ROOT]:
+                txn[AUDIT_TXN_STATE_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_STATE_ROOT][lid] + 1
+
+

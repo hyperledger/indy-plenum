@@ -195,7 +195,7 @@ class NodeRegHandler(BatchRequestHandler, WriteRequestHandler):
     def static_validation(self, request):
         pass
 
-    def dynamic_validation(self, request, req_pp_time):
+    def additional_dynamic_validation(self, request, req_pp_time):
         pass
 
     def gen_state_key(self, txn):

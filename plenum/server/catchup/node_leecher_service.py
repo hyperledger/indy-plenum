@@ -11,6 +11,7 @@ from plenum.common.txn_util import get_payload_data
 from plenum.server.catchup.ledger_leecher_service import LedgerLeecherService
 from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, NodeCatchupComplete, CatchupTill, \
     LedgerCatchupStart
+from plenum.server.request_handlers.ledgers_freeze.ledger_freeze_helper import StaticLedgersFreezeHelper
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -140,6 +141,8 @@ class NodeLeecherService:
         ledger_ids.remove(AUDIT_LEDGER_ID)
         ledger_ids.remove(POOL_LEDGER_ID)
         ledger_ids.remove(CONFIG_LEDGER_ID)
+        for frozen_ledger in StaticLedgersFreezeHelper.get_frozen_ledgers(self._provider.config_state()).keys():
+            ledger_ids.remove(frozen_ledger)
 
         if len(ledger_ids) == 0:
             return None

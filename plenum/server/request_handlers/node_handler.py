@@ -63,9 +63,6 @@ class NodeHandler(WriteRequestHandler):
         return node_nym.encode()
 
     def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        pass
-
-    def authorize(self, request):
         node_nym = request.operation.get(TARGET_NYM)
         if self.get_from_state(node_nym, is_committed=False):
             error = self._auth_error_while_updating_node(request)
@@ -74,6 +71,9 @@ class NodeHandler(WriteRequestHandler):
         if error:
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
+
+    def authorize(self, request):
+        pass
 
     def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)
