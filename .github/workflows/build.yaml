@@ -2,32 +2,26 @@ name: indy-plenum-build
 on: [ push, pull_request ]
 
 jobs:
-<<<<<<< HEAD
-
-  indy_plenum_tests:
-    name: Indy Plenum Test Slices
-    runs-on: ubuntu-18.04
-    #TODO: move this to hyperledger?
-    container: wwjbarnes/indy-plenum-ci:latest
-=======
   workflow-setup:
     runs-on: ubuntu-latest
     outputs:
-      CACHE_KEY_IMAGE: ${{ steps.cache.outputs.CACHE_KEY_IMAGE }}
+      CACHE_KEY_BUILD: ${{ steps.cache.outputs.CACHE_KEY_BUILD }}
+      CACHE_KEY_LINT: ${{ steps.cache.outputs.CACHE_KEY_LINT }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v2
       - name: Set outputs
         id: cache
         run: |
-          echo "::set-output name=CACHE_KEY_IMAGE::${{ hashFiles('.github/workflows/Dockerfile') }}"
+          echo "::set-output name=CACHE_KEY_BUILD::${{ hashFiles('.github/workflows/build/Dockerfile') }}"
+          echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile') }}"
 
   build-image:
     needs: workflow-setup
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: 1
-      CACHE_KEY_IMAGE: ${{ needs.workflow-setup.outputs.CACHE_KEY_IMAGE }}
+      CACHE_KEY_BUILD: ${{ needs.workflow-setup.outputs.CACHE_KEY_BUILD }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v2
@@ -36,16 +30,41 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${GITHUB_WORKSPACE}/cache
-          key: ${{ env.CACHE_KEY_IMAGE}}
+          key: ${{ env.CACHE_KEY_BUILD}}
       - name: If NOT found in cache, build and push image.
         if: steps.cache-image.outputs.cache-hit != 'true'
         run: |
           echo ${{ secrets.CR_PAT }} | docker login ghcr.io --username ${{ secrets.CR_USER }} --password-stdin
-          docker build -f .github/workflows/Dockerfile --no-cache -t ${GITHUB_REPOSITORY}/plenum-build:${{ env.CACHE_KEY_IMAGE }} .
-          docker tag ${GITHUB_REPOSITORY}/plenum-build:${{ env.CACHE_KEY_IMAGE }} ghcr.io/${GITHUB_REPOSITORY}/plenum-build:latest
+          docker build -f .github/workflows/build/Dockerfile --no-cache -t ${GITHUB_REPOSITORY}/plenum-build:${{ env.CACHE_KEY_BUILD }} .
+          docker tag ${GITHUB_REPOSITORY}/plenum-build:${{ env.CACHE_KEY_BUILD }} ghcr.io/${GITHUB_REPOSITORY}/plenum-build:latest
           docker push ghcr.io/${GITHUB_REPOSITORY}/plenum-build:latest
           mkdir -p ${GITHUB_WORKSPACE}/cache
-          touch ${GITHUB_WORKSPACE}/cache/${{ env.CACHE_KEY_IMAGE }}
+          touch ${GITHUB_WORKSPACE}/cache/${{ env.CACHE_KEY_BUILD }}
+
+  lint-image:
+    needs: workflow-setup
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_BUILDKIT: 1
+      CACHE_KEY_LINT: ${{ needs.workflow-setup.outputs.CACHE_KEY_LINT }}
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v2
+      - name: Try load from cache.
+        id: cache-image
+        uses: actions/cache@v2
+        with:
+          path: ${GITHUB_WORKSPACE}/cache
+          key: ${{ env.CACHE_KEY_LINT}}
+      - name: If NOT found in cache, build and push image.
+        if: steps.cache-image.outputs.cache-hit != 'true'
+        run: |
+          echo ${{ secrets.CR_PAT }} | docker login ghcr.io --username ${{ secrets.CR_USER }} --password-stdin
+          docker build -f .github/workflows/lint/Dockerfile --no-cache -t ${GITHUB_REPOSITORY}/plenum-lint:${{ env.CACHE_KEY_LINT }} .
+          docker tag ${GITHUB_REPOSITORY}/plenum-lint:${{ env.CACHE_KEY_LINT }} ghcr.io/${GITHUB_REPOSITORY}/plenum-lint:latest
+          docker push ghcr.io/${GITHUB_REPOSITORY}/plenum-lint:latest
+          mkdir -p ${GITHUB_WORKSPACE}/cache
+          touch ${GITHUB_WORKSPACE}/cache/${{ env.CACHE_KEY_LINT }}
 
   indy_plenum_tests:
     name: Indy Plenum Test Slices
@@ -53,7 +72,6 @@ jobs:
     runs-on: ubuntu-20.04
     container:
       image: ghcr.io/${{ github.repository }}/plenum-build
->>>>>>> adds build image and caching
     strategy:
       matrix:
         module: [plenum]
@@ -67,7 +85,7 @@ jobs:
         run: pip install .[tests]
 
       - name: Run Indy Plenum ${{ matrix.module }} test slice ${{ matrix.slice }}/3
-        run: RUSTPYTHONASYNCIODEBUG=0 python runner.py --pytest "python -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}-${{ matrix.slice }}.xml" --dir "${{ matrix.module }}" --output "test-result-plenum-${{ matrix.slice }}.txt" --test-only-slice "${{ matrix.slice }}/3"
+        run: RUSTPYTHONASYNCIODEBUG=0 python3 runner.py --pytest "python3 -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}-${{ matrix.slice }}.xml" --dir "${{ matrix.module }}" --output "test-result-plenum-${{ matrix.slice }}.txt" --test-only-slice "${{ matrix.slice }}/3"
 
       - name: Publish Test Report
         uses: scacap/action-surefire-report@v1
@@ -78,16 +96,10 @@ jobs:
 
   indy_plenum:
     name: Indy Plenum Tests
-<<<<<<< HEAD
-    runs-on: ubuntu-18.04
-    #TODO: move this to hyperledger?
-    container: wwjbarnes/indy-plenum-ci:latest
-=======
     needs: build-image
     runs-on: ubuntu-20.04
     container:
       image: ghcr.io/${{ github.repository }}/plenum-build
->>>>>>> adds build image and caching
     strategy:
       matrix:
         module: [common, crypto, ledger, state, storage, stp_core, stp_zmq]
@@ -100,7 +112,7 @@ jobs:
         run: pip install .[tests]
 
       - name: Run Indy Plenum ${{ matrix.module }} tests
-        run: python -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}.xml ${{ matrix.module }}
+        run: python3 -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}.xml ${{ matrix.module }}
 
       - name: Publish Test Report
         uses: scacap/action-surefire-report@v1
@@ -111,10 +123,10 @@ jobs:
 
   lint:
     name: Lint
-    needs: build-image
+    needs: lint-image
     runs-on: ubuntu-20.04
     container:
-      image: ghcr.io/hyperledger/indy_node/indy-node-lint
+      image: ghcr.io/${{ github.repository }}/plenum-lint
     steps:
       - name: Check out code
         uses: actions/checkout@v2
