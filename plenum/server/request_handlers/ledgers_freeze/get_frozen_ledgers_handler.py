@@ -26,4 +26,3 @@ class GetFrozenLedgersHandler(ReadRequestHandler):
                                   update_time=last_update_time,
                                   proof=proof)
         return result
-

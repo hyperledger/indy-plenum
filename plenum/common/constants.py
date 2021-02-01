@@ -209,6 +209,7 @@ GET_TXN_AUTHOR_AGREEMENT_AML_TIMESTAMP = "timestamp"
 
 LEDGERS_IDS = "ledgers_ids"
 
+
 class ClientBootStrategy(IntEnum):
     Simple = 1
     PoolTxn = 2

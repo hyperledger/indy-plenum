@@ -238,5 +238,3 @@ class AuditBatchHandler(BatchRequestHandler):
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid] + 1
             if lid in last_audit_txn_data[AUDIT_TXN_STATE_ROOT]:
                 txn[AUDIT_TXN_STATE_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_STATE_ROOT][lid] + 1
-
-
