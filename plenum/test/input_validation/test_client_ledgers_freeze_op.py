@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from indy_common.types import ClientLedgersFreezeOperation
+from plenum.common.messages.client_request import ClientLedgersFreezeOperation
 from plenum.common.messages.fields import ConstantField, IterableField
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
