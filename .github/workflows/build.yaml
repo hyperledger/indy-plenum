@@ -2,76 +2,95 @@ name: indy-plenum-build
 on: [ push, pull_request ]
 
 jobs:
+
   workflow-setup:
     runs-on: ubuntu-latest
     outputs:
       CACHE_KEY_BUILD: ${{ steps.cache.outputs.CACHE_KEY_BUILD }}
       CACHE_KEY_LINT: ${{ steps.cache.outputs.CACHE_KEY_LINT }}
+      # Expose the lowercase version of the GitHub repository name
+      # to all subsequent jobs that reference image repositories
+      # as the push and pull operations require the URL of the repository 
+      # to be in lowercase.
+      GITHUB_REPOSITORY_NAME: ${{ steps.cache.outputs.GITHUB_REPOSITORY_NAME }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v2
+
       - name: Set outputs
         id: cache
         run: |
           echo "::set-output name=CACHE_KEY_BUILD::${{ hashFiles('.github/workflows/build/Dockerfile') }}"
           echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile') }}"
+          # Convert the GitHub repository name to lowercase
+          echo "::set-output name=GITHUB_REPOSITORY_NAME::$(echo ${GITHUB_REPOSITORY,,})"
 
   build-image:
+    # Reference to workflow-setup job is required to access its various outputs.
     needs: workflow-setup
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: 1
       CACHE_KEY_BUILD: ${{ needs.workflow-setup.outputs.CACHE_KEY_BUILD }}
+      GITHUB_REPOSITORY_NAME: ${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v2
+
       - name: Try load from cache.
         id: cache-image
         uses: actions/cache@v2
         with:
           path: ${GITHUB_WORKSPACE}/cache
           key: ${{ env.CACHE_KEY_BUILD}}
+
       - name: If NOT found in cache, build and push image.
         if: steps.cache-image.outputs.cache-hit != 'true'
         run: |
           echo ${{ secrets.CR_PAT }} | docker login ghcr.io --username ${{ secrets.CR_USER }} --password-stdin
-          docker build -f .github/workflows/build/Dockerfile --no-cache -t ${GITHUB_REPOSITORY}/plenum-build:${{ env.CACHE_KEY_BUILD }} .
-          docker tag ${GITHUB_REPOSITORY}/plenum-build:${{ env.CACHE_KEY_BUILD }} ghcr.io/${GITHUB_REPOSITORY}/plenum-build:latest
-          docker push ghcr.io/${GITHUB_REPOSITORY}/plenum-build:latest
+          docker build -f .github/workflows/build/Dockerfile --no-cache -t ${{ env.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ env.CACHE_KEY_BUILD }} .
+          docker tag ${{ env.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ env.CACHE_KEY_BUILD }} ghcr.io/${{ env.GITHUB_REPOSITORY_NAME }}/plenum-build:latest
+          docker push ghcr.io/${{ env.GITHUB_REPOSITORY_NAME }}/plenum-build:latest
           mkdir -p ${GITHUB_WORKSPACE}/cache
           touch ${GITHUB_WORKSPACE}/cache/${{ env.CACHE_KEY_BUILD }}
 
   lint-image:
+    # Reference to workflow-setup job is required to access its various outputs.
     needs: workflow-setup
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: 1
       CACHE_KEY_LINT: ${{ needs.workflow-setup.outputs.CACHE_KEY_LINT }}
+      GITHUB_REPOSITORY_NAME: ${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v2
+
       - name: Try load from cache.
         id: cache-image
         uses: actions/cache@v2
         with:
           path: ${GITHUB_WORKSPACE}/cache
           key: ${{ env.CACHE_KEY_LINT}}
+
       - name: If NOT found in cache, build and push image.
         if: steps.cache-image.outputs.cache-hit != 'true'
         run: |
+          export GITHUB_REPOSITORY_NAME=$(echo ${GITHUB_REPOSITORY,,})
           echo ${{ secrets.CR_PAT }} | docker login ghcr.io --username ${{ secrets.CR_USER }} --password-stdin
-          docker build -f .github/workflows/lint/Dockerfile --no-cache -t ${GITHUB_REPOSITORY}/plenum-lint:${{ env.CACHE_KEY_LINT }} .
-          docker tag ${GITHUB_REPOSITORY}/plenum-lint:${{ env.CACHE_KEY_LINT }} ghcr.io/${GITHUB_REPOSITORY}/plenum-lint:latest
-          docker push ghcr.io/${GITHUB_REPOSITORY}/plenum-lint:latest
+          docker build -f .github/workflows/lint/Dockerfile --no-cache -t ${{ env.GITHUB_REPOSITORY_NAME }}/plenum-lint:${{ env.CACHE_KEY_LINT }} .
+          docker tag ${{ env.GITHUB_REPOSITORY_NAME }}/plenum-lint:${{ env.CACHE_KEY_LINT }} ghcr.io/${{ env.GITHUB_REPOSITORY_NAME }}/plenum-lint:latest
+          docker push ghcr.io/${{ env.GITHUB_REPOSITORY_NAME }}/plenum-lint:latest
           mkdir -p ${GITHUB_WORKSPACE}/cache
           touch ${GITHUB_WORKSPACE}/cache/${{ env.CACHE_KEY_LINT }}
 
   indy_plenum_tests:
     name: Indy Plenum Test Slices
-    needs: build-image
+    # Reference to workflow-setup job is required to access the GITHUB_REPOSITORY_NAME output.
+    needs: [workflow-setup, build-image]
     runs-on: ubuntu-20.04
     container:
-      image: ghcr.io/${{ github.repository }}/plenum-build
+      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
     strategy:
       matrix:
         module: [plenum]
@@ -96,10 +115,11 @@ jobs:
 
   indy_plenum:
     name: Indy Plenum Tests
-    needs: build-image
+    # Reference to workflow-setup job is required to access the GITHUB_REPOSITORY_NAME output.
+    needs: [workflow-setup, build-image]
     runs-on: ubuntu-20.04
     container:
-      image: ghcr.io/${{ github.repository }}/plenum-build
+      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
     strategy:
       matrix:
         module: [common, crypto, ledger, state, storage, stp_core, stp_zmq]
@@ -123,10 +143,11 @@ jobs:
 
   lint:
     name: Lint
-    needs: lint-image
+    # Reference to workflow-setup job is required to access the GITHUB_REPOSITORY_NAME output.
+    needs: [workflow-setup, lint-image]
     runs-on: ubuntu-20.04
     container:
-      image: ghcr.io/${{ github.repository }}/plenum-lint
+      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-lint
     steps:
       - name: Check out code
         uses: actions/checkout@v2
