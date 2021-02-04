@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import DATA
-from plenum.common.exceptions import RequestNackedException
+from plenum.common.exceptions import RequestNackedException, RequestRejectedException
 from plenum.test.freeze_ledgers.helper import sdk_send_freeze_ledgers
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -58,10 +58,14 @@ def test_plugin_removing(looper, tconf, txn_pool_node_set_post_creation,
     """
     Send a transaction from the plugin
     Wait for recording a freshness txn
+    Check that reading the plugin transaction is successful
+    Check that sending a write plugin transaction is successful
+    Freeze the auction ledger
+    Check that reading the plugin transaction is successful
+    Check that sending a write plugin transaction is failed
     Restart the pool without plugins
     Check that reading the plugin transaction is failed
-    Check that sending a plugin transaction is failed
-    Check that reading the plugin transaction is successful
+    Check that sending a write plugin transaction is failed
     Send an ordinary transaction
     Check pool for freshness and consensus
     """
@@ -74,9 +78,6 @@ def test_plugin_removing(looper, tconf, txn_pool_node_set_post_creation,
     auction_id, auction_name = list(get_payload_data(result)[DATA].items())[0]
     get_auction_result = send_get_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
     assert get_auction_result[0][1]["result"][auction_id] == auction_name
-    # check_get_auction_txn(result[0][1]['result'], looper,
-    #                                        sdk_wallet_steward,
-    #                                        sdk_pool_handle)
 
     # Wait for the first freshness update
     looper.run(eventually(
@@ -89,6 +90,16 @@ def test_plugin_removing(looper, tconf, txn_pool_node_set_post_creation,
         [sdk_wallet_trustee],
         [AUCTION_LEDGER_ID]
     )
+
+    with pytest.raises(RequestRejectedException,
+                       match="'{}' transaction is forbidden because of "
+                                           "'{}' ledger is frozen".format(AUCTION_START, AUCTION_LEDGER_ID)):
+        send_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
+
+    # should failed with "ledger is frozen"
+    get_auction_result = send_get_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
+    assert get_auction_result[0][1]["result"][auction_id] == auction_name
+
 
     # restart pool
     restart_nodes(looper, txnPoolNodeSet, txnPoolNodeSet, tconf, tdir, allPluginsPath, start_one_by_one=True)

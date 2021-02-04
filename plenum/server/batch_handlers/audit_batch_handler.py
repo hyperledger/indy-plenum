@@ -94,8 +94,11 @@ class AuditBatchHandler(BatchRequestHandler):
             AUDIT_TXN_DIGEST: three_pc_batch.pp_digest
         }
 
+        frozen_ledgers = StaticLedgersFreezeHelper.get_frozen_ledgers(
+            self.database_manager.get_state(CONFIG_LEDGER_ID))
+
         for lid, ledger in self.database_manager.ledgers.items():
-            if lid == AUDIT_LEDGER_ID:
+            if lid == AUDIT_LEDGER_ID or lid in frozen_ledgers:
                 continue
             # 2. ledger size
             txn[AUDIT_TXN_LEDGERS_SIZE][lid] = ledger.uncommitted_size
@@ -104,7 +107,7 @@ class AuditBatchHandler(BatchRequestHandler):
             # TODO: support setting for multiple ledgers
             self._fill_ledger_root_hash(txn, lid, ledger, last_audit_txn, three_pc_batch)
 
-        self._fill_for_frozen_ledgers(txn, last_audit_txn)
+        self._fill_for_frozen_ledgers(txn, last_audit_txn, frozen_ledgers)
 
         # 5. set primaries field
         self._fill_primaries(txn, three_pc_batch, last_audit_txn)
@@ -227,14 +230,16 @@ class AuditBatchHandler(BatchRequestHandler):
                 raise LogicError('Value, mentioned in nodeReg field must be a '
                                  'seq_no of a txn with nodeReg')
 
-    def _fill_for_frozen_ledgers(self, txn, last_audit_txn_data):
-        frozen_ledgers = StaticLedgersFreezeHelper.get_frozen_ledgers(
-            self.database_manager.get_state(CONFIG_LEDGER_ID))
+    def _fill_for_frozen_ledgers(self, txn, last_audit_txn, frozen_ledgers):
+        if not last_audit_txn:
+            return
+        last_audit_txn_data = get_payload_data(last_audit_txn)
         for lid, ledger_info in frozen_ledgers.items():
-            if not isinstance(last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid], int):
+            if lid not in last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT] or \
+                    not isinstance(last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid], int):
                 continue
 
             txn[AUDIT_TXN_LEDGERS_SIZE][lid] = StaticLedgersFreezeHelper.get_seq_no(ledger_info)
             txn[AUDIT_TXN_LEDGER_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_LEDGER_ROOT][lid] + 1
             if lid in last_audit_txn_data[AUDIT_TXN_STATE_ROOT]:
-                txn[AUDIT_TXN_STATE_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_STATE_ROOT][lid] + 1
+                txn[AUDIT_TXN_STATE_ROOT][lid] = last_audit_txn_data[AUDIT_TXN_STATE_ROOT][lid]

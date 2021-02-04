@@ -23,7 +23,8 @@ def sdk_send_freeze_ledgers(looper, sdk_pool_handle, sdk_wallets, ledgers_ids: [
     # sdk_multi_sign_request_objects
     req = build_freeze_ledgers_request(sdk_wallets[0][1], ledgers_ids)  # json.dumps(params)
     signed_reqs = sdk_multi_sign_request_objects(looper, sdk_wallets, [req])
-    return sdk_send_signed_requests(sdk_pool_handle, signed_reqs)[0]
+    reps = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)
+    return sdk_get_and_check_replies(looper, reps)[0]
 
 
 def sdk_get_frozen_ledgers(looper, sdk_pool_handle, sdk_wallet):

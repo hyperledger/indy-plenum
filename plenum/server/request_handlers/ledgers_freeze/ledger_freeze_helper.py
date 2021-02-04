@@ -20,7 +20,8 @@ class StaticLedgersFreezeHelper:
         encoded = config_state.get(StaticLedgersFreezeHelper.make_state_path_for_frozen_ledgers(), isCommitted=True)
         if not encoded:
             return {}
-        frozen_ledgers, _, _ = decode_state_value(encoded)
+        state_frozen_ledgers, _, _ = decode_state_value(encoded)
+        frozen_ledgers = {int(key): value for (key, value) in state_frozen_ledgers.items()}
         return frozen_ledgers
 
     @staticmethod
