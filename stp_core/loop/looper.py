@@ -210,7 +210,7 @@ class Looper:
         msgsProcessed = await self.prodAllOnce()
         if msgsProcessed == 0:
             # if no let other stuff run
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
         dur = time.perf_counter() - start
         if dur >= 15:
             logger.info("it took {:.3f} seconds to run once nicely".
