@@ -31,9 +31,9 @@ class LedgersFreezeHandler(WriteRequestHandler):
             return
         last_txn = audit_ledger.get_last_committed_txn()
         if any(lid not in get_payload_data(last_txn).get(AUDIT_TXN_LEDGERS_SIZE)
-               for lid in request.operation.get(LEDGERS_IDS)):  # TODO: get correct ledgers list
+               for lid in request.operation.get(LEDGERS_IDS)):
             raise InvalidClientRequest(request.identifier, request.reqId,
-                                       "One or more ledgers form {} have never existed".format(request.operation.get(LEDGERS_IDS)))
+                                       "One or more ledgers from {} have never existed".format(request.operation.get(LEDGERS_IDS)))
 
     def authorize(self, request):
         domain_state = self.database_manager.get_database(DOMAIN_LEDGER_ID).state
