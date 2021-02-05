@@ -7,7 +7,6 @@ from plenum.test.freeze_ledgers.helper import sdk_send_freeze_ledgers
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.plugin.demo_plugin.constants import GET_AUCTION, AUCTION_START
-from plenum.test.restart.helper import restart_nodes
 from plenum.test.test_node import ensureElectionsDone
 
 from plenum.test.pool_transactions.helper import sdk_build_get_txn_request, sdk_sign_and_send_prepared_request
@@ -16,7 +15,7 @@ from plenum.common.txn_util import get_seq_no, get_payload_data
 from plenum.test.freshness.helper import check_freshness_updated_for_ledger
 from plenum.test.helper import freshness, sdk_get_and_check_replies, sdk_send_random_and_check
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
-from plenum.test.plugin.demo_plugin.helper import send_auction_txn, send_get_auction_txn
+from plenum.test.plugin.demo_plugin.helper import send_auction_txn, send_get_auction_txn, restart_nodes
 from stp_core.loop.eventually import eventually
 
 FRESHNESS_TIMEOUT = 5
@@ -99,7 +98,6 @@ def test_plugin_removing(looper, tconf, txn_pool_node_set_post_creation,
     # should failed with "ledger is frozen"
     get_auction_result = send_get_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
     assert get_auction_result[0][1]["result"][auction_id] == auction_name
-
 
     # restart pool
     restart_nodes(looper, txnPoolNodeSet, txnPoolNodeSet, tconf, tdir, allPluginsPath, start_one_by_one=True)

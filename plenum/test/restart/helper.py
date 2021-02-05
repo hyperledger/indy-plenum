@@ -42,6 +42,7 @@ def restart_nodes(looper, nodeSet, restart_set, tconf, tdir, allPluginsPath,
 
         idx = nodeSet.index(node_to_restart)
         nodeSet[idx] = restarted_node
+        idx = restart_set.index(node_to_restart)
         restart_set[idx] = restarted_node
 
         rest_nodes += [restarted_node]

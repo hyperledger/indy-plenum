@@ -17,6 +17,8 @@ class StaticLedgersFreezeHelper:
 
     @staticmethod
     def get_frozen_ledgers(config_state):
+        if not config_state:
+            return {}
         encoded = config_state.get(StaticLedgersFreezeHelper.make_state_path_for_frozen_ledgers(), isCommitted=True)
         if not encoded:
             return {}
