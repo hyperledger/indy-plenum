@@ -70,6 +70,8 @@ class LedgersFreezeHandler(WriteRequestHandler):
         last_txn_state_root = get_payload_data(last_audit_txn).get(AUDIT_TXN_STATE_ROOT).get(ledger_id, None)
         last_txn_seq_no = get_payload_data(last_audit_txn).get(AUDIT_TXN_LEDGERS_SIZE).get(ledger_id, None)
 
+        # If the current ledger root hash value is integer, it means that ledger root wasn't changed
+        # for the last `value` audit txns. And we get last audit transaction with string root hash.
         if isinstance(last_txn_ledger_root, int):
             seq_no = get_seq_no(last_audit_txn) - last_txn_ledger_root
             audit_txn_for_seq_no = audit_ledger.getBySeqNo(seq_no)

@@ -92,7 +92,7 @@ def test_plugin_removing(looper, tconf, txn_pool_node_set_post_creation,
 
     with pytest.raises(RequestRejectedException,
                        match="'{}' transaction is forbidden because of "
-                                           "'{}' ledger is frozen".format(AUCTION_START, AUCTION_LEDGER_ID)):
+                             "'{}' ledger is frozen".format(AUCTION_START, AUCTION_LEDGER_ID)):
         send_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
 
     # should failed with "ledger is frozen"
@@ -120,7 +120,7 @@ def test_plugin_removing(looper, tconf, txn_pool_node_set_post_creation,
 
     sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
 
-    # make sure that all node have equal Priamries and can order
+    # make sure that all node have equal primaries and can order
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=20)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
