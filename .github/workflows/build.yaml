@@ -2,6 +2,7 @@ name: indy-plenum-build
 on: [ push, pull_request ]
 
 jobs:
+
   workflow-setup:
     runs-on: ubuntu-latest
     outputs:
@@ -174,7 +175,7 @@ jobs:
 
   indy_plenum_release:
     name: Indy Plenum Release
-    needs: [workflow-setup, build-image]
+    needs: [indy_plenum, indy_plenum_tests, lint]
     runs-on: ubuntu-20.04
     container:
       image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
