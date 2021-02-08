@@ -2,7 +2,6 @@ name: indy-plenum-build
 on: [ push, pull_request ]
 
 jobs:
-
   workflow-setup:
     runs-on: ubuntu-latest
     outputs:
