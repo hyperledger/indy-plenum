@@ -107,7 +107,7 @@ class AuditBatchHandler(BatchRequestHandler):
             # TODO: support setting for multiple ledgers
             self._fill_ledger_root_hash(txn, lid, ledger, last_audit_txn, three_pc_batch)
 
-        self._fill_for_frozen_ledgers(txn, last_audit_txn, frozen_ledgers)
+        self._fill_frozen_ledgers(txn, last_audit_txn, frozen_ledgers)
 
         # 5. set primaries field
         self._fill_primaries(txn, three_pc_batch, last_audit_txn)
@@ -230,7 +230,7 @@ class AuditBatchHandler(BatchRequestHandler):
                 raise LogicError('Value, mentioned in nodeReg field must be a '
                                  'seq_no of a txn with nodeReg')
 
-    def _fill_for_frozen_ledgers(self, txn, last_audit_txn, frozen_ledgers):
+    def _fill_frozen_ledgers(self, txn, last_audit_txn, frozen_ledgers):
         if not last_audit_txn:
             return
         last_audit_txn_data = get_payload_data(last_audit_txn)

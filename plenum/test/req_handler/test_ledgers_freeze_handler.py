@@ -84,25 +84,82 @@ def test_dynamic_validation_from_steward(ledgers_freeze_handler, domain_state, l
         ledgers_freeze_handler.dynamic_validation(ledgers_freeze_request, 0)
 
 
+def create_txn(ledgers_freeze_request, seq_no, txn_time):
+    txn_id = "id"
+    txn = reqToTxn(ledgers_freeze_request)
+    append_txn_metadata(txn, seq_no, txn_time, txn_id)
+    return txn
+
+
 def test_update_state(ledgers_freeze_handler, domain_state, ledgers_freeze_request, audit_ledger):
     seq_no = 1
     txn_time = 1560241033
-    txn_id = "id"
-    txn = reqToTxn(ledgers_freeze_request)
-    payload = get_payload_data(txn)
-    append_txn_metadata(txn, seq_no, txn_time, txn_id)
-    ledgers_ids = payload[LEDGERS_IDS]
+    txn = create_txn(ledgers_freeze_request, seq_no, txn_time)
+    ledgers_ids = get_payload_data(txn)[LEDGERS_IDS]
     update_fake_audit_ledger(audit_ledger,
                              ledger_sizes={lid: 0 for lid in ledgers_ids},
                              ledger_roots={lid: "ledger_root" for lid in ledgers_ids},
                              state_roots={lid: "state_root" for lid in ledgers_ids})
 
     ledgers_freeze_handler.update_state(txn, None, ledgers_freeze_request)
-    print(ledgers_freeze_handler.get_from_state(
-        StaticLedgersFreezeHelper.make_state_path_for_frozen_ledgers()))
     assert ledgers_freeze_handler.get_from_state(
         StaticLedgersFreezeHelper.make_state_path_for_frozen_ledgers()) == (
-           {str(ledgers_ids[0]): {'state': 'state_root',
-                                  'seq_no': 0,
-                                  'ledger': 'ledger_root'}},
-           seq_no, txn_time)
+               {str(ledgers_ids[0]): {'state': 'state_root',
+                                      'seq_no': 0,
+                                      'ledger': 'ledger_root'}},
+               seq_no, txn_time)
+
+
+def test_update_state_with_empty_request(ledgers_freeze_handler, domain_state, ledgers_freeze_request, audit_ledger):
+    seq_no = 1
+    txn_time = 1560241033
+    txn1 = create_txn(ledgers_freeze_request, seq_no, txn_time)
+    ledgers_ids = get_payload_data(txn1)[LEDGERS_IDS]
+
+    seq_no_2 = 2
+    txn_time_2 = 1560241034
+    ledgers_freeze_request.operation[LEDGERS_IDS] = []
+    txn_2 = create_txn(ledgers_freeze_request, seq_no_2, txn_time_2)
+    update_fake_audit_ledger(audit_ledger,
+                             ledger_sizes={lid: 0 for lid in ledgers_ids},
+                             ledger_roots={lid: "ledger_root" for lid in ledgers_ids},
+                             state_roots={lid: "state_root" for lid in ledgers_ids})
+
+    ledgers_freeze_handler.update_state(txn1, None, ledgers_freeze_request)
+    ledgers_freeze_handler.update_state(txn_2, None, ledgers_freeze_request)
+    assert ledgers_freeze_handler.get_from_state(
+        StaticLedgersFreezeHelper.make_state_path_for_frozen_ledgers()) == (
+               {str(ledgers_ids[0]): {'state': 'state_root',
+                                      'seq_no': 0,
+                                      'ledger': 'ledger_root'}},
+               seq_no_2, txn_time_2)
+
+
+def test_update_state_with_adding_ledger_id(ledgers_freeze_handler, domain_state, ledgers_freeze_request, audit_ledger):
+    ledgers_ids = []
+    seq_no_1 = 1
+    txn_time_1 = 1560241033
+    txn_1 = create_txn(ledgers_freeze_request, seq_no_1, txn_time_1)
+    ledgers_ids += get_payload_data(txn_1)[LEDGERS_IDS]
+
+    seq_no_2 = 2
+    txn_time_2 = 1560241034
+    ledgers_freeze_request.operation[LEDGERS_IDS] = [888]
+    txn_2 = create_txn(ledgers_freeze_request, seq_no_2, txn_time_2)
+    ledgers_ids += get_payload_data(txn_2)[LEDGERS_IDS]
+
+    update_fake_audit_ledger(audit_ledger,
+                             ledger_sizes={lid: 0 for lid in ledgers_ids},
+                             ledger_roots={lid: "ledger_root" for lid in ledgers_ids},
+                             state_roots={lid: "state_root" for lid in ledgers_ids})
+
+    ledgers_freeze_handler.update_state(txn_1, None, ledgers_freeze_request)
+    ledgers_freeze_handler.update_state(txn_2, None, ledgers_freeze_request)
+
+    assert len(ledgers_ids) == 2
+    assert ledgers_freeze_handler.get_from_state(
+        StaticLedgersFreezeHelper.make_state_path_for_frozen_ledgers()) == (
+               {str(lid): {'state': 'state_root',
+                           'seq_no': 0,
+                           'ledger': 'ledger_root'} for lid in ledgers_ids},
+               seq_no_2, txn_time_2)

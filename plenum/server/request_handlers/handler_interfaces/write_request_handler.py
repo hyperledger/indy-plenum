@@ -33,13 +33,7 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
 
     def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
-        if self.ledger_id not in VALID_LEDGER_IDS:
-            frozen_ledgers = StaticLedgersFreezeHelper.get_frozen_ledgers(
-                self.database_manager.get_state(CONFIG_LEDGER_ID))
-            if frozen_ledgers and self.ledger_id in frozen_ledgers:
-                raise InvalidClientRequest(request.identifier, request.reqId,
-                                           "'{}' transaction is forbidden because of "
-                                           "'{}' ledger is frozen".format(self.txn_type, self.ledger_id))
+        self._validate_ledger_is_not_frozen(request)
         self.authorize(request)
         self.additional_dynamic_validation(request, req_pp_time)
 
@@ -116,3 +110,12 @@ class WriteRequestHandler(RequestHandler, metaclass=ABCMeta):
             value, last_seq_no, last_update_time = decode_state_value(encoded)
             return value, last_seq_no, last_update_time
         return None, None, None
+
+    def _validate_ledger_is_not_frozen(self, request):
+        if self.ledger_id not in VALID_LEDGER_IDS:
+            frozen_ledgers = StaticLedgersFreezeHelper.get_frozen_ledgers(
+                self.database_manager.get_state(CONFIG_LEDGER_ID), is_committed=False)
+            if frozen_ledgers and self.ledger_id in frozen_ledgers:
+                raise InvalidClientRequest(request.identifier, request.reqId,
+                                           "'{}' transaction is forbidden because of "
+                                           "'{}' ledger is frozen".format(self.txn_type, self.ledger_id))

@@ -16,10 +16,11 @@ class StaticLedgersFreezeHelper:
             .format(MARKER=MARKER_FROZEN_LEDGERS).encode()
 
     @staticmethod
-    def get_frozen_ledgers(config_state):
+    def get_frozen_ledgers(config_state, is_committed=True):
         if not config_state:
             return {}
-        encoded = config_state.get(StaticLedgersFreezeHelper.make_state_path_for_frozen_ledgers(), isCommitted=True)
+        encoded = config_state.get(StaticLedgersFreezeHelper.make_state_path_for_frozen_ledgers(),
+                                   isCommitted=is_committed)
         if not encoded:
             return {}
         state_frozen_ledgers, _, _ = decode_state_value(encoded)

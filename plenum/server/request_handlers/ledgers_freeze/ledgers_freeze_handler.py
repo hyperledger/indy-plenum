@@ -54,8 +54,12 @@ class LedgersFreezeHandler(WriteRequestHandler):
     def make_frozen_ledgers_list(self, ledgers_ids):
         audit_ledger = self.database_manager.get_ledger(AUDIT_LEDGER_ID)
         last_audit_txn = audit_ledger.get_last_committed_txn()
-        frozen_ledgers_list = {}
+
+        config_state = self.database_manager.get_state(CONFIG_LEDGER_ID)
+        frozen_ledgers_list = StaticLedgersFreezeHelper.get_frozen_ledgers(config_state, is_committed=False)
         for ledger_id in ledgers_ids:
+            if ledger_id in frozen_ledgers_list:
+                continue
             ledger_root, state_root, seq_no = self._load_hash_roots_from_audit_ledger(audit_ledger,
                                                                                       last_audit_txn,
                                                                                       ledger_id)
