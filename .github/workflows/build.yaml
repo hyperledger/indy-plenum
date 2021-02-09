@@ -200,7 +200,7 @@ jobs:
   publish_plenum_rc:
     name: Publish release candidate
     runs-on: ubuntu-20.04
-    needs: ['indy-common', 'indy-node']
+    needs: ['build_plenum_release']
     if: github.event_name == 'push' && (github.repository == 'ianco/indy-plenum' && github.ref == 'refs/heads/release*')
     steps:
       - name: pub
@@ -210,7 +210,7 @@ jobs:
   publish_plenum_release:
     name: Publish release
     runs-on: ubuntu-20.04
-    needs: ['indy-common', 'indy-node']
+    needs: ['build_plenum_release']
     if: github.event_name == 'push' && (github.repository == 'ianco/indy-plenum' && github.ref == 'refs/heads/master')
     steps:
       - name: pub
