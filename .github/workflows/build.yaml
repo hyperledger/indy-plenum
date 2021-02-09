@@ -173,7 +173,7 @@ jobs:
       - name: flake8
         run: python3 -m flake8
 
-  indy_plenum_release:
+  build_plenum_release:
     name: Indy Plenum Release
     needs: [indy_plenum, indy_plenum_tests, lint]
     runs-on: ubuntu-20.04
@@ -196,3 +196,23 @@ jobs:
 
       - name: Build 3rd party deployment packages
         run: ./build-scripts/ubuntu-1604/build-3rd-parties.sh
+
+  publish_plenum_rc:
+    name: Publish release candidate
+    runs-on: ubuntu-20.04
+    needs: ['indy-common', 'indy-node']
+    if: github.event_name == 'push' && (github.repository == 'ianco/indy-plenum' && github.ref == 'refs/heads/release*')
+    steps:
+      - name: pub
+        run: |
+          echo "publish rc"
+
+  publish_plenum_release:
+    name: Publish release
+    runs-on: ubuntu-20.04
+    needs: ['indy-common', 'indy-node']
+    if: github.event_name == 'push' && (github.repository == 'ianco/indy-plenum' && github.ref == 'refs/heads/master')
+    steps:
+      - name: pub
+        run: |
+          echo "publish release"
