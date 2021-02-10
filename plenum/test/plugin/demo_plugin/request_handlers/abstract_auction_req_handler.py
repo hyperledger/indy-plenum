@@ -33,7 +33,7 @@ class AbstractAuctionReqHandler(WriteRequestHandler, metaclass=ABCMeta):
             msg = '{} attribute is missing or not in proper format'.format(DATA)
             raise InvalidClientRequest(identifier, req_id, msg)
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         self._validate_request_type(request)
         operation = request.operation
         data = operation.get(DATA)
@@ -43,6 +43,6 @@ class AbstractAuctionReqHandler(WriteRequestHandler, metaclass=ABCMeta):
                                             'unknown auction')
 
     def update_state(self, txn, prev_result, request, is_committed=False):
-        data = get_payload_data(txn)
+        data = get_payload_data(txn)[DATA]
         for k, v in data.items():
             self.state.set(k.encode(), JsonSerializer.dumps(v))

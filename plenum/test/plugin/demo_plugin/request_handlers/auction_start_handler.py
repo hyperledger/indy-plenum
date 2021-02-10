@@ -12,8 +12,7 @@ class AuctionStartHandler(AbstractAuctionReqHandler):
     def __init__(self, database_manager: DatabaseManager, auctions: dict):
         super().__init__(database_manager, AUCTION_START, auctions)
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        self._validate_request_type(request)
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         operation = request.operation
         data = operation.get(DATA)
         self.auctions[data['id']] = {}
