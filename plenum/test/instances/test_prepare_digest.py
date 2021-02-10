@@ -13,7 +13,7 @@ from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
 
 
-@pytest.fixture("module")
+@pytest.fixture(scope="module")
 def setup(txnPoolNodeSet):
     primaryRep, nonPrimaryReps = getPrimaryReplica(txnPoolNodeSet, 0), \
                                  getNonPrimaryReplicas(txnPoolNodeSet, 0)

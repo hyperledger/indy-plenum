@@ -331,7 +331,7 @@ def node_config_helper_class():
 
 
 def _tdir(tdir_fact):
-    return tdir_fact.mktemp('').strpath
+    return tdir_fact.mktemp('dog').strpath
 
 
 @pytest.fixture(scope='module')
@@ -431,7 +431,7 @@ def ensureView(txnPoolNodeSet, looper):
     return waitForViewChange(looper, txnPoolNodeSet)
 
 
-@pytest.fixture("module")
+@pytest.fixture(scope="module")
 def delayed_perf_chk(txnPoolNodeSet):
     d = 20
     for node in txnPoolNodeSet:
@@ -1067,7 +1067,7 @@ def test_node(tdirWithPoolTxns,
     node.onStopping()  # TODO stop won't call onStopping as we are in Stopped state
 
 
-@pytest.yield_fixture("module")
+@pytest.yield_fixture(scope="module")
 def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creation,
                                      sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
                                      txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
@@ -1087,7 +1087,7 @@ def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creatio
     yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
-@pytest.fixture("module")
+@pytest.fixture(scope="module")
 def sdk_node_set_with_node_added_after_some_txns(
         txnPoolNodeSet, sdk_node_created_after_some_txns):
     looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
@@ -1098,7 +1098,7 @@ def sdk_node_set_with_node_added_after_some_txns(
     return looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
-@pytest.fixture("module")
+@pytest.fixture(scope="module")
 def sdk_new_node_caught_up(txnPoolNodeSet,
                            sdk_node_set_with_node_added_after_some_txns):
     looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns

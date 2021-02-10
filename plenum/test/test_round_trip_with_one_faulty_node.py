@@ -12,7 +12,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-@pytest.fixture("module")
+@pytest.fixture(scope="module")
 def node_doesnt_propagate(txnPoolNodeSet):
     """
     Makes the node named Alpha in the given set of nodes faulty.
