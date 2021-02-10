@@ -1,5 +1,6 @@
 import random
-from collections import defaultdict, Iterable
+from collections import defaultdict
+from collections.abc import Iterable
 from typing import Dict
 
 import gc

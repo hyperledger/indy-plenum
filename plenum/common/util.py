@@ -102,7 +102,7 @@ def mostCommonElement(elements: Iterable[T], to_hashable_f: Callable=None):
         def __init__(self, orig):
             self.orig = orig
 
-            if isinstance(orig, collections.Hashable):
+            if isinstance(orig, collections.abc.Hashable):
                 self.hashable = orig
             elif to_hashable_f is not None:
                 self.hashable = to_hashable_f(orig)
