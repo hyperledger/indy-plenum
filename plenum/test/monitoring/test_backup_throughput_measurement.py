@@ -35,6 +35,7 @@ def tconf(tconf):
     tconf.throughput_measurement_params = old_throughput_measurement_params
 
 
+# FIXME -> RTM: Failing Test (when run with all monitoring)
 def test_backup_throughput_measurement(looper, sdk_pool_handle, txnPoolNodeSet,
                                        sdk_wallet_steward, tdir, tconf, allPluginsPath):
     # 8 nodes, so f == 2 and replicas == 3

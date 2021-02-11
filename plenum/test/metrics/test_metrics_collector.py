@@ -105,6 +105,7 @@ def check_precision(mc: MockMetricsCollector,
         "Expected overhead {}, actual {} ms".format(1000 * maximum_overhead, 1000 * overhead)
 
 
+# FIXME -> RTM: Failing Test
 def test_metrics_collector_measures_time():
     mc = MockMetricsCollector()
     def f():
@@ -115,6 +116,7 @@ def test_metrics_collector_measures_time():
     check_precision(mc, f, minimum_precision=0.001, maximum_overhead=0.001)
 
 
+# FIXME -> RTM: Failing Test
 def test_measure_time_decorator():
     mc = MockMetricsCollector()
 

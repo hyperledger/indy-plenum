@@ -11,6 +11,7 @@ from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 
 
+# FIXME -> RTM: Failing Test (passes individually sometimes??)
 def test_lag_less_then_catchup(looper,
                                txnPoolNodeSet,
                                sdk_pool_handle,
