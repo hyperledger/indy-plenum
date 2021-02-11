@@ -51,7 +51,7 @@ def test_number_txns_in_catchup_and_vc_queue_valid(looper,
         assert n._info_tool.info['Node_info']['View_change_status']['Last_complete_view_no'] == expected_view_no
 
 
-# FIXME -> RTM: Failing Test (when run with validator_info)
+# FIXME -> RTM: Failing Test (when run with validator_info, passes individually)
 def test_instance_change_before_vc(looper,
                                    txnPoolNodeSet,
                                    tconf,
