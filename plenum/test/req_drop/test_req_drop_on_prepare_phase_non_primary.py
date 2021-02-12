@@ -48,7 +48,7 @@ def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     return request_couple_json
 
 
-# FIXME -> RTM: Failing Test
+# FIXME -> RTM: Failing Test (passes individually)
 def test_req_drop_on_prepare_phase_on_non_primary_and_then_ordered(
         tconf, setup, looper, txnPoolNodeSet,
         sdk_wallet_client, sdk_pool_handle):

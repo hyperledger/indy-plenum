@@ -155,7 +155,7 @@ def test_reconnect_and_send_multi(looper, tdir, tconf, generated_keys):
         check_all_received(looper, frm=beta, to_msg_handler=alpha_msg_handler, num_msg=total_from_beta)
 
 
-# FIXME -> RTM: Failing tests
+# FIXME -> RTM: Failing tests (passes individually)
 def test_reconnect_for_long_time(looper, tdir, tconf, generated_keys):
     # create stacks
     alpha, alpha_motor, alpha_msg_handler = create_stack("Alpha", looper, tdir, tconf)
@@ -193,7 +193,7 @@ def test_reconnect_for_long_time(looper, tdir, tconf, generated_keys):
         total += send(looper, alpha, beta)
         check_all_received(looper, frm=alpha, to_msg_handler=beta_msg_handler, num_msg=total)
 
-# FIXME -> RTM: Failing tests
+# FIXME -> RTM: Failing tests (passes individually)
 def test_reconnect_multiple_time_with_random_waits(looper, tdir, tconf, generated_keys):
     # create stacks
     alpha, alpha_motor, alpha_msg_handler = create_stack("Alpha", looper, tdir, tconf)

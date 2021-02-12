@@ -5,7 +5,7 @@ from plenum.test.restart.helper import get_group, restart_nodes
 nodeCount = 7
 
 
-# FIXME -> RTM: Failing Test (passes when run individually)
+# FIXME -> RTM: Failing Test (passes individually)
 def test_restart_groups_6_of_7_wp_tm(looper, txnPoolNodeSet, tconf, tdir,
                                      sdk_pool_handle, sdk_wallet_client, allPluginsPath):
     tm = tconf.ToleratePrimaryDisconnection + waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))

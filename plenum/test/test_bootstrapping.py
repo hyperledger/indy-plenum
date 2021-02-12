@@ -28,7 +28,7 @@ def testKeyShareParty(looper, txnPoolNodeSet, tdir_for_func, tconf_for_func):
         looper.removeProdable(node)
 
 
-# FIXME -> RTM: Failing Test
+# FIXME -> RTM: Failing Test (passes individually)
 # noinspection PyIncorrectDocstring
 def testConnectWithoutKeySharingFails(looper, txnPoolNodeSetNotStarted):
     """

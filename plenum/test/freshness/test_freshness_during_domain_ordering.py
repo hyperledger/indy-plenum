@@ -13,7 +13,7 @@ def tconf(tconf):
         yield tconf
 
 
-# FIXME -> RTM: Failing Test (run 3 times in freshness)
+# FIXME -> RTM: Failing Test (run 3 times in freshness) (passes individually)
 def test_update_bls_multi_sig_during_domain_ordering(looper, tconf, txnPoolNodeSet,
                                                      sdk_pool_handle,
                                                      sdk_wallet_stewards):
