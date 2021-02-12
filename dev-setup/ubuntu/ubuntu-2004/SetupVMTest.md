@@ -103,9 +103,42 @@
 
 ## Failing Tests
 ### Plenum
-
+    - plenum/test/freshness/test_freshness_during_domain_ordering.py 
+        test_update_bls_multi_sig_during_domain_ordering
+    - plenum/test/freshness/test_replica_freshness.py
+        test_freshness_pre_prepare_only_when_no_requests_for_ledger
+    -plenum/test/metrics/test_metrics_collector.py
+        test_metrics_collector_measures_time    
+        test_measure_time_decorator
+    -plenum/test/monitoring/test_backup_throughput_measurement.py
+        test_backup_throughput_measurement
+    -plenum/test/node_catchup_with_3pc/test_stashing_checkpoints_after_view_change.py
+        test_checkpoints_after_view_change
+    -plenum/test/replica_removing/test_replica_removing_after_node_started.py
+        test_replica_removing_after_node_started
+    -plenum/test/req_drop/test_req_drop_on_prepare_phase_non_primary.py
+        test_req_drop_on_prepare_phase_on_non_primary_and_then_ordered
+    -plenum/test/restart/test_restart_nodes_6_wp.py
+        test_restart_groups_6_of_7_wp_tm (passes individually)
+    -plenum/test/test_bootstrapping.py
+        testKeyShareParty   
+        testConnectWithoutKeySharingFails
+    -plenum/test/test_delay.py
+        testTestNodeDelay
+    -plenum/test/validator_info/test_validator_info_vc.py
+        test_instance_change_before_vc (passes individually)
+    -plenum/test/view_change_service/test_lag_by_checkpoint.py
+       test_lag_less_then_catchup (passes individually)
+    -plenum/test/view_change_with_delays/test_delayed_instance_changes.py
+        test_delayed_instance_changes_after_vcd_for_next_view
+    -plenum/test/view_change_with_delays/test_view_change_with_different_prepare_certificate.py
+        test_view_change_with_different_prepare_certificate (passes individually)
+    -stp_zmq/test/test_reconnect_multi.py
+        test_reconnect_and_send_multi
+        test_reconnect_for_long_time
+        test_reconnect_multiple_time_with_random_waits
 ### Node
-
+    
 
 ## Tests 
 
