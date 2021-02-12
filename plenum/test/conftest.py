@@ -135,7 +135,7 @@ def warnfilters():
     return _
 
 
-@pytest.yield_fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def warncheck(warnfilters):
     with WarningsRecorder() as record:
         warnfilters()
@@ -413,7 +413,7 @@ def nodeReg(request) -> Dict[str, HA]:
     return genNodeReg(count=nodeCount)
 
 
-@pytest.yield_fixture(scope="module")
+@pytest.fixture(scope="module")
 def looper(txnPoolNodesLooper):
     yield txnPoolNodesLooper
 
@@ -547,13 +547,13 @@ def replied1(looper, txnPoolNodeSet, sdk_wallet_client,
     return committed1
 
 
-@pytest.yield_fixture(scope="module")
+@pytest.fixture(scope="module")
 def looperWithoutNodeSet():
     with Looper() as looper:
         yield looper
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def looper_without_nodeset_for_func():
     with Looper() as looper:
         yield looper
@@ -670,7 +670,7 @@ def testNodeBootstrapClass():
     return TestNodeBootstrap
 
 
-@pytest.yield_fixture(scope="module")
+@pytest.fixture(scope="module")
 def txnPoolNodesLooper():
     with Looper() as l:
         yield l
@@ -1068,7 +1068,7 @@ def test_node(tdirWithPoolTxns,
     node.onStopping()  # TODO stop won't call onStopping as we are in Stopped state
 
 
-@pytest.yield_fixture(scope="module")
+@pytest.fixture(scope="module")
 def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creation,
                                      sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
                                      txnPoolNodeSet, tdir, tconf, allPluginsPath, request):

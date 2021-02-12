@@ -133,7 +133,7 @@
         test_freshness_pre_prepare_only_when_no_requests_for_ledger
     -plenum/test/metrics/test_metrics_collector.py
         test_metrics_collector_measures_time    
-        test_measure_time_decorator
+        test_measure_time_decorator (intermittent)????
     -plenum/test/test_bootstrapping.py
         testKeyShareParty   
     -plenum/test/test_delay.py

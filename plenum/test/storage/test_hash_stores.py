@@ -8,12 +8,12 @@ from plenum.common.constants import HS_LEVELDB, HS_ROCKSDB, HS_MEMORY
 from plenum.persistence.db_hash_store import DbHashStore
 
 
-@pytest.yield_fixture(scope="module", params=[HS_MEMORY, HS_ROCKSDB, HS_LEVELDB])
+@pytest.fixture(scope="module", params=[HS_MEMORY, HS_ROCKSDB, HS_LEVELDB])
 def hashStore(request, tmpdir_factory):
     if request.param == HS_MEMORY:
         yield MemoryHashStore()
     else:
-        hs = DbHashStore(tmpdir_factory.mktemp('').strpath, db_type=request.param)
+        hs = DbHashStore(tmpdir_factory.mktemp('tmp').strpath, db_type=request.param)
         hs.reset()
         yield hs
         hs.close()

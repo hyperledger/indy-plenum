@@ -736,7 +736,7 @@ class Pool:
                 looper.run(coro(ctx))
 
     def fresh_tdir(self):
-        return self.tmpdir_factory.mktemp('').strpath
+        return self.tmpdir_factory.mktemp('tmp').strpath
 
 
 class MockedNodeStack:

@@ -12,12 +12,12 @@ from ledger.test.helper import create_ledger, create_ledger_text_file_storage, \
 
 @pytest.fixture(scope='module')
 def tdir(tmpdir_factory):
-    return tmpdir_factory.mktemp('').strpath
+    return tmpdir_factory.mktemp('tmp').strpath
 
 
 @pytest.fixture(scope='function')
 def tempdir(tmpdir_factory):
-    return tmpdir_factory.mktemp('').strpath
+    return tmpdir_factory.mktemp('tmp').strpath
 
 
 orderedFields = OrderedDict([
@@ -35,7 +35,7 @@ def genesis_txns():
             ]
 
 
-@pytest.yield_fixture(scope="function", params=['with_genesis', 'without_genesis'])
+@pytest.fixture(scope="function", params=['with_genesis', 'without_genesis'])
 def genesis_txn_file(request, tempdir, genesis_txns):
     if request.param == 'without_genesis':
         return None
@@ -53,7 +53,7 @@ def init_genesis_txn_file(request, tempdir, genesis_txns):
     return "init_file"
 
 
-@pytest.yield_fixture(scope="function", params=['MsgPack', 'Json', 'Compact'])
+@pytest.fixture(scope="function", params=['MsgPack', 'Json', 'Compact'])
 def txn_serializer(request):
     if request.param == 'MsgPack':
         return MsgPackSerializer()
@@ -63,7 +63,7 @@ def txn_serializer(request):
         return CompactSerializer(orderedFields)
 
 
-@pytest.yield_fixture(scope="function", params=['MsgPack', 'Json', 'Compact', 'Signing'])
+@pytest.fixture(scope="function", params=['MsgPack', 'Json', 'Compact', 'Signing'])
 def hash_serializer(request):
     if request.param == 'MsgPack':
         return MsgPackSerializer()
@@ -75,7 +75,7 @@ def hash_serializer(request):
         return CompactSerializer(orderedFields)
 
 
-@pytest.yield_fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
+@pytest.fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
                                                 'LeveldbStorage', 'RocksdbStorage'])
 def ledger(request, genesis_txn_file, tempdir, txn_serializer, hash_serializer):
     ledger = create_ledger(request, txn_serializer,
@@ -84,7 +84,7 @@ def ledger(request, genesis_txn_file, tempdir, txn_serializer, hash_serializer):
     ledger.stop()
 
 
-@pytest.yield_fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
+@pytest.fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
                                                 'LeveldbStorage', 'RocksdbStorage'])
 def create_ledger_callable(request):
     if request.param == 'TextFileStorage':
@@ -97,7 +97,7 @@ def create_ledger_callable(request):
         return create_ledger_rocksdb_storage
 
 
-@pytest.yield_fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
+@pytest.fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
                                                 'LeveldbStorage', 'RocksdbStorage'])
 def ledger_no_genesis(request, tempdir, txn_serializer, hash_serializer):
     ledger = create_ledger(request, txn_serializer, hash_serializer, tempdir)
@@ -105,7 +105,7 @@ def ledger_no_genesis(request, tempdir, txn_serializer, hash_serializer):
     ledger.stop()
 
 
-@pytest.yield_fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
+@pytest.fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
                                                 'LeveldbStorage', 'RocksdbStorage'])
 def ledger_with_genesis(request, init_genesis_txn_file, tempdir, txn_serializer, hash_serializer):
     ledger = create_ledger(request, txn_serializer,

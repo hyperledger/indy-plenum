@@ -20,7 +20,7 @@ def ordered_batches(request):
 
 @pytest.fixture
 def audit_ledger(tconf, tmpdir_factory, ordered_batches):
-    tdir = tmpdir_factory.mktemp('').strpath
+    tdir = tmpdir_factory.mktemp('tmp').strpath
     ledger = Ledger(CompactMerkleTree(), dataDir=tdir)
     for view_no, pp_seq_no in ordered_batches:
         txn = {

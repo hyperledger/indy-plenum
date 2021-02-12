@@ -16,7 +16,7 @@ error_msg = 'Make sure that the latest LibIndy is used ' \
     .format(CURRENT_PROTOCOL_VERSION)
 
 
-@pytest.yield_fixture(scope="function", params=['1', '2'])
+@pytest.fixture(scope="function", params=['1', '2'])
 def request_num(request):
     return int(request.param)
 

@@ -102,7 +102,7 @@ def test_node_requests_missing_preprepares_and_prepares_after_long_disconnection
     looper.run(eventually(check_all_ordered, timeout=20))
 
 
-@pytest.yield_fixture(autouse=True)
+@pytest.fixture(autouse=True)
 def teardown(tconf):
     original_deviation = tconf.ACCEPTABLE_DEVIATION_PREPREPARE_SECS
     yield

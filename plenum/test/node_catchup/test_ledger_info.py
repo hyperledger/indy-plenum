@@ -19,7 +19,7 @@ from plenum.server.catchup.catchup_rep_service import CatchupRepService
 from plenum.server.catchup.utils import CatchupDataProvider, CatchupTill
 
 
-@pytest.yield_fixture(
+@pytest.fixture(
     scope="function",
     params=[
         'TextFileStorage',

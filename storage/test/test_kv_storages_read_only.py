@@ -6,7 +6,7 @@ from storage.kv_store import KeyValueStorage
 i = 0
 
 
-@pytest.yield_fixture(scope="function", params=['rocksdb', 'leveldb'])
+@pytest.fixture(scope="function", params=['rocksdb', 'leveldb'])
 def kv(request, tempdir) -> KeyValueStorage:
     global i
 

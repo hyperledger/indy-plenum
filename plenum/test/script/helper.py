@@ -14,7 +14,7 @@ from plenum.common.config_helper import PNodeConfigHelper
 logger = getlogger()
 
 
-@pytest.yield_fixture(scope="module")
+@pytest.fixture(scope="module")
 def looper(txnPoolNodesLooper):
     yield txnPoolNodesLooper
 

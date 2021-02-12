@@ -11,7 +11,7 @@ def empty_storage(request, tmpdir_factory):
     else:
         kv_storage_type = KeyValueStorageType.Rocksdb
 
-    data_location = tmpdir_factory.mktemp('').strpath
+    data_location = tmpdir_factory.mktemp('tmp').strpath
 
     domain_storage = initKeyValueStorageIntKeys(
         kv_storage_type,

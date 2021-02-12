@@ -34,7 +34,7 @@ def loop():
     return loop
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def tdirAndLooper(loop):
     asyncio.set_event_loop(loop)
 

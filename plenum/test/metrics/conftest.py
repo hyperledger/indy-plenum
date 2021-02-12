@@ -7,7 +7,7 @@ from storage.kv_store import KeyValueStorage
 db_no = 0
 
 
-@pytest.yield_fixture(params=[KeyValueStorageType.Rocksdb,
+@pytest.fixture(params=[KeyValueStorageType.Rocksdb,
                               KeyValueStorageType.Leveldb,
                               KeyValueStorageType.BinaryFile])
 def storage(request, tdir) -> KeyValueStorage:

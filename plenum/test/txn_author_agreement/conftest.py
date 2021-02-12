@@ -37,7 +37,7 @@ from .helper import (
 # Note. tconf is necessary for proper config initialization
 @pytest.fixture(scope="module")
 def config_ledger(tconf, tmpdir_factory):
-    tdir = tmpdir_factory.mktemp('').strpath
+    tdir = tmpdir_factory.mktemp('tmp').strpath
     return Ledger(CompactMerkleTree(),
                   dataDir=tdir)
 

@@ -20,7 +20,7 @@ def whitelist():
 logger = getlogger()
 
 
-@pytest.yield_fixture(scope="module")
+@pytest.fixture(scope="module")
 def sdk_node_created_after_some_txns_not_started(looper, testNodeClass, do_post_node_creation,
                                      sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
                                      txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
@@ -40,7 +40,7 @@ def sdk_node_created_after_some_txns_not_started(looper, testNodeClass, do_post_
     yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
 
 
-@pytest.yield_fixture(scope="module")
+@pytest.fixture(scope="module")
 def poolAfterSomeTxns(
         looper,
         txnPoolNodeSet,

@@ -30,7 +30,7 @@ def test_combined_recorder(tmpdir_factory):
     r1.add_disconnecteds('x', 'y')
 
     kv_store = initKeyValueStorageIntKeys(KeyValueStorageType.Leveldb,
-                                          tmpdir_factory.mktemp('').strpath,
+                                          tmpdir_factory.mktemp('tmp').strpath,
                                           'combined_recorder')
     cr = CombinedRecorder(kv_store)
 

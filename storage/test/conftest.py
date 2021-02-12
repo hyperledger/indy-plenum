@@ -7,15 +7,15 @@ from storage.kv_store_leveldb import KeyValueStorageLeveldb
 
 @pytest.fixture(scope='function')
 def tempdir(tmpdir_factory):
-    return tmpdir_factory.mktemp('').strpath
+    return tmpdir_factory.mktemp('tmp').strpath
 
 
-@pytest.yield_fixture(params=['memory', 'leveldb'])
+@pytest.fixture(params=['memory', 'leveldb'])
 def parametrised_storage(request, tmpdir_factory) -> KeyValueStorage:
     if request.param == 'memory':
         db = KeyValueStorageInMemory()
     elif request.param == 'leveldb':
-        db = KeyValueStorageLeveldb(tmpdir_factory.mktemp('').strpath,
+        db = KeyValueStorageLeveldb(tmpdir_factory.mktemp('tmp').strpath,
                                     'some_db')
     else:
         raise ValueError('Unsupported storage')

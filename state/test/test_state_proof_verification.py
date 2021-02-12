@@ -9,13 +9,13 @@ from storage.kv_store_leveldb import KeyValueStorageLeveldb
 from storage.kv_store_rocksdb import KeyValueStorageRocksdb
 
 
-@pytest.yield_fixture(params=['memory', 'leveldb', 'rocksdb'])
+@pytest.fixture(params=['memory', 'leveldb', 'rocksdb'])
 def state(request, tmpdir_factory) -> State:
     if request.param == 'leveldb':
-        db = KeyValueStorageLeveldb(tmpdir_factory.mktemp('').strpath,
+        db = KeyValueStorageLeveldb(tmpdir_factory.mktemp('tmp').strpath,
                                     'some_db')
     elif request.param == 'rocksdb':
-        db = KeyValueStorageRocksdb(tmpdir_factory.mktemp('').strpath,
+        db = KeyValueStorageRocksdb(tmpdir_factory.mktemp('tmp').strpath,
                                     'some_db')
     else:
         db = KeyValueStorageInMemory()

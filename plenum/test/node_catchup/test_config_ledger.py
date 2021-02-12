@@ -53,7 +53,7 @@ def testNodeBootstrapClass():
     return ConfigTestBootstrapClass
 
 
-@pytest.yield_fixture(scope="module")
+@pytest.fixture(scope="module")
 def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creation,
                                      sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
                                      txnPoolNodeSet, tdir, tconf, allPluginsPath, request, setup):
