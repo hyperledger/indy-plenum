@@ -94,7 +94,14 @@ def check_precision(mc: MockMetricsCollector,
             func()
     overhead = (time.perf_counter() - start) / TIMING_ITER_COUNT - TIMING_FUNC_DURATION
     mc.flush_accumulated()
+    print('')
+    print('precision expected: ' + str(minimum_precision))
+    print('mc.events -> ' + str(mc.events[0].avg))
+    print('TIME_FUNC -> ' + str(TIMING_FUNC_DURATION))
+    print('- before abs ' + str(mc.events[0].avg - TIMING_FUNC_DURATION))
     precision = abs(mc.events[0].avg - TIMING_FUNC_DURATION)
+    print('precision : ' + str(precision))
+    print(str(precision < minimum_precision))
 
     assert len(mc.events) == 1
     assert mc.events[0].name == TIMING_METRIC_NAME
