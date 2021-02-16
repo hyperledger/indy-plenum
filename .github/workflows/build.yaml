@@ -33,13 +33,13 @@ jobs:
           echo "::set-output name=GITHUB_REPOSITORY_NAME::$(echo ${GITHUB_REPOSITORY,,})"
           # Set variables according to version of ubuntu
           if [[ "${{github.base_ref}}" == "master" || "${{github.ref}}" == "refs/heads/master" ]]; then
-            echo "::set-output name=CACHE_KEY_BUILD::${{ hashFiles('.github/workflows/build/Dockerfile.ubuntu-16.04') }}"
-            echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile.ubuntu-16.04') }}"
+            echo "::set-output name=CACHE_KEY_BUILD::${{ hashFiles('.github/workflows/build/Dockerfile.ubuntu-16-04') }}"
+            echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile.ubuntu-16-04') }}"
             echo "::set-output name=DOCKER_FILE_POSTFIX::ubuntu-16-04"
           fi
           if [[ "${{github.base_ref}}" == "gha-ubuntu-20.04" || "${{github.ref}}" == "refs/heads/gha-ubuntu-20.04" ]]; then
-            echo "::set-output name=CACHE_KEY_BUILD::${{ hashFiles('.github/workflows/build/Dockerfile.ubuntu-20.04') }}"
-            echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile.ubuntu-20.04') }}"
+            echo "::set-output name=CACHE_KEY_BUILD::${{ hashFiles('.github/workflows/build/Dockerfile.ubuntu-20-04') }}"
+            echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile.ubuntu-20-04') }}"
             echo "::set-output name=DOCKER_FILE_POSTFIX::ubuntu-20-04"
           fi
 
