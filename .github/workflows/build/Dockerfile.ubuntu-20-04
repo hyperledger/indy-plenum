@@ -58,5 +58,5 @@ RUN echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources
     libindy=1.13.0~1420
 
 COPY scripts/clean.sh /usr/local/bin/indy_image_clean
-RUN chmod 755 /usr/local/bin/indy_image_clean && \
-    indy_image_clean
+RUN apt-get -y autoremove
+RUN rm -rf /var/lib/apt/lists/*
