@@ -56,7 +56,6 @@ RUN mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
 RUN echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list && \
     apt-get update -y && apt-get install -y \ 
     libindy=1.13.0~1420
-
-COPY scripts/clean.sh /usr/local/bin/indy_image_clean
+    
 RUN apt-get -y autoremove
 RUN rm -rf /var/lib/apt/lists/*
