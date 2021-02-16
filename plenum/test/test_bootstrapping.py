@@ -9,7 +9,6 @@ logger = getlogger()
 nodeCount = 5
 
 
-# FIXME -> RTM: Failing Test
 # noinspection PyIncorrectDocstring
 def testKeyShareParty(looper, txnPoolNodeSet, tdir_for_func, tconf_for_func):
     """

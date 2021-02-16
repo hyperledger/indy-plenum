@@ -16,7 +16,6 @@ logger = getlogger()
 nodeCount = 2
 
 
-# FIXME -> RTM: Failing Test
 @pytest.mark.skipif('sys.platform == "win32"', reason='SOV-457')
 def testTestNodeDelay(looper, txnPoolNodeSet):
     looper.run(checkNodesConnected(txnPoolNodeSet))
