@@ -17,6 +17,7 @@ def tconf(tconf):
         tconf.ACCEPTABLE_FRESHNESS_INTERVALS_COUNT = old_intervals_count
 
 
+# FIXME -> RTM: Failing test
 def test_freshness_in_catchup(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,

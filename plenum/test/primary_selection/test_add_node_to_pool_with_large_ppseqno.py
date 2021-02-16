@@ -21,6 +21,7 @@ def _set_ppseqno(nodes, new_ppsn):
             repl.last_ordered_3pc = (repl.viewNo, new_ppsn)
 
 
+# FIXME -> RTM: Failing test
 @pytest.mark.parametrize('do_view_change', [0, 1])
 def test_add_node_to_pool_with_large_ppseqno_diff_views(do_view_change, looper, txnPoolNodeSet, tconf, sdk_pool_handle,
                                                         sdk_wallet_steward, tdir, allPluginsPath):

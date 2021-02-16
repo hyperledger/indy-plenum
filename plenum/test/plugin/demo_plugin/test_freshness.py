@@ -16,6 +16,7 @@ def tconf(tconf):
         yield tconf
 
 
+# FIXME -> RTM: Failing test
 def test_update_bls_multi_sig_for_auction_ledger_by_timeout(looper, tconf, txnPoolNodeSet,
                                                             sdk_pool_handle, sdk_wallet_steward):
     # 1. Update auction ledger

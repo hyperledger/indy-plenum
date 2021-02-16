@@ -167,6 +167,7 @@ def test_ordered_request_freed_on_replica_removal(looper,
     looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint + CHK_FREQ))
 
 
+# FIXME -> RTM: Failing test
 def test_unordered_request_freed_on_replica_removal(looper,
                                                     txnPoolNodeSet,
                                                     sdk_pool_handle,

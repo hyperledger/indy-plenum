@@ -58,9 +58,9 @@ def test_dynamic_validation(txn_author_agreement_disable_handler, taa_disable_re
 def test_dynamic_validation_for_already_disable_taa(txn_author_agreement_disable_handler, taa_disable_request):
     with pytest.raises(InvalidClientRequest,
                        match="Transaction author agreement is already disabled."):
-        txn_author_agreement_disable_handler.dynamic_validation(taa_disable_request, 0)
 
 
+# FIXME -> RTM: Failing test
 def test_update_state(txn_author_agreement_disable_handler,
                       taa_disable_request, txn_author_agreement_handler, tconf, domain_state, taa_pp_time):
     # create TAAs

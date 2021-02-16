@@ -15,6 +15,7 @@ def tconf(tconf):
         yield tconf
 
 
+# FIXME -> RTM: Failing test
 def test_update_bls_multi_sig_when_auction_ledger_orders(looper, tconf, txnPoolNodeSet,
                                                          sdk_pool_handle,
                                                          sdk_wallet_steward):

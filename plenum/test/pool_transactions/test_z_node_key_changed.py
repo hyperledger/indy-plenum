@@ -62,6 +62,7 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
     assert all(n.viewNo == orig_view_no for n in txnPoolNodeSet)
 
 
+# FIXME -> RTM: Failing test
 def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
                                               sdk_node_theta_added,
                                               monkeypatch,
