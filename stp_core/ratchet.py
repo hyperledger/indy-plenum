@@ -64,6 +64,8 @@ class Ratchet:
         dn = None
         b = 1.0
         while True:
+            if exp(b) == 1.0:
+                break
             s = Ratchet._sumSeries(a, b, steps) - total
             if abs(s) < .001:
                 break
