@@ -115,7 +115,7 @@ jobs:
       NODE_OPTIONS: '--max_old_space_size=4096'
       DOCKER_FILE_POSTFIX: ${{ needs.workflow-setup.outputs.DOCKER_FILE_POSTFIX }}
     container:
-      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ env.DOCKER_FILE_POSTFIX }}
+      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ needs.workflow-setup.outputs.DOCKER_FILE_POSTFIX }}
     strategy:
       matrix:
         module: [plenum]
@@ -160,7 +160,7 @@ jobs:
     env:
       DOCKER_FILE_POSTFIX: ${{ needs.workflow-setup.outputs.DOCKER_FILE_POSTFIX }}
     container:
-      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ env.DOCKER_FILE_POSTFIX }}
+      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ needs.workflow-setup.outputs.DOCKER_FILE_POSTFIX }}
     strategy:
       matrix:
         module: [common, crypto, ledger, state, storage, stp_core, stp_zmq]
@@ -190,7 +190,7 @@ jobs:
     env:
       DOCKER_FILE_POSTFIX: ${{ needs.workflow-setup.outputs.DOCKER_FILE_POSTFIX }}
     container:
-      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-lint:${{ env.DOCKER_FILE_POSTFIX }}
+      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-lint:${{ needs.workflow-setup.outputs.DOCKER_FILE_POSTFIX }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
