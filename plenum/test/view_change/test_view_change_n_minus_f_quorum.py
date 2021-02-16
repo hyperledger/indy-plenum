@@ -6,6 +6,7 @@ from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.helper import stopNodes
 
 
+# FIXME -> RTM: Failing test
 def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
     """
     Check that quorum n - f is used for view change
@@ -35,11 +36,7 @@ def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
 
     # Check that view does not changes
     current_view_no = active[0].viewNo
-    with pytest.raises(AssertionError,
-                       message="{} == {}, "
-                               "Alpha -> Ratio: None,"
-                               "Beta -> Ratio: None,"
-                               "Delta -> Ratio: None"
-                               .format(current_view_no,
-                                       current_view_no + 1)) as exc_info:
+    with pytest.raises(AssertionError) as exc_info:
         ensure_view_change(looper, active)
+        pytest.fail("{} == {}, ""Alpha -> Ratio: None," "Beta -> Ratio: None," "Delta -> Ratio: None"
+                    .format(current_view_no, current_view_no + 1))

@@ -21,11 +21,8 @@ def test_create_verifier():
     assert verifier.verkey == EXPECTED_VERKEY
 
 
-# FIXME -> RTM: Failing test
 def test_create_verifier_with_odd_length_verkey():
-    with pytest.raises(
-            InvalidKey,
-            message="invalid verkey {} accepted".format(
-                ODD_LENGTH_VERKEY)) as excinfo:
+    with pytest.raises(InvalidKey) as excinfo:
         verifier = DidVerifier(ODD_LENGTH_VERKEY)
+        pytest.fail("invalid verkey {} accepted".format(ODD_LENGTH_VERKEY))
     excinfo.match(r'verkey {}'.format(ODD_LENGTH_VERKEY))

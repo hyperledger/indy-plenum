@@ -62,11 +62,8 @@ def testNodeKeysChanged(looper, txnPoolNodeSet, tdir,
     assert all(n.viewNo == orig_view_no for n in txnPoolNodeSet)
 
 
-# FIXME -> RTM: Failing test
-def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
-                                              sdk_node_theta_added,
-                                              monkeypatch,
-                                              sdk_pool_handle):
+def test_node_init_remote_keys_errors_not_suppressed(looper, txnPoolNodeSet, sdk_node_theta_added, monkeypatch,
+                                                     sdk_pool_handle):
     TEST_EXCEPTION_MESSAGE = 'Failed to create some cert files'
 
     new_steward_wallet, new_node = sdk_node_theta_added
@@ -87,9 +84,9 @@ def testNodeInitRemoteKeysErrorsNotSuppressed(looper, txnPoolNodeSet,
         oldMethod = node.poolManager.stackKeysChanged
 
         def stackKeysChanged(self, *args, **kwargs):
-            with pytest.raises(OSError,
-                               message="exception was suppressed") as excinfo:
+            with pytest.raises(OSError) as excinfo:
                 oldMethod(*args, **kwargs)
+                pytest.fail("exception was suppressed")
             excinfo.match(r'{}'.format(TEST_EXCEPTION_MESSAGE))
             return 0
 
