@@ -1,0 +1,62 @@
+FROM ubuntu:20.04
+
+ARG uid=1000
+ARG user=indy
+
+RUN apt-get update -y && apt-get install -y \
+        # common stuff
+        git \
+        wget \
+        apt-transport-https \
+        ca-certificates \
+        apt-utils \
+        nano \
+        # Python
+        python3-pip \
+        python3-nacl \
+    # Just for testing (libsodium23, iptables, at)
+        # libsodium23 \
+        # iptables \
+        # at \
+    # rocksdb python wrapper
+        rocksdb-tools \
+        librocksdb5.17 \
+        librocksdb-dev \
+        libsnappy-dev \
+        liblz4-dev \
+        libbz2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# pypi based packages
+RUN pip3 install -U \ 
+	'pip<10.0.0' \
+	setuptools==50.3.2 \
+    virtualenv \
+    python-rocksdb==0.7
+
+# fails when executed in one command with other pip install packages
+# RUN pip install python-rocksdb
+
+RUN echo "deb http://security.ubuntu.com/ubuntu bionic-security main"  >> /etc/apt/sources.list && \
+    apt-get update && apt-get install -y \ 
+    libssl1.0.0
+# Indy Node and Plenum
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 && \
+    echo "deb https://repo.sovrin.org/deb bionic master" >> /etc/apt/sources.list && \
+    apt-get update && apt-get install -y \ 
+    ursa=0.3.2-1
+
+
+# Need to move libursa.so to parent dir
+RUN mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
+    
+# Indy SDK
+# RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 || \
+# 	apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CE7709D068DB5E88 && \
+RUN echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list && \
+    apt-get update -y && apt-get install -y \ 
+    libindy=1.13.0~1420
+
+COPY scripts/clean.sh /usr/local/bin/indy_image_clean
+RUN chmod 755 /usr/local/bin/indy_image_clean && \
+    indy_image_clean
