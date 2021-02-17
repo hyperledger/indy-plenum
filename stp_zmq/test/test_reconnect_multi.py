@@ -94,7 +94,6 @@ def test_reconnect_and_send_multi(looper, tdir, tconf, generated_keys):
         alpha.stop()
         looper.runFor(.1)
         total_from_beta += send(looper, beta, alpha)
-        # looper.runFor(random.Random().randint(1, 10))
 
         alpha.start()
         connectStack(alpha, beta)
