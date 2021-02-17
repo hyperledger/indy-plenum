@@ -59,7 +59,7 @@ class StatsPublisher:
             try:
                 if self._writer is None:
                     self._reader, self._writer = \
-                        await asyncio.streams.open_connection(host=self.ip, port=self.port, loop=self._loop)
+                        await asyncio.streams.open_connection(host=self.ip, port=self.port)
             finally:
                 self._connectionSem.release()
 

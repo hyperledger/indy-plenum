@@ -330,9 +330,8 @@ def node_config_helper_class():
     return PNodeConfigHelper
 
 
-# FIXME -> RTM: doesn't like '' because not resolvable relative path
 def _tdir(tdir_fact):
-    return tdir_fact.mktemp('dog').strpath
+    return tdir_fact.mktemp('tmp').strpath
 
 
 @pytest.fixture(scope='module')
