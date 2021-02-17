@@ -59,21 +59,26 @@ def set_current_time(replica, ts):
 
 
 def check_and_pop_ordered_pre_prepare(replica, ledger_ids):
-    for ledger_id in ledger_ids:
+    ledgers_set = set(ledger_ids)
+    while len(replica.outBox) > 0:
         msg = replica.outBox.popleft()
+        ledgers_set.discard(msg.ledgerId)
         assert isinstance(msg, PrePrepare)
-        assert msg.ledgerId == ledger_id
         assert len(msg.reqIdr) > 0
+    assert not ledgers_set
 
     for ledger_id in ledger_ids:
         replica._ordering_service.requestQueues[ledger_id].clear()
 
 
-def check_and_pop_freshness_pre_prepare(replica, ledger_id):
-    msg = replica.outBox.popleft()
-    assert isinstance(msg, PrePrepare)
-    assert msg.ledgerId == ledger_id
-    assert msg.reqIdr == tuple()
+def check_and_pop_freshness_pre_prepare(replica, ledger_ids):
+    ledgers_set = set(ledger_ids)
+    while len(replica.outBox) > 0:
+        msg = replica.outBox.popleft()
+        ledgers_set.discard(msg.ledgerId)
+        assert isinstance(msg, PrePrepare)
+        assert msg.reqIdr == tuple()
+    assert not ledgers_set
 
 
 def test_no_freshness_pre_prepare_when_disabled(tconf, primary_replica):
@@ -124,9 +129,7 @@ def test_freshness_pre_prepare_after_timeout(primary_replica):
     primary_replica.send_3pc_batch()
     assert len(primary_replica.outBox) == 3
 
-    check_and_pop_freshness_pre_prepare(primary_replica, POOL_LEDGER_ID)
-    check_and_pop_freshness_pre_prepare(primary_replica, DOMAIN_LEDGER_ID)
-    check_and_pop_freshness_pre_prepare(primary_replica, CONFIG_LEDGER_ID)
+    check_and_pop_freshness_pre_prepare(primary_replica, [POOL_LEDGER_ID, DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID])
 
 
 def test_freshness_pre_prepare_not_resend_before_next_timeout(primary_replica):
@@ -182,8 +185,7 @@ def test_freshness_pre_prepare_only_when_no_requests_for_ledger(tconf,
     # refresh state for unordered
     replica.send_3pc_batch()
     assert len(replica.outBox) == len(refreshed)
-    for refreshed_ledger_id in refreshed:
-        check_and_pop_freshness_pre_prepare(replica, refreshed_ledger_id)
+    check_and_pop_freshness_pre_prepare(replica, refreshed)
 
 
 def test_order_empty_pre_prepare(looper, tconf, txnPoolNodeSet):
