@@ -151,7 +151,6 @@ def test_freshness_pre_prepare_not_resend_before_next_timeout(primary_replica):
     assert len(primary_replica.outBox) == 6
 
 
-# FIXME -> RTM: Failing Test (2 failed when run with freshness) 2 != 1???
 @pytest.mark.parametrize('ordered, refreshed', [
     ([POOL_LEDGER_ID], [DOMAIN_LEDGER_ID, CONFIG_LEDGER_ID]),
     ([DOMAIN_LEDGER_ID], [POOL_LEDGER_ID, CONFIG_LEDGER_ID]),
