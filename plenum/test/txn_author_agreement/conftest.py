@@ -164,7 +164,7 @@ def get_txn_author_agreement(
 
 @pytest.fixture
 def random_taa(request):
-    marker = request.node.get_marker('random_taa')
+    marker = request.node.get_closest_marker('random_taa')
     return gen_random_txn_author_agreement(
         **({} if marker is None else marker.kwargs))
 
