@@ -29,7 +29,6 @@ def tconf(tconf):
     tconf.throughput_measurement_params = old_throughput_measurement_params
 
 
-# FIXME -> RTM: Failing test
 def test_monitor_reset_after_replica_addition(looper, sdk_pool_handle, txnPoolNodeSet,
                                               sdk_wallet_steward, tdir, tconf, allPluginsPath):
     view_no = txnPoolNodeSet[-1].viewNo

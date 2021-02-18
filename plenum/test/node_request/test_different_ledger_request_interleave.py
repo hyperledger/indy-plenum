@@ -13,9 +13,7 @@ from plenum.test.primary_selection.conftest import sdk_one_node_added
 from plenum.test.batching_3pc.conftest import tconf
 
 
-# FIXME -> RTM: Failing test (again)
 def test_different_ledger_request_interleave(tconf, looper, txnPoolNodeSet,
-                                             sdk_one_node_added,
                                              tdir,
                                              tdirWithPoolTxns,
                                              allPluginsPath,

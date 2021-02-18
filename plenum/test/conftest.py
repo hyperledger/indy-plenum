@@ -304,7 +304,8 @@ def logcapture(request, whitelist, concerningLogLevels):
             if not isWhiteListed:
                 # Stopping all loopers, so prodables like nodes, clients, etc stop.
                 #  This helps in freeing ports
-                for fv in request._fixture_values.values():
+                # FIXME -> RTM: Not sure if '_fixture_defs' is the appropriate substitution for _fixture_values
+                for fv in request._fixture_defs.values():
                     if isinstance(fv, Looper):
                         fv.stopall()
                     if isinstance(fv, Prodable):

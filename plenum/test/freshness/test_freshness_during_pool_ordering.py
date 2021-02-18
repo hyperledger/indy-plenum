@@ -13,7 +13,7 @@ def tconf(tconf):
     with freshness(tconf, enabled=True, timeout=FRESHNESS_TIMEOUT):
         yield tconf
 
-# FIXME -> RTM: Test Failed
+
 def test_update_bls_multi_sig_during_pool_ordering(looper, tconf, txnPoolNodeSet,
                                                    sdk_pool_handle,
                                                    sdk_wallet_stewards):

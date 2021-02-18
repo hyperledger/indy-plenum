@@ -6,7 +6,6 @@ from plenum.test.view_change.helper import ensure_view_change
 from plenum.test.helper import stopNodes
 
 
-# FIXME -> RTM: Failing test
 def test_view_change_n_minus_f_quorum(txnPoolNodeSet, looper):
     """
     Check that quorum n - f is used for view change

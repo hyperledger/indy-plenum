@@ -7,7 +7,6 @@ from plenum.test.primary_selection.helper import check_newly_added_nodes, \
 from plenum.test.pool_transactions.conftest import sdk_node_theta_added
 
 
-@pytest.fixture(scope='module')
 def sdk_one_node_added(looper, txnPoolNodeSet, sdk_node_theta_added):
     # New node knows primary same primary as others and has rank greater
     # than others
@@ -16,6 +15,11 @@ def sdk_one_node_added(looper, txnPoolNodeSet, sdk_node_theta_added):
                          exclude_from_check=['check_last_ordered_3pc_backup'])
     check_newly_added_nodes(looper, txnPoolNodeSet, [new_node])
     return new_node
+
+
+@pytest.fixture(scope='module', name='sdk_one_node_added')
+def sdk_one_node_added_fixture(looper, txnPoolNodeSet, sdk_node_theta_added):
+    return sdk_one_node_added(looper, txnPoolNodeSet, sdk_node_theta_added)
 
 
 @pytest.fixture(scope="module")

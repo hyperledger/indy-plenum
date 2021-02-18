@@ -17,7 +17,7 @@ def zmq_connection(test_node, request, looper):
     looper.removeProdable(test_node)
 
 
-# FIXME -> RTM: Failing test
+# FIXME -> RTM: Failing test (needs help)
 def test_send_using_not_dealer_socket(zmq_connection, test_node, looper, sdk_wallet_client, logsearch):
     logs, _ = logsearch(files=['zstack.py'], msgs=['Got too many values for unpack'])
 
