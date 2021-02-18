@@ -60,7 +60,7 @@ def test_dynamic_validation_for_already_disable_taa(txn_author_agreement_disable
                        match="Transaction author agreement is already disabled."):
 
 
-# FIXME -> RTM: Failing test
+# FIXME -> RTM: Failing test (new)
 def test_update_state(txn_author_agreement_disable_handler,
                       taa_disable_request, txn_author_agreement_handler, tconf, domain_state, taa_pp_time):
     # create TAAs

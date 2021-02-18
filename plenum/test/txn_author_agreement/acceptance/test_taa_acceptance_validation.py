@@ -49,13 +49,14 @@ def patch_now(txnPoolNodeSet, monkeypatch, now):
         monkeypatch.setattr(node, 'utc_epoch', lambda *x, **y: now)
 
 
+# FIXME -> RTM: Failed Test (new)
 @pytest.mark.taa_acceptance_missed
 def test_taa_acceptance_missed_when_taa_set_passed_for_pool_ledger(
     validate_taa_acceptance, pool_request, request_dict
 ):
     validate_taa_acceptance(request_dict)
 
-
+# FIXME -> RTM: Failed Test (new)
 @pytest.mark.taa_acceptance_missed
 def test_taa_acceptance_missed_when_taa_set_rejected_for_domain_ledger(
     validate_taa_acceptance, validation_error, request_dict
@@ -68,6 +69,7 @@ def test_taa_acceptance_missed_when_taa_set_rejected_for_domain_ledger(
         validate_taa_acceptance(request_dict)
 
 
+# FIXME -> RTM: Failed Test (new)
 @pytest.mark.taa_accepted(('some-taa', 'some-taa-version'))
 def test_taa_acceptance_digest_non_latest(
     validate_taa_acceptance, validation_error, request_dict, latest_taa
@@ -106,6 +108,7 @@ def test_taa_acceptance_mechanism_inappropriate(
         validate_taa_acceptance(request_dict)
 
 
+# FIXME -> RTM: Failed Test (new)
 def test_taa_acceptance_with_incorrect_time(
     validate_taa_acceptance, validation_error,
     request_dict
@@ -121,6 +124,7 @@ def test_taa_acceptance_with_incorrect_time(
         validate_taa_acceptance(request_dict)
 
 
+# FIXME -> RTM: Failed Test (new)
 def test_taa_acceptance_time_near_lower_threshold(
     tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
     turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
@@ -160,6 +164,7 @@ def test_taa_acceptance_time_near_lower_threshold(
         validate_taa_acceptance(request_dict)
 
 
+# FIXME -> RTM: Failed Test (new)
 def test_taa_acceptance_time_near_upper_threshold(
     tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
     turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
@@ -197,6 +202,7 @@ def test_taa_acceptance_time_near_upper_threshold(
         validate_taa_acceptance(request_dict)
 
 
+# FIXME -> RTM: Failed Test (new)
 def test_taa_acceptance_uses_pp_time_instead_of_current_time(
     tconf, txnPoolNodeSet, validate_taa_acceptance, validation_error,
     turn_off_freshness_state_update, max_last_accepted_pre_prepare_time,
@@ -259,12 +265,14 @@ def test_taa_acceptance_uses_pp_time_instead_of_current_time(
 #         validate_taa_acceptance(request_dict)
 
 
+# FIXME -> RTM: Failed Test (new)
 def test_taa_acceptance_valid(
     validate_taa_acceptance, validation_error, request_dict
 ):
     validate_taa_acceptance(request_dict)
 
 
+# FIXME -> RTM: Failed Test (new)
 def test_taa_acceptance_valid_on_uncommitted(
         validate_taa_acceptance_func_api,
         txnPoolNodeSet, looper, sdk_wallet_trustee, sdk_pool_handle,
@@ -292,6 +300,7 @@ def test_taa_acceptance_valid_on_uncommitted(
         validate_taa_acceptance_func_api(request_dict)
 
 
+# FIXME -> RTM: Failed Test (new)
 def test_taa_acceptance_allowed_when_disabled(
     validate_taa_acceptance,
     validation_error,

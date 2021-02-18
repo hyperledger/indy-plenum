@@ -15,6 +15,7 @@ def _check_taa_time_correct(taa_acceptance):
     assert taa_acceptance[f.TAA_ACCEPTANCE.nm][f.TAA_ACCEPTANCE_TIME.nm] % SEC_PER_DAY == 0
 
 
+# FIXME -> RTM: Failed Test (new)
 def test_request_with_invalid_taa_acceptance_time(set_txn_author_agreement,
                                                   add_taa_acceptance,
                                                   sdk_wallet_new_steward,
