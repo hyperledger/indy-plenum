@@ -30,7 +30,11 @@ def taa_pp_time():
     return 42
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", name="taa_request")
+def taa_request_fixture(tconf, domain_state, taa_pp_time):
+    return taa_request(tconf, domain_state, taa_pp_time)
+
+
 def taa_request(tconf, domain_state, taa_pp_time):
     identifier = "identifier"
     update_nym(domain_state, identifier, TRUSTEE)
@@ -41,7 +45,6 @@ def taa_request(tconf, domain_state, taa_pp_time):
     return Request(identifier=identifier,
                    signature="sign",
                    operation=operation)
-
 
 @pytest.fixture(scope="function")
 def config_state():
