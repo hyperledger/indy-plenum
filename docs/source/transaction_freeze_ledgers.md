@@ -2,7 +2,7 @@
 
 #### Why It May Be Needed
 
-- Removing of deprecated ledgers need of painless mechanism. Transaction freeze ledgers give a security transition. Transaction Freeze Ledgers disable specific ledgers (system ignore frozen ledgers).
+- Removing of deprecated ledgers need of painless mechanism. Transaction freeze ledgers give a security transition. Transaction Freeze Ledgers disable plugin's ledgers (frozen ledger can be used neither for reading not for writing).
 Some ledgers can become deprecated and outdated. By means of auth map we could prohibit actions with these ledgers. Cons of this approach:
 - it will not be obvious to the user that the ledger is out of date and why the transactions stopped being recorded
 - the ledger can be returned to work, which in view of the long downtime can cause technical and business issues.
@@ -25,10 +25,12 @@ To get rid of these drawbacks, a ledger freeze transaction was created. It allow
 
 #### How it affects the system
 
-- Frozen ledgers are not catched up (because the LEDGERS_FREEZE transaction is part of the config ledger, which is applied before additional ledgers).
+- Removed ledgers will not be able reading and writing because a database does not exist.
 
-- Do not check, do not send new batches to update frozen ledgers.
+- Frozen ledgers are not catched up (this is possible because the LEDGERS_FREEZE transaction is part of the config ledger, which is applied before additional ledgers).
 
-- Recording continues in audit transactions, but without using real ledgers and using data about frozen ledgers from the config state.
+- Do not check frozen ledgers for freshness, do not send new batches to update frozen ledgers.
+
+- Root hashes of frozen ledgers continue to be recorded to audit transactions, but without using real ledgers and using data about frozen ledgers from the config state.
 
 - Any transactions to frozen ledgers are forbidden.
