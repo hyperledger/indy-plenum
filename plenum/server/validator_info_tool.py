@@ -656,6 +656,7 @@ class ValidatorNodeInfoTool:
 
     def _get_journalctl_exceptions(self):
         output = self._run_external_cmd("journalctl | sed -n '/Traceback/,/Error/p'")
+        # FIXME -> RTM: Cannot split a 'NoneType'
         return output.split(os.linesep)
 
     def _get_indy_node_status(self):

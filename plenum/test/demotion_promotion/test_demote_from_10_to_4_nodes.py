@@ -25,7 +25,6 @@ def tconf(tconf):
     tconf.Max3PCBatchSize = old_b_size
 
 
-# FIXME -> RTM: Failing test (again) (passes individually)
 def test_demote_promote_restart_after_promotion_from_10_to_4_nodes(txnPoolNodeSet,
                                                                    looper,
                                                                    sdk_pool_handle,

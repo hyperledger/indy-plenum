@@ -28,7 +28,6 @@ def tconf(tconf):
     tconf.REPLICAS_REMOVING_WITH_PRIMARY_DISCONNECTED = old_strategy
 
 
-# FIXME -> RTM: Failing Test (passes individually)
 def test_replica_removing_after_node_started(looper,
                                              txnPoolNodeSet,
                                              sdk_pool_handle,

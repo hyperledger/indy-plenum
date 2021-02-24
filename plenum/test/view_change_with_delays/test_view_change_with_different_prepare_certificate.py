@@ -13,7 +13,6 @@ from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
 
 
-# FIXME -> RTM: Failing Test (passes individually)
 def test_view_change_with_different_prepare_certificate(looper, txnPoolNodeSet,
                                                         sdk_pool_handle,
                                                         sdk_wallet_client):

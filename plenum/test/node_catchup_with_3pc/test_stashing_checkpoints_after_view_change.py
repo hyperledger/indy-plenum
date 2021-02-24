@@ -31,7 +31,6 @@ def tconf(tconf):
         yield tconf
 
 
-# FIXME -> RTM: Failing Test (passes individually)
 def test_checkpoints_after_view_change(tconf,
                                        looper,
                                        chkFreqPatched,
