@@ -16,6 +16,10 @@ class FreshnessChecker:
     def register_ledger(self, ledger_id, initial_time):
         self._ledger_freshness[ledger_id] = FreshnessState(initial_time, initial_time)
 
+    def remove_ledgers(self, ledgers_ids):
+        for ledger_id in ledgers_ids:
+            self._ledger_freshness.pop(ledger_id, None)
+
     def check_freshness(self, ts):
         '''
         Get all ledger IDs for which

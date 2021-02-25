@@ -15,3 +15,4 @@ class DemoTransactions(Transactions):
     AUCTION_END = PREFIX + '1'
     PLACE_BID = PREFIX + '2'
     GET_BAL = PREFIX + '3'
+    GET_AUCTION = PREFIX + '4'

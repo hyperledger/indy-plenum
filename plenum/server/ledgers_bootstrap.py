@@ -18,8 +18,10 @@ from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from plenum.server.batch_handlers.pool_batch_handler import PoolBatchHandler
 from plenum.server.batch_handlers.primary_batch_handler import PrimaryBatchHandler
 from plenum.server.request_handlers.audit_handler import AuditTxnHandler
+from plenum.server.request_handlers.ledgers_freeze.get_frozen_ledgers_handler import GetFrozenLedgersHandler
 from plenum.server.request_handlers.get_txn_author_agreement_aml_handler import GetTxnAuthorAgreementAmlHandler
 from plenum.server.request_handlers.get_txn_author_agreement_handler import GetTxnAuthorAgreementHandler
+from plenum.server.request_handlers.ledgers_freeze.ledgers_freeze_handler import LedgersFreezeHandler
 from plenum.server.request_handlers.node_handler import NodeHandler
 from plenum.server.request_handlers.nym_handler import NymHandler
 from plenum.server.request_handlers.txn_author_agreement_aml_handler import TxnAuthorAgreementAmlHandler
@@ -146,13 +148,17 @@ class LedgersBootstrap:
         taa_disable_handler = TxnAuthorAgreementDisableHandler(database_manager=self.db_manager)
         get_taa_aml_handler = GetTxnAuthorAgreementAmlHandler(database_manager=self.db_manager)
         get_taa_handler = GetTxnAuthorAgreementHandler(database_manager=self.db_manager)
+        ledgers_freeze_handler = LedgersFreezeHandler(database_manager=self.db_manager)
+        get_frozen_ledgers_handler = GetFrozenLedgersHandler(database_manager=self.db_manager)
 
         self.write_manager.register_req_handler(taa_aml_handler)
         self.write_manager.register_req_handler(taa_handler)
         self.write_manager.register_req_handler(taa_disable_handler)
+        self.write_manager.register_req_handler(ledgers_freeze_handler)
 
         self.read_manager.register_req_handler(get_taa_aml_handler)
         self.read_manager.register_req_handler(get_taa_handler)
+        self.read_manager.register_req_handler(get_frozen_ledgers_handler)
 
     def _register_audit_req_handlers(self):
         audit_handler = AuditTxnHandler(database_manager=self.db_manager)

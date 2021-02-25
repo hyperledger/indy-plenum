@@ -17,7 +17,7 @@ class AuditTxnHandler(WriteRequestHandler):
         raise InvalidClientRequest(request.identifier, request.reqId,
                                    "External audit requests are not allowed")
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         pass
 
     def update_state(self, txn, prev_result, request, is_committed=False):

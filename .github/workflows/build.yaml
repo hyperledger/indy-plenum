@@ -76,7 +76,6 @@ jobs:
       - name: If NOT found in cache, build and push image.
         if: steps.cache-image.outputs.cache-hit != 'true'
         run: |
-          export GITHUB_REPOSITORY_NAME=$(echo ${GITHUB_REPOSITORY,,})
           echo ${{ secrets.CR_PAT }} | docker login ghcr.io --username ${{ secrets.CR_USER }} --password-stdin
           docker build -f .github/workflows/lint/Dockerfile --no-cache -t ${{ env.GITHUB_REPOSITORY_NAME }}/plenum-lint:${{ env.CACHE_KEY_LINT }} .
           docker tag ${{ env.GITHUB_REPOSITORY_NAME }}/plenum-lint:${{ env.CACHE_KEY_LINT }} ghcr.io/${{ env.GITHUB_REPOSITORY_NAME }}/plenum-lint:latest
