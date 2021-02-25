@@ -19,7 +19,6 @@ def huge_log_size(tconf):
     tconf.VALIDATOR_INFO_UPGRADE_LOG_SIZE = old_size
 
 
-# FIXME -> RTM: Failing Test
 def test_validator_info_upgrade_log_crop(node, tconf):
     node.config.upgradeLogFile = 'upgrade_log'
     path_to_upgrade_log = os.path.join(os.path.join(node.ledger_dir,
@@ -31,7 +30,6 @@ def test_validator_info_upgrade_log_crop(node, tconf):
     assert len(node._info_tool.extractions["Extractions"]["upgrade_log"]) == log_size
 
 
-# FIXME -> RTM: Failing Test
 def test_validator_info_upgrade_log_ignore_negative(node, negative_log_size):
     assert negative_log_size.VALIDATOR_INFO_UPGRADE_LOG_SIZE == -1
     path_to_upgrade_log = os.path.join(os.path.join(node.ledger_dir,
@@ -43,7 +41,6 @@ def test_validator_info_upgrade_log_ignore_negative(node, negative_log_size):
     assert len(node._info_tool.extractions["Extractions"]["upgrade_log"]) == log_size
 
 
-# FIXME -> RTM: Failing Test
 def test_validator_info_upgrade_log_ignore_huge(node, huge_log_size):
     assert huge_log_size.VALIDATOR_INFO_UPGRADE_LOG_SIZE == 9999999
     path_to_upgrade_log = os.path.join(os.path.join(node.ledger_dir,

@@ -655,8 +655,7 @@ class ValidatorNodeInfoTool:
         return ret.stdout.decode(locale.getpreferredencoding(), 'decode_errors')
 
     def _get_journalctl_exceptions(self):
-        output = self._run_external_cmd("journalctl | sed -n '/Traceback/,/Error/p'")
-        # FIXME -> RTM: Cannot split a 'NoneType'
+        output = self._run_external_cmd("journalctl --since '4 minutes' | sed -n '/Traceback/,/Error/p'")
         return output.split(os.linesep)
 
     def _get_indy_node_status(self):
@@ -746,7 +745,7 @@ class ValidatorNodeInfoTool:
         return dtime
 
     def _get_stop_stat(self):
-        stops = self._run_external_cmd("journalctl | grep 'Stopped Indy Node'").strip()
+        stops = self._run_external_cmd("journalctl --since '4 minutes' | grep 'Stopped Indy Node'").strip()
         res = None
         if stops:
             stop_lines = stops.split(os.linesep)
