@@ -1,5 +1,5 @@
 name: indy-plenum-build
-on: [ push, pull_request ]
+on: [ push, pull_request, workflow_dispatch ]
 
 jobs:
 
@@ -174,7 +174,7 @@ jobs:
 
   build_plenum_release:
     name: Indy Plenum Release
-    needs: [indy_plenum, indy_plenum_tests, lint]
+    needs: [workflow-setup, indy_plenum, indy_plenum_tests, lint]
     runs-on: ubuntu-20.04
     container:
       image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
@@ -200,7 +200,7 @@ jobs:
     name: Publish release candidate
     runs-on: ubuntu-20.04
     needs: ['build_plenum_release']
-    if: github.event_name == 'push' && (github.repository == 'ianco/indy-plenum' && github.ref == 'refs/heads/release*')
+    if: github.event_name == 'push' && (github.repository == 'hyperledger/indy-plenum' && github.ref == 'refs/heads/release*')
     steps:
       - name: pub
         run: |
@@ -209,7 +209,7 @@ jobs:
     name: Publish release
     runs-on: ubuntu-20.04
     needs: ['build_plenum_release']
-    if: github.event_name == 'push' && (github.repository == 'ianco/indy-plenum' && github.ref == 'refs/heads/master')
+    if: github.event_name == 'push' && (github.repository == 'hyperledger/indy-plenum' && github.ref == 'refs/heads/master')
     steps:
       - name: pub
         run: |

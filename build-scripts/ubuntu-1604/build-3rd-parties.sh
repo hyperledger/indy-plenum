@@ -80,7 +80,7 @@ function build_from_pypi {
 # TODO duplicates list from Jenkinsfile.cd
 
 SCRIPT_PATH="${BASH_SOURCE[0]}"
-cd `dirname ${SCRIPT_PATH}`
+pushd ${SCRIPT_PATH} >/dev/null
 
 # Build rocksdb at first
 build_rocksdb_deb 5.8.8
@@ -108,3 +108,5 @@ build_from_pypi python-rocksdb 0.6.9
 build_from_pypi pympler 0.8
 build_from_pypi packaging 19.0
 build_from_pypi python-ursa 0.1.1
+
+popd >/dev/null
