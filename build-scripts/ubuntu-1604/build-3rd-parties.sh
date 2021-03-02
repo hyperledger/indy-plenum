@@ -80,7 +80,7 @@ function build_from_pypi {
 # TODO duplicates list from Jenkinsfile.cd
 
 SCRIPT_PATH="${BASH_SOURCE[0]}"
-pushd ${SCRIPT_PATH} >/dev/null
+pushd `dirname ${SCRIPT_PATH}` >/dev/null
 
 # Build rocksdb at first
 build_rocksdb_deb 5.8.8
