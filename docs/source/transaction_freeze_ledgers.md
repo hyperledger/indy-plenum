@@ -2,7 +2,7 @@
 
 #### Why It May Be Needed
 
-- Removing of deprecated ledgers need of painless mechanism. Transaction freeze ledgers give a security transition. Transaction Freeze Ledgers disable plugin's ledgers (frozen ledger can be used neither for reading not for writing).
+- Removing of deprecated ledgers need of painless mechanism. Transaction freeze ledgers give a security transition. Transaction Freeze Ledgers disable plugin's ledgers (If a ledger is frozen it can be used for reading but not for writing).
 Some ledgers can become deprecated and outdated. By means of auth map we could prohibit actions with these ledgers. Cons of this approach:
 - it will not be obvious to the user that the ledger is out of date and why the transactions stopped being recorded
 - the ledger can be returned to work, which in view of the long downtime can cause technical and business issues.
