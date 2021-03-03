@@ -59,4 +59,4 @@ def test_backup_throughput_measurement(looper, sdk_pool_handle, txnPoolNodeSet,
         assert len(txnPoolNodeSet[0].monitor.areBackupsDegraded()) == 2
 
     looper.run(eventually(chk, retryWait=1,
-                          timeout=int(tconf.throughput_measurement_params['window_size'] + 2)))
+                          timeout=int(tconf.throughput_measurement_params['window_size'] * 2)))
