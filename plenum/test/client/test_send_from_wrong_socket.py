@@ -19,12 +19,6 @@ def zmq_connection(test_node, request, looper):
     looper.removeProdable(test_node)
 
 
-# FIXME -> RTM: Failing test (needs help)
-#     def check_reply():
-#         assert logs
-#         assert []
-
-# 2021-02-25 16:02:05,446|ERROR|looper.py|Error while running coroutine eventually: AssertionError('assert []')
 def test_send_using_not_dealer_socket(zmq_connection, test_node, looper, sdk_wallet_client, logsearch):
     default_log_level = logging.root.level
     Logger.setLogLevel(logging.DEBUG)
