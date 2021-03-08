@@ -116,6 +116,7 @@ jobs:
       - name: Publish Test Report
         if: success() || failure()
         uses: scacap/action-surefire-report@v1.0.7
+        continue-on-error: true
         with:
           check_name: Indy Plenum ${{ matrix.module }} Test Report for slice ${{ matrix.slice }}/${{ strategy.job-total }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -153,6 +154,7 @@ jobs:
 
       - name: Publish Test Report
         uses: scacap/action-surefire-report@v1.0.7
+        continue-on-error: true
         with:
           check_name: Indy Plenum ${{ matrix.module }} Test Report
           github_token: ${{ secrets.GITHUB_TOKEN }}
