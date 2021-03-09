@@ -1,36 +1,38 @@
-# Transaction Freeze Ledgers
+# Freeze Ledgers
+
+
+#### Background
+
+The Freeze Ledgers transaction implements the functionality proposed in [Indy HIPE 0162 Frozen Ledgers](https://github.com/esplinr/indy-hipe/blob/master/text/0162-frozen-ledgers/README.md). That HIPE contains useful information for understanding this feature.
+
+
+#### Key Information
+
+- LEDGERS_FREEZE is a transaction for adding specific ledgers to a list of frozen ledgers where the ledgers can be read but cannot be written.
+
+- Frozen ledgers can't be unfrozen.
+
+- A frozen ledger can be removed using the [remove_ledger script] (https://github.com/hyperledger/indy-node/blob/master/scripts/remove_ledger.py), but beware that removing a ledger will delete its data. It can no longer be used for reading or writing. A production ledger with history should never be removed as this could make it impossible to reconstruct the history of the network. 
+
+- The base ledgers cannot be frozen. These are POOL, CONFIG, AUDIT and DOMAIN.
+
+- The LEDGERS_FREEZE transaction consists of a list of ledgers ids and unique version.
+
+- To get the list of previously frozen ledgers, use the transaction GET_FROZEN_LEDGERS.
+
 
 #### Why It May Be Needed
 
-- Removing of deprecated ledgers need of painless mechanism. Transaction freeze ledgers give a security transition. Transaction Freeze Ledgers disable plugin's ledgers (If a ledger is frozen it can be used for reading but not for writing).
-Some ledgers can become deprecated and outdated. By means of auth map we could prohibit actions with these ledgers. Cons of this approach:
-- it will not be obvious to the user that the ledger is out of date and why the transactions stopped being recorded
-- the ledger can be returned to work, which in view of the long downtime can cause technical and business issues.
-- the ledger cannot be removed from the system and will require to spend money on resource allocation and support of the outdated database.
-To get rid of these drawbacks, a ledger freeze transaction was created. It allows to completely freeze the ledger and remove it depending on the steward's desire.
+- During development and testing, it may be necessary to remove a ledger without recreating the data on all the other ledgers. By freezing the ledger, this can be done in safe manner.
 
-#### Transaction Freeze Ledgers (TFL)
-
-- LEDGERS_FREEZE is transaction for add specific ledgers to list of frozen ledgers.
-
-- Frozen ledgers can't be unfreeze. After freeze you can delete frozen ledger via [remove_ledger.py] (https://github.com/hyperledger/indy-node/blob/master/scripts/remove_ledger.py).
-
-- Base ledgers POOL, CONFIG, AUDIT and DOMAIN can't be frozen.
-
-- Every transaction LEDGERS_FREEZE consists of a list ledgers ids, unique version.
-
-- It's possible to get the whole list of frozen ledgers via transaction GET_FROZEN_LEDGERS.
-
-- See [hyperledger/README.md](https://github.com/esplinr/indy-hipe/blob/master/text/0162-frozen-ledgers/README.md) and [sovrin/README.md](https://github.com/esplinr/indy-hipe/blob/sovrin-sip/text/5005-token-removal/README.md) for details.
+- It may become necessary to deprecate a production ledger in order to reduce the maintenance cost of the plugin that created the ledger. If a ledger is frozen, it can be used for reading but not for writing, and so would be easier to maintain.
 
 #### How it affects the system
 
-- Removed ledgers will not be able reading and writing because a database does not exist.
+- Frozen ledgers do not participate in catch-up because the LEDGERS_FREEZE transaction is part of the config ledger, which is applied before additional ledgers.
 
-- Frozen ledgers are not catched up (this is possible because the LEDGERS_FREEZE transaction is part of the config ledger, which is applied before additional ledgers).
+- Frozen ledgers are not part of the freshness check, and they do not send new batches to update frozen ledgers.
 
-- Do not check frozen ledgers for freshness, do not send new batches to update frozen ledgers.
-
-- Root hashes of frozen ledgers continue to be recorded to audit transactions, but without using real ledgers and using data about frozen ledgers from the config state.
+- Root hashes of frozen ledgers continue to be recorded in new transactions on the audit ledger. These hashes are taken from the current config state, and not re-calculated from the real ledger (which may have been dropped).
 
 - Any transactions to frozen ledgers are forbidden.
