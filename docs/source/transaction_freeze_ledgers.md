@@ -3,7 +3,7 @@
 
 #### Background
 
-The Freeze Ledgers transaction implements the functionality proposed in [Indy HIPE 0162 Frozen Ledgers](https://github.com/esplinr/indy-hipe/blob/master/text/0162-frozen-ledgers/README.md). That HIPE contains useful information for understanding this feature.
+The Freeze Ledgers transaction implements the functionality proposed in [Indy HIPE 0162 Frozen Ledgers](https://github.com/hyperledger/indy-hipe/blob/master/text/0162-frozen-ledgers/README.md). That HIPE contains useful information for understanding this feature.
 
 
 #### Key Information
