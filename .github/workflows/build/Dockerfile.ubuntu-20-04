@@ -30,9 +30,9 @@ RUN apt-get update -y && apt-get install -y \
 # pypi based packages
 RUN pip3 install -U \ 
 	'pip<10.0.0' \
-	setuptools==50.3.2 \
-    virtualenv \
-    python-rocksdb==0.7
+	setuptools==50.3.2 
+    # virtualenv \
+    # python-rocksdb==0.7
 
 # fails when executed in one command with other pip install packages
 # RUN pip install python-rocksdb
@@ -56,6 +56,6 @@ RUN mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
 RUN echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list && \
     apt-get update -y && apt-get install -y \ 
     libindy=1.13.0~1420
-    
+
 RUN apt-get -y autoremove
 RUN rm -rf /var/lib/apt/lists/*
