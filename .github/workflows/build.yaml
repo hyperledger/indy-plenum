@@ -186,31 +186,58 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v1
 
-      - name: Install os dependencies
-        run: ./build-scripts/ubuntu-1604/install-os-dependencies.sh
-
-      - name: Install os tools
-        run: ./build-scripts/ubuntu-1604/install-os-tools.sh
-
       - name: Build Indy Plenum deployment package
-        run: ./build-scripts/ubuntu-1604/build-indy-plenum.sh /__w/indy-plenum/indy-plenum 1.14.0 /tmp
+        run: |
+          mkdir -p /tmp/build-output
+          ./build-scripts/ubuntu-1604/build-indy-plenum.sh /__w/indy-plenum/indy-plenum 1.14.0 /tmp/build-output
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: plenum-deb
+          path: /tmp/build-output
+
+  build_plenum_3rd_party_dependencies:
+    name: Indy Plenum 3rd Party Dependencies
+    needs: [workflow-setup, indy_plenum, indy_plenum_tests, lint]
+    runs-on: ubuntu-20.04
+    container:
+      image: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v1
+
+      - name: Try load from cache.
+        id: third-party-dependencies
+        uses: actions/cache@v2
+        with:
+          path: /tmp/cache
+          key: ${{ hashFiles('./build-scripts/ubuntu-1604/build-3rd-parties.sh') }}
 
       - name: Build 3rd party deployment packages
-        run: ./build-scripts/ubuntu-1604/build-3rd-parties.sh
+        if: steps.third-party-dependencies.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ./build-scripts/ubuntu-1604/cache/3rd-party-dependencies/  
+          ./build-scripts/ubuntu-1604/build-3rd-parties.sh ./cache/3rd-party-dependencies/
+          cd ./build-scripts/ubuntu-1604
+          mv ./cache/* /tmp/cache
+      
 
   publish_plenum_rc:
     name: Publish release candidate
     runs-on: ubuntu-20.04
-    needs: ['build_plenum_release']
+    needs: ['build_plenum_release', 'build_plenum_3rd_party_dependencies']
     if: github.event_name == 'push' && (github.repository == 'hyperledger/indy-plenum' && github.ref == 'refs/heads/release*')
     steps:
       - name: pub
         run: |
           echo "publish rc"
+
   publish_plenum_release:
     name: Publish release
     runs-on: ubuntu-20.04
-    needs: ['build_plenum_release']
+    needs: ['build_plenum_release', 'build_plenum_3rd_party_dependencies']
     if: github.event_name == 'push' && (github.repository == 'hyperledger/indy-plenum' && github.ref == 'refs/heads/master')
     steps:
       - name: pub
