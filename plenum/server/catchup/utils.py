@@ -6,6 +6,7 @@ from ledger.merkle_verifier import MerkleVerifier
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
 from plenum.common.messages.node_messages import LedgerStatus
+from state.state import State
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -42,6 +43,10 @@ class CatchupDataProvider(ABC):
 
     @abstractmethod
     def ledger(self, ledger_id: int) -> Ledger:
+        pass
+
+    @abstractmethod
+    def config_state(self) -> State:
         pass
 
     @abstractmethod

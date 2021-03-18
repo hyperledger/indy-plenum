@@ -2,8 +2,10 @@ import logging
 from typing import List, Any, Optional, Callable, Iterable
 
 from ledger.merkle_verifier import MerkleVerifier
+from plenum.common.constants import CONFIG_LEDGER_ID
 from plenum.common.ledger import Ledger
 from plenum.server.catchup.utils import CatchupDataProvider
+from state.state import State
 
 
 class CatchupNodeDataProvider(CatchupDataProvider):
@@ -22,6 +24,9 @@ class CatchupNodeDataProvider(CatchupDataProvider):
     def ledger(self, ledger_id: int) -> Ledger:
         info = self._ledger_info(ledger_id)
         return info.ledger if info is not None else None
+
+    def config_state(self) -> State:
+        return self._state_info(CONFIG_LEDGER_ID)
 
     def verifier(self, ledger_id: int) -> MerkleVerifier:
         info = self._ledger_info(ledger_id)
@@ -74,3 +79,6 @@ class CatchupNodeDataProvider(CatchupDataProvider):
 
     def _ledger_info(self, ledger_id: int):
         return self._node.ledgerManager.ledgerRegistry.get(ledger_id)
+
+    def _state_info(self, ledger_id: int):
+        return self._node.states.get(ledger_id)

@@ -21,7 +21,7 @@ class WriteConfHandler(WriteRequestHandler):
                          txn_type=WRITE_CONF,
                          ledger_id=CONFIG_LEDGER_ID)
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         pass
 
     def static_validation(self, request: Request):

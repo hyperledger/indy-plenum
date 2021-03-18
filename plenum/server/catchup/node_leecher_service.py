@@ -11,6 +11,7 @@ from plenum.common.txn_util import get_payload_data
 from plenum.server.catchup.ledger_leecher_service import LedgerLeecherService
 from plenum.server.catchup.utils import CatchupDataProvider, LedgerCatchupComplete, NodeCatchupComplete, CatchupTill, \
     LedgerCatchupStart
+from plenum.server.request_handlers.ledgers_freeze.ledger_freeze_helper import StaticLedgersFreezeHelper
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -140,6 +141,9 @@ class NodeLeecherService:
         ledger_ids.remove(AUDIT_LEDGER_ID)
         ledger_ids.remove(POOL_LEDGER_ID)
         ledger_ids.remove(CONFIG_LEDGER_ID)
+        for frozen_ledger in StaticLedgersFreezeHelper.get_frozen_ledgers(self._provider.config_state()).keys():
+            if frozen_ledger in ledger_ids:
+                ledger_ids.remove(frozen_ledger)
 
         if len(ledger_ids) == 0:
             return None
@@ -190,8 +194,8 @@ class NodeLeecherService:
         for ledger_id, final_size in last_audit_txn[AUDIT_TXN_LEDGERS_SIZE].items():
             ledger = self._provider.ledger(ledger_id)
             if ledger is None:
-                logger.warning("{} has audit ledger with references to nonexistent ledger with ID {}".
-                               format(self, ledger_id))
+                logger.debug("{} has audit ledger with references to nonexistent "
+                             "ledger with ID {}. Maybe it was frozen.".format(self, ledger_id))
                 continue
             start_size = ledger.size
 
