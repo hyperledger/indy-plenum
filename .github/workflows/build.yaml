@@ -219,7 +219,7 @@ jobs:
         if: steps.third-party-dependencies.outputs.cache-hit != 'true'
         run: |
           mkdir -p ./build-scripts/ubuntu-1604/cache/3rd-party-dependencies/  
-          ./build-scripts/ubuntu-1604/build-3rd-parties.sh ./cache/3rd-party-dependencies/
+          ./build-scripts/ubuntu-1604/build-3rd-parties.sh ./cache/3rd-party-dependencies
           cd ./build-scripts/ubuntu-1604
           mv ./cache/* /tmp/cache
       
