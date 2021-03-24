@@ -353,9 +353,9 @@ def sdk_pool_refresh(looper, sdk_pool_handle):
         refresh_pool_ledger(sdk_pool_handle))
 
 
-def sdk_build_get_txn_request(looper, steward_did, seq_no):
+def sdk_build_get_txn_request(looper, steward_did, seq_no, ledger_type=None):
     request = looper.loop.run_until_complete(
-        build_get_txn_request(steward_did, None, seq_no))
+        build_get_txn_request(steward_did, ledger_type, seq_no))
     return request
 
 

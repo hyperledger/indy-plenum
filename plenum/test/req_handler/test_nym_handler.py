@@ -43,7 +43,7 @@ def test_dynamic_validation_msg_from_not_steward(nym_handler):
     with pytest.raises(UnauthorizedClientRequest) as e:
         nym_handler.dynamic_validation(request, 0)
     assert "Only Steward is allowed to do these transactions" \
-           in e._excinfo[1].args[0]
+           in e._excinfo[1].reason
 
 
 def test_dynamic_validation_steward_create_steward_before_limit(nym_handler):
@@ -69,7 +69,7 @@ def test_dynamic_validation_steward_create_steward_after_limit(nym_handler):
     with pytest.raises(UnauthorizedClientRequest) as e:
         nym_handler.dynamic_validation(request, 0)
     assert "New stewards cannot be added by other stewards as there are already" \
-           in e._excinfo[1].args[0]
+           in e._excinfo[1].reason
 
     nym_handler.config.stewardThreshold = old_steward_threshold
 

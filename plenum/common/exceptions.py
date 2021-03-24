@@ -190,11 +190,11 @@ class InvalidNodeMessageException(InvalidMessageException):
 
 
 class InvalidClientMessageException(InvalidMessageException):
-    def __init__(self, identifier, reqId, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, identifier, reqId, reason=None, code=None):
+        self.code = code
         self.identifier = identifier
         self.reqId = reqId
-        self.args = args
+        self.reason = reason
 
 
 class InvalidNodeMsg(InvalidNodeMessageException):

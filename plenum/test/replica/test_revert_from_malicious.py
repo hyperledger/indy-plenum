@@ -10,7 +10,7 @@ def test_revert_pp_from_malicious(looper,
                                   sdk_pool_handle,
                                   sdk_wallet_client):
     def raise_invalid_ex():
-        raise InvalidClientMessageException(1,2,3)
+        raise InvalidClientMessageException(1, 2, "3")
     malicious_primary = getPrimaryReplica(txnPoolNodeSet).node
     not_malicious_nodes = set(txnPoolNodeSet) - {malicious_primary}
     for n in not_malicious_nodes:

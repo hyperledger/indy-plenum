@@ -28,7 +28,7 @@ with open(metadata['__file__'], 'r') as f:
     exec(f.read(), metadata)
 
 tests_require = ['attrs==19.1.0', 'pytest==3.3.1', 'pytest-xdist==1.22.1', 'pytest-forked==0.2',
-                 'python3-indy==1.13.0-dev-1420', 'pytest-asyncio==0.8.0']
+                 'python3-indy==1.15.0-dev-1618', 'pytest-asyncio==0.8.0']
 
 
 class PyZMQCommand(distutils.cmd.Command):
@@ -93,6 +93,7 @@ setup(
         '': ['*.txt', '*.md', '*.rst', '*.json', '*.conf', '*.html',
              '*.css', '*.ico', '*.png', 'LICENSE', 'LEGAL', 'plenum']},
     include_package_data=True,
+
     install_requires=[
                         'jsonpickle==0.9.6',
                         'ujson==1.33',
@@ -104,22 +105,22 @@ setup(
                         'ioflo==1.5.4',
                         'semver==2.7.9',
                         'base58==1.0.0',
-                        'orderedset==2.0',
+                        'orderedset==2.0.3',
                         'sortedcontainers==1.5.7',
-                        'psutil==5.4.3',
+                        'psutil==5.6.6',
                         'pip<10.0.0',
                         'portalocker==0.5.7',
                         'libnacl==1.6.1',
                         'six==1.11.0',
-                        'psutil==5.4.3',
                         'intervaltree==2.1.0',
                         'msgpack-python==0.4.6',
-                        'indy-crypto==0.4.5',
                         'python-rocksdb==0.6.9',
                         'python-dateutil==2.6.1',
-                        'pympler==0.5',
+                        'pympler==0.8',
                         'packaging==19.0',
+                        'python-ursa==0.1.1',
                       ],
+
     setup_requires=['pytest-runner'],
     extras_require={
         'tests': tests_require,

@@ -27,3 +27,18 @@ def test_initial_consensus_state(some_item, other_item, validators):
     # Checkpoints
     assert data.stable_checkpoint == 0
     assert list(data.checkpoints) == [data.initial_checkpoint]
+
+
+def test_set_validators_change_vc_votes_quorums(validators):
+    name = "SomeData"
+    validators_changes_f = validators + ["A", "B", "C"]
+    data = ConsensusSharedData(name, validators, 0)
+    qb = data.view_change_votes._quorums
+    na = len(validators_changes_f)
+
+    data.set_validators(validators_changes_f)
+    qa = data.view_change_votes._quorums
+
+    assert qb.n != qa.n
+    assert qa.n == na
+

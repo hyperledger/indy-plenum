@@ -15,10 +15,10 @@ function build_rocksdb_deb {
     sed -i 's/-m rocksdb@fb.com/-m "Hyperledger <hyperledger-indy@lists.hyperledger.org>"/g' \
         ./build_tools/make_package.sh
     PORTABLE=1 EXTRA_CFLAGS="-fPIC" EXTRA_CXXFLAGS="-fPIC" ./build_tools/make_package.sh $VERSION
-    cp ./package/rocksdb_${VERSION}_amd64.deb $OUTPUT_PATH
     # Install it in the system as it is needed by python-rocksdb.
     make install
     cd -
+    cp /tmp/rocksdb/package/rocksdb_${VERSION}_amd64.deb $OUTPUT_PATH
     rm -rf /tmp/rocksdb
 }
 
@@ -79,11 +79,14 @@ function build_from_pypi {
 
 # TODO duplicates list from Jenkinsfile.cd
 
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+pushd `dirname ${SCRIPT_PATH}` >/dev/null
+
 # Build rocksdb at first
 build_rocksdb_deb 5.8.8
 
 build_from_pypi ioflo 1.5.4
-build_from_pypi orderedset 2.0
+build_from_pypi orderedset 2.0.3
 build_from_pypi base58 1.0.0
 build_from_pypi prompt-toolkit 0.57
 build_from_pypi rlp 0.5.1
@@ -96,11 +99,14 @@ build_from_pypi setuptools 38.5.2
 build_from_pypi python-dateutil 2.6.1
 build_from_pypi semver 2.7.9
 build_from_pypi pygments 2.2.0
-build_from_pypi psutil 5.4.3
+build_from_pypi psutil 5.6.6
 build_from_pypi pyzmq 18.1.0 bundled
 build_from_pypi intervaltree 2.1.0
 build_from_pypi jsonpickle 0.9.6
 # TODO: add libsnappy dependency for python-rocksdb package
 build_from_pypi python-rocksdb 0.6.9
-build_from_pypi pympler 0.5
+build_from_pypi pympler 0.8
 build_from_pypi packaging 19.0
+build_from_pypi python-ursa 0.1.1
+
+popd >/dev/null

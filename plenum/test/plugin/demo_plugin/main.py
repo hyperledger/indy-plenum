@@ -5,6 +5,7 @@ from plenum.test.plugin.demo_plugin.batch_handlers.auction_batch_handler import 
 from plenum.test.plugin.demo_plugin.config import get_config
 from plenum.test.plugin.demo_plugin.request_handlers.auction_end_handler import AuctionEndHandler
 from plenum.test.plugin.demo_plugin.request_handlers.auction_start_handler import AuctionStartHandler
+from plenum.test.plugin.demo_plugin.request_handlers.get_auction import GetAuctionHandler
 from plenum.test.plugin.demo_plugin.request_handlers.get_bal_handler import GetBalHandler
 from plenum.test.plugin.demo_plugin.request_handlers.place_bid_handler import PlaceBidHandler
 from plenum.test.plugin.demo_plugin.storage import get_auction_hash_store, \
@@ -33,6 +34,7 @@ def integrate_plugin_in_node(node):
     node.write_manager.register_req_handler(AuctionEndHandler(node.db_manager, auctions))
     node.write_manager.register_req_handler(PlaceBidHandler(node.db_manager, auctions))
     node.read_manager.register_req_handler(GetBalHandler(node.db_manager))
+    node.read_manager.register_req_handler(GetAuctionHandler(node.db_manager))
     # FIXME: find a generic way of registering DBs
     node.db_manager.register_new_database(lid=AUCTION_LEDGER_ID,
                                           ledger=ledger,

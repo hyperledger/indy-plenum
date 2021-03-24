@@ -2,7 +2,6 @@ import asyncio
 import collections
 import dateutil.tz
 import functools
-import glob
 import inspect
 import ipaddress
 import itertools
@@ -81,7 +80,6 @@ def random_from_alphabet(size, alphabet):
     :param size:
     :param alphabet:
     """
-    import random
     return list(random.choice(alphabet) for _ in range(size))
 
 
@@ -346,7 +344,7 @@ def z85_to_friendly(z):
 
 def runWithLoop(loop, callback, *args, **kwargs):
     if loop.is_running():
-        loop.call_soon(asyncio.async, callback(*args, **kwargs))
+        loop.call_soon(asyncio.ensure_future, callback(*args, **kwargs))
     else:
         loop.run_until_complete(callback(*args, **kwargs))
 
@@ -375,6 +373,16 @@ def friendlyEx(ex: Exception) -> str:
         curEx = curEx.__cause__
     friendly += end
     return friendly
+
+
+def reasonForClientFromException(ex: Exception):
+    friendly = friendlyEx(ex)
+    reason = "client request invalid: {}".format(friendly)
+    return reason
+
+
+def reasonForClientFromExReason(reason: str):
+    return "client request invalid: {}".format(reason)
 
 
 def updateFieldsWithSeqNo(fields):
@@ -523,9 +531,9 @@ def getCallableName(callable: Callable):
         elif hasattr(callable, "func"):
             return callable.func.__name__
         else:
-            RuntimeError("Do not know how to get name of this callable")
+            raise RuntimeError("Do not know how to get name of this callable")
     else:
-        TypeError("This is not a callable")
+        raise TypeError("This is not a callable")
 
 
 def updateNestedDict(d, u, nestedKeysToUpdate=None):

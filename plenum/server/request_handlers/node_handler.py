@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Optional
 
-from indy_crypto.bls import ProofOfPossession, VerKey
+from ursa.bls import ProofOfPossession, VerKey
 
 from common.serializers.serialization import pool_state_serializer
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
@@ -62,8 +62,7 @@ class NodeHandler(WriteRequestHandler):
         node_nym = get_payload_data(txn).get(TARGET_NYM)
         return node_nym.encode()
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        self._validate_request_type(request)
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         node_nym = request.operation.get(TARGET_NYM)
         if self.get_from_state(node_nym, is_committed=False):
             error = self._auth_error_while_updating_node(request)
@@ -72,6 +71,9 @@ class NodeHandler(WriteRequestHandler):
         if error:
             raise UnauthorizedClientRequest(request.identifier, request.reqId,
                                             error)
+
+    def authorize(self, request):
+        pass
 
     def update_state(self, txn, prev_result, request, is_committed=False):
         self._validate_txn_type(txn)

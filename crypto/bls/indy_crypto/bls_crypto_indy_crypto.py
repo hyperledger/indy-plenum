@@ -3,13 +3,13 @@ from logging import getLogger
 from typing import Sequence, Optional
 
 import base58
-from indy_crypto import IndyCryptoError
+from ursa.indy_error import IndyCryptoError
 
 from crypto.bls.bls_crypto import GroupParams, BlsGroupParamsLoader, BlsCryptoVerifier, BlsCryptoSigner
-from indy_crypto.bls import BlsEntity, Generator, VerKey, SignKey, Bls, \
+from ursa.bls import BlsEntity, Generator, VerKey, SignKey, Bls, \
     Signature, MultiSignature, ProofOfPossession
 
-logging.getLogger("indy_crypto").setLevel(logging.WARNING)
+logging.getLogger("ursa").setLevel(logging.WARNING)
 logger = getLogger()
 
 

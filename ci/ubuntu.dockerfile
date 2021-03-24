@@ -9,13 +9,13 @@ RUN echo "To invalidate cache"
 
 RUN apt-get update -y && apt-get install -y \
     python3-nacl \
-    libindy-crypto=0.4.5 \
-    libindy=1.13.0~1420 \
+    libindy=1.15.0~1618-xenial \
 # rocksdb python wrapper
     libbz2-dev \
     zlib1g-dev \
     liblz4-dev \
     libsnappy-dev \
+    ursa=0.3.2-2  \
     rocksdb=5.8.8
 
 RUN indy_ci_add_user $uid $user $venv

@@ -6,6 +6,7 @@ AUCTION_START = DemoTransactions.AUCTION_START.value
 AUCTION_END = DemoTransactions.AUCTION_END.value
 PLACE_BID = DemoTransactions.PLACE_BID.value
 GET_BAL = DemoTransactions.GET_BAL.value
+GET_AUCTION = DemoTransactions.GET_AUCTION.value
 
 AMOUNT = "amount"
 ID = "id"

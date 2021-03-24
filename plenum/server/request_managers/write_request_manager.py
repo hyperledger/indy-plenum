@@ -12,6 +12,7 @@ from plenum.common.constants import TXN_TYPE, POOL_LEDGER_ID, AML, TXN_AUTHOR_AG
 from plenum.common.exceptions import InvalidClientTaaAcceptanceError, TaaAmlNotSetError
 from plenum.server.batch_handlers.node_reg_handler import NodeRegHandler
 from plenum.server.batch_handlers.primary_batch_handler import PrimaryBatchHandler
+from plenum.server.client_error_codes import Rejects
 
 from plenum.server.request_handlers.utils import VALUE
 from plenum.common.request import Request
@@ -300,9 +301,8 @@ class WriteRequestManager(RequestManager):
             if request.taaAcceptance:
                 raise InvalidClientTaaAcceptanceError(
                     request.identifier, request.reqId,
-                    "Txn Author Agreement acceptance is not expected"
-                    " and not allowed in requests for ledger id {}"
-                    .format(ledger_id)
+                    Rejects.TAA_NOT_EXPECTED_FOR_LEDGER.reason.format(ledger_id),
+                    Rejects.TAA_NOT_EXPECTED_FOR_LEDGER.code
                 )
             else:
                 logger.trace(
@@ -322,8 +322,8 @@ class WriteRequestManager(RequestManager):
         if not request.taaAcceptance:
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
-                "Txn Author Agreement acceptance is required for ledger with id {}"
-                .format(ledger_id)
+                Rejects.TAA_MISSING_FOR_LEDGER.reason.format(ledger_id),
+                Rejects.TAA_MISSING_FOR_LEDGER.code
             )
 
         taa = None
@@ -334,15 +334,16 @@ class WriteRequestManager(RequestManager):
         else:
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
-                "Incorrect Txn Author Agreement(digest={}) in the request".format(r_taa_a_digest)
+                Rejects.TAA_NOT_FOUND.reason.format(r_taa_a_digest),
+                Rejects.TAA_NOT_FOUND.code
             )
 
         retired = taa.get(TXN_AUTHOR_AGREEMENT_RETIREMENT_TS)
         if retired and retired < req_pp_time:
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
-                "Txn Author Agreement is retired: version {}, seq_no {}, txn_time {}"
-                .format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time)
+                Rejects.TAA_RETIRED.reason.format(taa[TXN_AUTHOR_AGREEMENT_VERSION], taa_seq_no, taa_txn_time),
+                Rejects.TAA_RETIRED.code
             )
 
         r_taa_a_ts = request.taaAcceptance[f.TAA_ACCEPTANCE_TIME.nm]
@@ -351,13 +352,13 @@ class WriteRequestManager(RequestManager):
         except ValueError:
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
-                "TAA_ACCEPTANCE_TIME = {} is out of range".format(r_taa_a_ts))
+                Rejects.TAA_INCORRECT_ACCEPTANCE_TIME_FORMAT.reason.format(r_taa_a_ts),
+                Rejects.TAA_INCORRECT_ACCEPTANCE_TIME_FORMAT.code)
         if datetime_r_taa.time() != time(0):
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
-                "Txn Author Agreement acceptance time {}"
-                " is too precise and is a privacy risk."
-                .format(r_taa_a_ts))
+                Rejects.TAA_TOO_PRECISE.reason.format(r_taa_a_ts),
+                Rejects.TAA_RETIRED.code)
         taa_txn_creation_time = taa.get(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, taa_txn_time)
         date_lowest = datetime.utcfromtimestamp(
             taa_txn_creation_time -
@@ -370,8 +371,8 @@ class WriteRequestManager(RequestManager):
         if (datetime_r_taa.date() < date_lowest) or (datetime_r_taa.date() > date_higest):
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
-                "Txn Author Agreement acceptance time is inappropriate:"
-                " provided {}, expected in [{}, {}]".format(r_taa_a_ts, date_lowest, date_higest)
+                Rejects.TAA_WRONG_ACCEPTANCE_TIME.reason.format(r_taa_a_ts, date_lowest, date_higest),
+                Rejects.TAA_WRONG_ACCEPTANCE_TIME.code
             )
 
         taa_aml_data = self.get_taa_aml_data()
@@ -385,8 +386,8 @@ class WriteRequestManager(RequestManager):
         if r_taa_a_mech not in taa_aml:
             raise InvalidClientTaaAcceptanceError(
                 request.identifier, request.reqId,
-                "Txn Author Agreement acceptance mechanism is inappropriate:"
-                " provided {}, expected one of {}".format(r_taa_a_mech, sorted(taa_aml))
+                Rejects.TAA_AML_INVALID.reason.format(r_taa_a_mech, sorted(taa_aml)),
+                Rejects.TAA_AML_INVALID.code
             )
 
         logger.trace(

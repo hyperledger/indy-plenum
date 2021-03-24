@@ -9,7 +9,7 @@ from plenum.common.constants import TXN_TIME, TXN_TYPE, TARGET_NYM, ROLE, \
     TXN_PAYLOAD_METADATA_FROM, TXN_PAYLOAD_PROTOCOL_VERSION, TXN_PAYLOAD_TYPE, TXN_METADATA_SEQ_NO, TXN_METADATA_TIME, \
     TXN_METADATA_ID, TXN_VERSION, TXN_PAYLOAD_METADATA_DIGEST, TXN_ID, CURRENT_PROTOCOL_VERSION, \
     TXN_PAYLOAD_METADATA_PAYLOAD_DIGEST, TXN_PAYLOAD_METADATA_TAA_ACCEPTANCE, TXN_PAYLOAD_METADATA_ENDORSER, \
-    CURRENT_TXN_PAYLOAD_VERSIONS, TXN_PAYLOAD_VERSION, CURRENT_TXN_VERSION
+    CURRENT_TXN_PAYLOAD_VERSIONS, TXN_PAYLOAD_VERSION, CURRENT_TXN_VERSION, OP_VER
 from plenum.common.request import Request
 from plenum.common.types import f, OPERATION
 from stp_core.common.log import getlogger
@@ -122,6 +122,10 @@ def get_from(txn):
     return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_FROM, None)
 
 
+def get_endorser(txn):
+    return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_ENDORSER, None)
+
+
 def get_req_id(txn):
     return txn[TXN_PAYLOAD][TXN_PAYLOAD_METADATA].get(TXN_PAYLOAD_METADATA_REQ_ID, None)
 
@@ -176,7 +180,7 @@ def is_forced(txn):
     return str(force) == 'True'
 
 
-def init_empty_txn(txn_type, protocol_version=CURRENT_PROTOCOL_VERSION):
+def init_empty_txn(txn_type, protocol_version=CURRENT_PROTOCOL_VERSION, txn_payload_version=None):
     result = {}
     result[TXN_PAYLOAD] = {}
     result[TXN_METADATA] = {}
@@ -189,7 +193,9 @@ def init_empty_txn(txn_type, protocol_version=CURRENT_PROTOCOL_VERSION):
         result[TXN_PAYLOAD][TXN_PAYLOAD_PROTOCOL_VERSION] = protocol_version
 
     result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA] = {}
-    if CURRENT_TXN_PAYLOAD_VERSIONS[txn_type] and int(CURRENT_TXN_PAYLOAD_VERSIONS[txn_type]) > 1:
+    if txn_payload_version is not None:
+        result[TXN_PAYLOAD][TXN_PAYLOAD_VERSION] = txn_payload_version
+    elif CURRENT_TXN_PAYLOAD_VERSIONS[txn_type] and int(CURRENT_TXN_PAYLOAD_VERSIONS[txn_type]) > 1:
         result[TXN_PAYLOAD][TXN_PAYLOAD_VERSION] = CURRENT_TXN_PAYLOAD_VERSIONS[txn_type]
     # result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_FROM] = None
     # result[TXN_PAYLOAD][TXN_PAYLOAD_METADATA][TXN_PAYLOAD_METADATA_REQ_ID] = None
@@ -283,7 +289,8 @@ def transform_to_new_format(txn, seq_no):
 def do_req_to_txn(req_data, req_op):
     # 1. init new txn
     result = init_empty_txn(txn_type=req_op.pop(TXN_TYPE, None),
-                            protocol_version=req_data.pop(f.PROTOCOL_VERSION.nm, None))
+                            protocol_version=req_data.pop(f.PROTOCOL_VERSION.nm, None),
+                            txn_payload_version=req_op.pop(OP_VER, None))
 
     # 2. Fill Signature
     if (f.SIG.nm in req_data) or (f.SIGS.nm in req_data):

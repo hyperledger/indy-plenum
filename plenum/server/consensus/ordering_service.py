@@ -15,7 +15,7 @@ from crypto.bls.bls_bft_replica import BlsBftReplica
 from plenum.common.config_util import getConfig
 from plenum.common.constants import POOL_LEDGER_ID, SEQ_NO_DB_LABEL, AUDIT_LEDGER_ID, TXN_TYPE, \
     LAST_SENT_PP_STORE_LABEL, AUDIT_TXN_PP_SEQ_NO, AUDIT_TXN_VIEW_NO, AUDIT_TXN_PRIMARIES, AUDIT_TXN_DIGEST, \
-    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL, AUDIT_TXN_NODE_REG
+    PREPREPARE, PREPARE, COMMIT, DOMAIN_LEDGER_ID, TS_LABEL, AUDIT_TXN_NODE_REG, CONFIG_LEDGER_ID
 from plenum.common.event_bus import InternalBus, ExternalBus
 from plenum.common.exceptions import SuspiciousNode, InvalidClientMessageException, SuspiciousPrePrepare, \
     UnknownIdentifier
@@ -30,10 +30,10 @@ from plenum.common.request import Request
 from plenum.common.router import Subscription
 from plenum.common.stashing_router import PROCESS
 from plenum.common.timer import TimerService, RepeatingTimer
-from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time, get_digest
+from plenum.common.txn_util import get_payload_digest, get_payload_data, get_seq_no, get_txn_time
 from plenum.common.types import f
 from plenum.common.util import compare_3PC_keys, updateNamedTuple, SortedDict, getMaxFailures, mostCommonElement, \
-    get_utc_epoch, max_3PC_key
+    get_utc_epoch, max_3PC_key, reasonForClientFromException
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.server.consensus.consensus_shared_data import ConsensusSharedData
 from plenum.server.consensus.batch_id import BatchID
@@ -49,6 +49,7 @@ from plenum.server.replica_helper import PP_APPLY_REJECT_WRONG, PP_APPLY_WRONG_D
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.server.replica_helper import replica_batch_digest
 from plenum.server.replica_validator_enums import STASH_VIEW_3PC, STASH_CATCH_UP, STASH_WAITING_FIRST_BATCH_IN_VIEW
+from plenum.server.request_handlers.ledgers_freeze.ledger_freeze_helper import StaticLedgersFreezeHelper
 from plenum.server.request_managers.write_request_manager import WriteRequestManager
 from plenum.server.suspicion_codes import Suspicions
 from stp_core.common.log import getlogger
@@ -1151,13 +1152,15 @@ class OrderingService:
             try:
                 self._process_req_during_batch(req,
                                                pre_prepare.ppTime)
-            except (InvalidClientMessageException, UnknownIdentifier, SuspiciousPrePrepare) as ex:
+            except InvalidClientMessageException as ex:
                 logger.warning('{} encountered exception {} while processing {}, '
                                'will reject'.format(self, ex, req))
-                rejects.append((req.key, Reject(req.identifier, req.reqId, ex)))
+                rejects.append((req.key, Reject(req.identifier, req.reqId,
+                                                reasonForClientFromException(ex), ex.code)))
                 invalid_indices.append(idx)
-                if isinstance(ex, SuspiciousPrePrepare):
-                    suspicious = True
+            except SuspiciousPrePrepare:
+                suspicious = True
+                invalid_indices.append(idx)
             finally:
                 reqs.append(req)
             idx += 1
@@ -1485,6 +1488,11 @@ class OrderingService:
 
         self._freshness_checker.update_freshness(ledger_id=pp.ledgerId,
                                                  ts=pp.ppTime)
+
+        # warning: we use uncommitted state here. So, if this batch contains LEDGERS FREEZE txn we don't consider it.
+        frozen_ledgers = StaticLedgersFreezeHelper.get_frozen_ledgers(self.db_manager.get_state(CONFIG_LEDGER_ID))
+        self._freshness_checker.remove_ledgers(frozen_ledgers.keys())
+
         self._data.last_batch_timestamp = pp.ppTime
 
         self._add_to_ordered(*key)
@@ -2136,12 +2144,12 @@ class OrderingService:
                                                    tm)
 
                 except (
-                        InvalidClientMessageException,
-                        UnknownIdentifier
+                        InvalidClientMessageException
                 ) as ex:
                     logger.warning('{} encountered exception {} while processing {}, '
                                    'will reject'.format(self, ex, fin_req))
-                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId, ex)))
+                    rejects.append((fin_req.key, Reject(fin_req.identifier, fin_req.reqId,
+                                                        reasonForClientFromException(ex), ex.code)))
                     invalid_indices.append(idx)
                 except SuspiciousPrePrepare:
                     malicious_req = True

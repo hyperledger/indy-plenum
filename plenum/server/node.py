@@ -89,7 +89,7 @@ from plenum.common.txn_util import idr_from_req_data, get_req_id, \
     get_txn_time, get_digest, TxnUtilConfig, get_payload_digest
 from plenum.common.types import OPERATION, f
 from plenum.common.util import friendlyEx, getMaxFailures, pop_keys, \
-    compare_3PC_keys, get_utc_epoch
+    compare_3PC_keys, get_utc_epoch, reasonForClientFromException
 from plenum.common.verifier import DidVerifier
 from plenum.common.config_helper import PNodeConfigHelper
 
@@ -1331,14 +1331,9 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             elif isinstance(message, tuple) and isinstance(message[1], Reject):
                 with self.metrics.measure_time(MetricsName.NODE_SEND_REJECT_TIME):
                     digest, reject = message
-                    result_reject = Reject(
-                        reject.identifier,
-                        reject.reqId,
-                        self.reasonForClientFromException(
-                            reject.reason))
                     # TODO: What the case when reqKey will be not in requestSender dict
                     if digest in self.requestSender:
-                        self.transmitToClient(result_reject, self.requestSender[digest])
+                        self.transmitToClient(reject, self.requestSender[digest])
                         self.doneProcessingReq(digest)
             elif isinstance(message, Exception):
                 self.processEscalatedException(message)
@@ -1583,7 +1578,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         msg, frm = wrappedMsg
         exc = ex.__cause__ if ex.__cause__ else ex
         friendly = friendlyEx(ex)
-        reason = self.reasonForClientFromException(ex)
+        reason = reasonForClientFromException(ex)
         if isinstance(msg, Request):
             msg = msg.as_dict
         identifier = idr_from_req_data(msg)
@@ -1608,13 +1603,17 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                     "Reason: {}. ".format(self, frm, ex.args[0]))
         # Since client can't yet handle denial of LEDGER_STATUS,
         # node send his LEDGER_STATUS back
-        self.send_ledger_status_to_client(msg.get(f.LEDGER_ID.nm),
-                                          msg.get(f.TXN_SEQ_NO.nm),
-                                          msg.get(f.VIEW_NO.nm),
-                                          msg.get(f.PP_SEQ_NO.nm),
-                                          msg.get(f.MERKLE_ROOT.nm),
-                                          CURRENT_PROTOCOL_VERSION,
-                                          frm)
+
+        # try to re-create the same LedgerStatus but with PROTOCOL VERSION set for backward compatible reasons
+        try:
+            ls = LedgerStatus(msg.get(f.LEDGER_ID.nm), msg.get(f.TXN_SEQ_NO.nm),
+                              msg.get(f.VIEW_NO.nm), msg.get(f.PP_SEQ_NO.nm), msg.get(f.MERKLE_ROOT.nm),
+                              CURRENT_PROTOCOL_VERSION)
+            self.transmitToClient(ls, frm)
+        except Exception:
+            # it means that the LedgerStatus has incorrect fields;
+            # no need to send it back as NACK is already sent
+            pass
 
     def validateClientMsg(self, wrappedMsg):
         """
@@ -1717,14 +1716,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                 await self.clientMsgRouter.handle(m)
             except InvalidClientMessageException as ex:
                 self.handleInvalidClientMsg(ex, m)
-
-    # TODO: change sending format from Reject to (digest, Reject)
-    # if you will use this method
-    def _reject_msg(self, msg, frm, reason):
-        reqKey = (msg.identifier, msg.reqId)
-        reject = Reject(*reqKey,
-                        reason)
-        self.transmitToClient(reject, frm)
 
     def postPoolLedgerCaughtUp(self, **kwargs):
         self.mode = Mode.discovered
@@ -1940,10 +1931,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
             self.sendToNodes(ledgerStatus, [nodeName])
         else:
             logger.info("{} not sending ledger {} status to {} as it is null".format(self, ledgerId, nodeName))
-
-    def send_ledger_status_to_client(self, lid, txn_s_n, v, p, merkle, protocol, client):
-        ls = LedgerStatus(lid, txn_s_n, v, p, merkle, protocol)
-        self.transmitToClient(ls, client)
 
     def _get_manager_for_txn_type(self, txn_type):
         if self.write_manager.is_valid_type(txn_type):
@@ -2863,12 +2850,6 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
         """
         if not areKeysSetup(self.name, self.keys_dir):
             raise REx(REx.reason.format(self.name) + self.keygenScript)
-
-    @staticmethod
-    def reasonForClientFromException(ex: Exception):
-        friendly = friendlyEx(ex)
-        reason = "client request invalid: {}".format(friendly)
-        return reason
 
     def reportSuspiciousNodeEx(self, ex: SuspiciousNode):
         """

@@ -27,9 +27,7 @@ class TxnAuthorAgreementHandler(BaseTAAHandler):
         self._validate_ts(operation.get(TXN_AUTHOR_AGREEMENT_RATIFICATION_TS),
                           identifier, req_id, TXN_AUTHOR_AGREEMENT_RATIFICATION_TS)
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        self._validate_request_type(request)
-        self.authorize(request)
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         operation, identifier, req_id = request.operation, request.identifier, request.reqId
         aml_latest, _, _ = self.get_from_state(StaticTAAHelper.state_path_taa_aml_latest())
         if aml_latest is None:

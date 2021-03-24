@@ -6,7 +6,7 @@ As of now, RocksDB is used as a key-value database for all Storages.
 - Sequence numbers start from 1 and then increase by 1 for each new transaction. There are no gaps in sequence numbers. 
 - RocksDB is used as a key-value storage where key is the sequence number and value is the transaction.
 - A transaction is serialised (currently as MsgPack) before storing in the ledger, more on this in the Serialisation doc.
-- Exact format of each transaction can be found in [Indy Node Transactions](https://github.com/hyperledger/indy-node/blob/master/docs/transactions.md).
+- Exact format of each transaction can be found in [Indy Node Transactions](https://github.com/hyperledger/indy-node/blob/master/docs/source/transactions.md).
 - Each node hosts several ledgers each identified by a unique id:
   -   Audit Ledger (id is `3`): Contains transactions for every ordered 3PC Batch with information about the pool state at the moment of batch ordering.
    It's used for synchronization between other ledgers and recovering of pool state by new or restarted nodes.
