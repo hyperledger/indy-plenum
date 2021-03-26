@@ -8,7 +8,6 @@ def create_msg(i):
     return {'msg': 'msg{}'.format(i)}
 
 
-# FIXME -> RTM: Failing Test 
 def test_stash_msg_to_unknown(tdir, looper, stacks, alpha_handler):
     alpha, beta = stacks
     pending_client_messages = beta._client_message_provider._pending_client_messages
@@ -30,7 +29,6 @@ def test_stash_msg_to_unknown(tdir, looper, stacks, alpha_handler):
     assert not pending_client_messages
 
 
-# FIXME -> RTM: Failing Test 
 def test_resending_only_for_known_clients(tdir, looper, stacks, alpha_handler):
     alpha, beta = stacks
     unknown_identity = "unknown_identity"
@@ -58,7 +56,6 @@ def test_resending_only_for_known_clients(tdir, looper, stacks, alpha_handler):
     assert pending_client_messages[unknown_identity] == message_pending_unknown_id
 
 
-# FIXME -> RTM: Failing Test 
 def test_invalid_msgs_are_not_stashed(tdir, looper, stacks, alpha_handler, tconf):
     alpha, beta = stacks
     pending_client_messages = beta._client_message_provider._pending_client_messages
@@ -82,7 +79,6 @@ def test_invalid_msgs_are_not_stashed(tdir, looper, stacks, alpha_handler, tconf
         alpha_handler))
 
 
-# FIXME -> RTM: Failing Test 
 def test_resending_for_old_stash_msgs(tdir, tconf, looper, stacks,
                                       alpha_handler, monkeypatch):
     alpha, beta = stacks
