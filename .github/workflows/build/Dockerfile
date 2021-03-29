@@ -11,6 +11,15 @@ RUN apt-get update -y && apt-get install -y \
     liblz4-dev \
     libsnappy-dev \
     rocksdb=5.8.8 \
-    ursa=0.3.2-2
+    ursa=0.3.2-2 \
+# Build dependencies
+    ruby \
+    ruby-dev \
+    rubygems \
+    gcc \
+    make 
+
+# install fpm
+RUN gem install --no-ri --no-rdoc rake fpm
 
 RUN indy_image_clean

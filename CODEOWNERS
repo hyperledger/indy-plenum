@@ -1,2 +1,10 @@
-# Indy Common:
-*	@anikitinDSR @ashcherbakov @skhoroshavin @Toktar @donqui
+# SPDX-License-Identifier: Apache-2.0
+
+# Indy Admin
+*       @hyperledger/indy-admin
+
+# Indy Common
+*       @hyperledger/indy-common
+
+# Indy Plenum Maintainers
+*       @hyperledger/indy-plenum-maintainers

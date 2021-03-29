@@ -15,10 +15,10 @@ function build_rocksdb_deb {
     sed -i 's/-m rocksdb@fb.com/-m "Hyperledger <hyperledger-indy@lists.hyperledger.org>"/g' \
         ./build_tools/make_package.sh
     PORTABLE=1 EXTRA_CFLAGS="-fPIC" EXTRA_CXXFLAGS="-fPIC" ./build_tools/make_package.sh $VERSION
-    cp ./package/rocksdb_${VERSION}_amd64.deb $OUTPUT_PATH
     # Install it in the system as it is needed by python-rocksdb.
     make install
     cd -
+    cp /tmp/rocksdb/package/rocksdb_${VERSION}_amd64.deb $OUTPUT_PATH
     rm -rf /tmp/rocksdb
 }
 
@@ -79,6 +79,9 @@ function build_from_pypi {
 
 # TODO duplicates list from Jenkinsfile.cd
 
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+pushd `dirname ${SCRIPT_PATH}` >/dev/null
+
 # Build rocksdb at first
 build_rocksdb_deb 5.8.8
 
@@ -105,3 +108,5 @@ build_from_pypi python-rocksdb 0.6.9
 build_from_pypi pympler 0.8
 build_from_pypi packaging 19.0
 build_from_pypi python-ursa 0.1.1
+
+popd >/dev/null
