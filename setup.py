@@ -102,7 +102,7 @@ setup(
                         # FIXME -> RTM: a function in rlp is used which is deprecated in newer versions.
                         'rlp<=0.6.0',
                         'sha3>=0.2.1',
-                        'leveldb>=0.201'
+                        'leveldb>=0.201',
                         'ioflo>=2.0.2',
                         'semver>=2.13.0',
                         'base58>=2.1.0',
