@@ -69,4 +69,4 @@ def test_client_msg_discard_in_view_change_with_request(test_node):
 
 def check_nack_msg(req_key, reason, to_client):
     assert "Client request is discarded since view " \
-           "change is in progress" == reason
+"change is in progress" == reason
