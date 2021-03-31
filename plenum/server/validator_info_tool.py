@@ -437,8 +437,10 @@ class ValidatorNodeInfoTool:
             replica_stat["Last_ordered_3PC"] = self._prepare_for_json(replica.last_ordered_3pc)
             stashed_txns = {}
             # TODO: Rename? Remove?
-            stashed_txns["Stashed_checkpoints"] = self._prepare_for_json(len(replica._checkpointer._received_checkpoints))
-            stashed_txns["Stashed_PrePrepare"] = self._prepare_for_json(len(replica._ordering_service.prePreparesPendingPrevPP))
+            stashed_txns["Stashed_checkpoints"] = self._prepare_for_json(
+                len(replica._checkpointer._received_checkpoints))
+            stashed_txns["Stashed_PrePrepare"] = self._prepare_for_json(
+                len(replica._ordering_service.prePreparesPendingPrevPP))
             replica_stat["Stashed_txns"] = stashed_txns
             res[replica.name] = self._prepare_for_json(replica_stat)
         return res
@@ -535,14 +537,16 @@ class ValidatorNodeInfoTool:
             num_txns_in_catchup[lid] = self._prepare_for_json(leecher.num_txns_caught_up)
             last_txn_3PC_keys[lid] = self._prepare_for_json(cons_proof_service._last_txn_3PC_key)
             if linfo.ledger.uncommittedRootHash:
-                uncommited_ledger_root_hashes[lid] = self._prepare_for_json(base58.b58encode(linfo.ledger.uncommittedRootHash))
+                uncommited_ledger_root_hashes[lid] = self._prepare_for_json(
+                    base58.b58encode(linfo.ledger.uncommittedRootHash))
             txns = {"Count": len(linfo.ledger.uncommittedTxns)}
             if len(linfo.ledger.uncommittedTxns) > 0:
                 txns["First_txn"] = self._prepare_for_json(linfo.ledger.uncommittedTxns[0])
                 txns["Last_txn"] = self._prepare_for_json(linfo.ledger.uncommittedTxns[-1])
             uncommitted_ledger_txns[lid] = txns
             if linfo.ledger.tree.root_hash:
-                committed_ledger_root_hashes[lid] = self._prepare_for_json(base58.b58encode(linfo.ledger.tree.root_hash))
+                committed_ledger_root_hashes[lid] = self._prepare_for_json(
+                    base58.b58encode(linfo.ledger.tree.root_hash))
 
         for l_id, state in self._node.db_manager.states.items():
             committed_state_root_hashes[l_id] = self._prepare_for_json(base58.b58encode(state.committedHeadHash))
@@ -761,7 +765,7 @@ class ValidatorNodeInfoTool:
                 }
         return res
 
-    def _get_ledgers_updated_time(self)->dict:
+    def _get_ledgers_updated_time(self) -> dict:
         return self._node.master_replica.get_ledgers_last_update_time()
 
     def _is_updated_time_acceptable(self, updated_time):

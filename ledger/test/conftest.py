@@ -76,7 +76,7 @@ def hash_serializer(request):
 
 
 @pytest.fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
-                                                'LeveldbStorage', 'RocksdbStorage'])
+                                          'LeveldbStorage', 'RocksdbStorage'])
 def ledger(request, genesis_txn_file, tempdir, txn_serializer, hash_serializer):
     ledger = create_ledger(request, txn_serializer,
                            hash_serializer, tempdir, genesis_txn_file)
@@ -85,7 +85,7 @@ def ledger(request, genesis_txn_file, tempdir, txn_serializer, hash_serializer):
 
 
 @pytest.fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
-                                                'LeveldbStorage', 'RocksdbStorage'])
+                                          'LeveldbStorage', 'RocksdbStorage'])
 def create_ledger_callable(request):
     if request.param == 'TextFileStorage':
         return create_ledger_text_file_storage
@@ -98,7 +98,7 @@ def create_ledger_callable(request):
 
 
 @pytest.fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
-                                                'LeveldbStorage', 'RocksdbStorage'])
+                                          'LeveldbStorage', 'RocksdbStorage'])
 def ledger_no_genesis(request, tempdir, txn_serializer, hash_serializer):
     ledger = create_ledger(request, txn_serializer, hash_serializer, tempdir)
     yield ledger
@@ -106,7 +106,7 @@ def ledger_no_genesis(request, tempdir, txn_serializer, hash_serializer):
 
 
 @pytest.fixture(scope="function", params=['TextFileStorage', 'ChunkedFileStorage',
-                                                'LeveldbStorage', 'RocksdbStorage'])
+                                          'LeveldbStorage', 'RocksdbStorage'])
 def ledger_with_genesis(request, init_genesis_txn_file, tempdir, txn_serializer, hash_serializer):
     ledger = create_ledger(request, txn_serializer,
                            hash_serializer, tempdir, init_genesis_txn_file)

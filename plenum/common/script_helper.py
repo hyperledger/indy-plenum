@@ -115,11 +115,12 @@ def getAddNewGenNodeCommand(name, verkey, stewardkey, nodeip, nodeport,
     nodeAddr = vnodeip + ":" + vnodeport
     clientAddr = vclientip + ":" + vclientport
 
-    return 'add genesis transaction {node} with data {"'.format(node=PlenumTransactions.NODE.name) + name + '": {' \
-                                                                                                            '"verkey": ' + verkey + \
+    return 'add genesis transaction ' + PlenumTransactions.NODE.name + \
+           ' with data {"' + name + '": {' + \
+           '"verkey": ' + verkey + \
            '"node_address": "' + nodeAddr + '", "client_address": "' + \
-           clientAddr + '"},' \
-                        '"by": "' + stewardkey + '"}'
+           clientAddr + '"},' + \
+           '"by": "' + stewardkey + '"}'
 
 
 def getOldAddNewGenNodeCommand(name, verkey, stewardverkey, nodeip, nodeport,
@@ -146,16 +147,13 @@ def generateNodeGenesisTxn(baseDir, displayTxn, name, verkey, stewardverkey,
 
 
 def getAddNewGenStewardCommand(name, verkey):
-    return 'add genesis transaction {nym} with data {"'.format(nym=PlenumTransactions.NYM.name) \
-           + name + '": {"verkey": "' + verkey + \
-           '"} role={role}'.format(role=Roles.STEWARD.name)
+    return 'add genesis transaction ' + PlenumTransactions.NYM.name + \
+           ' with data { "' + name + '":{"verkey": "' + verkey + '"} role={' + Roles.STEWARD.name + '}'
 
 
 def getOldAddNewGenStewardCommand(name, verkey):
-    return 'add genesis transaction {nym} for '.format(nym=PlenumTransactions.NYM.name) + verkey + ' with data ' \
-                                                                                                   '{"alias": ' \
-                                                                                                   '"' + name + \
-           '"} role={role}'.format(role=Roles.STEWARD.name)
+    return 'add genesis transaction ' + PlenumTransactions.NYM.name + \
+           ' for ' + verkey + ' with data ' + '{"alias": ' + '"' + name + '"} role=' + Roles.STEWARD.name
 
 
 def generateStewardGenesisTxn(baseDir, displayTxn, name, verkey):
