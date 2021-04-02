@@ -116,10 +116,10 @@ def getAddNewGenNodeCommand(name, verkey, stewardkey, nodeip, nodeport,
     clientAddr = vclientip + ":" + vclientport
 
     return 'add genesis transaction ' + PlenumTransactions.NODE.name + \
-           ' with data {"' + name + '": {' + \
+           ' with data {"' + name + '": {' \
            '"verkey": ' + verkey + \
            '"node_address": "' + nodeAddr + '", "client_address": "' + \
-           clientAddr + '"},' + \
+           clientAddr + '"},' \
            '"by": "' + stewardkey + '"}'
 
 
@@ -148,12 +148,12 @@ def generateNodeGenesisTxn(baseDir, displayTxn, name, verkey, stewardverkey,
 
 def getAddNewGenStewardCommand(name, verkey):
     return 'add genesis transaction ' + PlenumTransactions.NYM.name + \
-           ' with data { "' + name + '":{"verkey": "' + verkey + '"} role={' + Roles.STEWARD.name + '}'
+           ' with data { "' + name + '":{"verkey": "' + verkey + '"} role=' + Roles.STEWARD.name
 
 
 def getOldAddNewGenStewardCommand(name, verkey):
     return 'add genesis transaction ' + PlenumTransactions.NYM.name + \
-           ' for ' + verkey + ' with data ' + '{"alias": ' + '"' + name + '"} role=' + Roles.STEWARD.name
+           ' for ' + verkey + ' with data {"alias": "' + name + '"} role=' + Roles.STEWARD.name
 
 
 def generateStewardGenesisTxn(baseDir, displayTxn, name, verkey):
