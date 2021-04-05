@@ -4,11 +4,14 @@ on:
     branches:
       - master
       - gha-ubuntu-20.04
+      - ubuntu-20.04
+      - ubuntu-20.04-upgrade
   pull_request:
     branches:
       - master
       - gha-ubuntu-20.04
-
+      - ubuntu-20.04
+      - ubuntu-20.04-upgrade
 jobs:
 
   workflow-setup:
@@ -37,7 +40,7 @@ jobs:
             echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile.ubuntu-16-04') }}"
             echo "::set-output name=DOCKER_FILE_POSTFIX::ubuntu-16-04"
           fi
-          if [[ "${{github.base_ref}}" == "gha-ubuntu-20.04" || "${{github.ref}}" == "refs/heads/gha-ubuntu-20.04" ]]; then
+          if [[ "${{github.base_ref}}" == "ubuntu-20.04" || "${{github.ref}}" == "refs/heads/ubuntu-20.04" ||  "${{github.base_ref}}" == "ubuntu-20.04-upgrade" || "${{github.ref}}" == "refs/heads/ubuntu-20.04-upgrade" ]]; then
             echo "::set-output name=CACHE_KEY_BUILD::${{ hashFiles('.github/workflows/build/Dockerfile.ubuntu-20-04') }}"
             echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile.ubuntu-20-04') }}"
             echo "::set-output name=DOCKER_FILE_POSTFIX::ubuntu-20-04"
