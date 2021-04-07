@@ -1,7 +1,6 @@
 from collections import OrderedDict
 from typing import Tuple, Iterable
 
-from rlp.utils import str_to_bytes
 from state.util import utils
 from storage.kv_store import KeyValueStorage
 
@@ -104,4 +103,4 @@ class KeyValueStorageInMemory(KeyValueStorage):
         return isinstance(other, self.__class__) and self._dict == other._dict
 
     def __hash__(self):
-        return utils.big_endian_to_int(str_to_bytes(self.__repr__()))
+        return utils.big_endian_to_int(utils.str_to_bytes(self.__repr__()))

@@ -20,7 +20,7 @@ def chk_if_equal_txn_to_3pc(nodes, count=None):
         assert len(txn_to_tpc[0]) == count
 
 
-@pytest.fixture("module")
+@pytest.fixture(scope="module")
 def tconf(tconf, request):
     old_size = tconf.ProcessedBatchMapsToKeep
     tconf.ProcessedBatchMapsToKeep = 5
@@ -32,7 +32,7 @@ def tconf(tconf, request):
     return tconf
 
 
-@pytest.fixture("module")
+@pytest.fixture(scope="module")
 def pre_check(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     # TODO: Maybe this needs to be extracted in another fixture
 

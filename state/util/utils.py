@@ -14,8 +14,33 @@ else:
 
 import rlp
 from rlp.sedes import big_endian_int, BigEndianInt, Binary
-from rlp.utils import decode_hex, encode_hex, ascii_chr, str_to_bytes
 import random
+import binascii
+
+
+# FIXME -> RTM: These are pulled form rlp==0.5.1 rlp.utils
+def encode_hex(b):
+    if isinstance(b, str):
+        b = bytes(b, 'utf-8')
+    if isinstance(b, (bytes, bytearray)):
+        return str(binascii.hexlify(b), 'utf-8')
+    raise TypeError('Value must be an instance of str or bytes')
+
+
+def decode_hex(s):
+    if isinstance(s, str):
+        return bytes.fromhex(s)
+    if isinstance(s, (bytes, bytearray)):
+        return binascii.unhexlify(s)
+    raise TypeError('Value must be an instance of str or bytes')
+
+
+def str_to_bytes(value):
+    if isinstance(value, bytearray):
+        value = bytes(value)
+    if isinstance(value, bytes):
+        return value
+    return bytes(value, 'utf-8')
 
 
 def big_endian_to_int(x):
@@ -197,7 +222,7 @@ def zunpad(x):
 def int_to_addr(x):
     o = [b''] * 20
     for i in range(20):
-        o[19 - i] = ascii_chr(x & 0xff)
+        o[19 - i] = bytes([x & 0xff])
         x >>= 8
     return b''.join(o)
 

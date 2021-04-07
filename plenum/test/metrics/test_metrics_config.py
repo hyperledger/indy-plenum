@@ -1,8 +1,9 @@
 import pytest
 
 from plenum.common.metrics_collector import KvStoreMetricsFormat, MetricsName, TMP_METRIC
-from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
+from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits, assertExp
 from storage.helper import initKeyValueStorage
+from stp_core.loop.eventually import eventually
 
 
 @pytest.fixture(scope="module")
@@ -10,8 +11,11 @@ def tconf(tconf):
     with max_3pc_batch_limits(tconf, size=3) as tconf:
         old_type = tconf.METRICS_COLLECTOR_TYPE
         tconf.METRICS_COLLECTOR_TYPE = 'kv'
+        old_metrics_flush_interval = tconf.METRICS_FLUSH_INTERVAL
+        tconf.METRICS_FLUSH_INTERVAL = 1
         yield tconf
         tconf.METRICS_COLLECTOR_TYPE = old_type
+        tconf.METRICS_FLUSH_INTERVAL = old_metrics_flush_interval
 
 
 def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_handle, sdk_wallet_client):
@@ -104,4 +108,4 @@ def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_h
         for t in MetricsName:
             if t in unexpected_events or t > TMP_METRIC:
                 continue
-            assert t in metric_names
+            looper.run(eventually(lambda: assertExp(t in metric_names)))

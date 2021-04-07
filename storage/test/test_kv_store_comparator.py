@@ -10,7 +10,7 @@ from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
 db_no = 0
 
 
-@pytest.yield_fixture(params=['rocksdb', 'leveldb'])
+@pytest.fixture(params=['rocksdb', 'leveldb'])
 def db_with_int_comparator(request, tempdir) -> KeyValueStorageLeveldb:
     global db_no
     if request.param == 'leveldb':
@@ -22,7 +22,7 @@ def db_with_int_comparator(request, tempdir) -> KeyValueStorageLeveldb:
     db.close()
 
 
-@pytest.yield_fixture(params=['rocksdb', 'leveldb'])
+@pytest.fixture(params=['rocksdb', 'leveldb'])
 def db_with_no_comparator(request, tempdir) -> KeyValueStorageLeveldb:
     global db_no
     if request.param == 'leveldb':

@@ -19,7 +19,6 @@ def tconf(tconf, request):
     return tconf
 
 
-@pytest.fixture(scope='module')
 def sdk_node_theta_added(looper,
                          txnPoolNodeSet,
                          tdir,
@@ -45,6 +44,20 @@ def sdk_node_theta_added(looper,
     looper.run(checkNodesConnected(txnPoolNodeSet))
     sdk_pool_refresh(looper, sdk_pool_handle)
     return new_steward_wallet, new_node
+
+
+@pytest.fixture(scope='module', name='sdk_node_theta_added')
+def sdk_node_theta_added_fixture(looper,
+                                 txnPoolNodeSet,
+                                 tdir,
+                                 tconf,
+                                 sdk_pool_handle,
+                                 sdk_wallet_steward,
+                                 allPluginsPath,
+                                 testNodeClass=TestNode,
+                                 name=None):
+    return sdk_node_theta_added(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_handle, sdk_wallet_steward,
+                                allPluginsPath, testNodeClass, name)
 
 
 @pytest.fixture()

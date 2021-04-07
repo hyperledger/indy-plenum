@@ -10,8 +10,8 @@ from plenum.test.view_change.helper import ensure_view_change, start_stopped_nod
 from stp_core.loop.eventually import eventually
 
 from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, waitForViewChange
-from plenum.test.pool_transactions.conftest import sdk_node_theta_added
-from plenum.test.primary_selection.conftest import sdk_one_node_added
+from plenum.test.pool_transactions.conftest import sdk_node_theta_added_fixture
+from plenum.test.primary_selection.conftest import sdk_one_node_added_fixture
 
 from stp_core.common.log import getlogger
 

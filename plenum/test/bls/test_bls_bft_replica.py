@@ -60,7 +60,7 @@ def pool_txn_root():
     return generate_state_root()
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def patch_audit_ledger(txnPoolNodeSet, pool_state_root, state_root, txn_root, pool_txn_root, ledger_id):
     ledgers_subst = []
     for node in txnPoolNodeSet:
@@ -196,7 +196,7 @@ def pre_prepare_no_bls(state_root, pool_state_root, ledger_id):
     return PrePrepare(*params)
 
 
-@pytest.yield_fixture(scope="function", params=['state_root', 'timestamp', 'txn_root'])
+@pytest.fixture(scope="function", params=['state_root', 'timestamp', 'txn_root'])
 def pre_prepare_incorrect(state_root, request, ledger_id):
     if request.param == 'state_root':
         params = create_pre_prepare_params(state_root=generate_state_root(), ledger_id=ledger_id)

@@ -20,7 +20,7 @@ message coming from node j, node i first verifies the MAC
 authenticator.
 
 """
-from collections import Iterable
+from collections.abc import Iterable
 
 from common.error import error
 from stp_core.common.log import getlogger

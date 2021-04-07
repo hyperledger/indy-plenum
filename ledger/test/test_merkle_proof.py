@@ -113,7 +113,7 @@ hexlify(c(
 TXN_COUNT = 1000
 
 
-@pytest.yield_fixture(scope="module", params=['File', 'Memory'])
+@pytest.fixture(scope="module", params=['File', 'Memory'])
 def hashStore(request, tdir):
     if request.param == 'File':
         fhs = FileHashStore(tdir)

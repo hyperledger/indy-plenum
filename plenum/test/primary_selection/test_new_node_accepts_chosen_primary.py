@@ -24,7 +24,7 @@ def testNodeClass(patchPluginManager):
     return TestNodeWithAdjustedViewNo
 
 
-@pytest.fixture("module")
+@pytest.fixture(scope="module")
 def txnPoolNodeSet(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_steward,
                    tconf, tdirWithPoolTxns, allPluginsPath):
     logger.debug("Do several view changes to round the list of primaries")

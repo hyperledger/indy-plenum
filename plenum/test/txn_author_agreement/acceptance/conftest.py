@@ -150,7 +150,7 @@ def validate_taa_acceptance(
 
 @pytest.fixture
 def taa_accepted(request, random_taa, get_txn_author_agreement):
-    marker = request.node.get_marker('taa_accepted')
+    marker = request.node.get_closest_marker('taa_accepted')
     if marker:
         return marker.args[0]
     else:
@@ -163,7 +163,7 @@ def taa_accepted(request, random_taa, get_txn_author_agreement):
 
 @pytest.fixture
 def taa_acceptance_mechanism(request, aml_request_kwargs):
-    marker = request.node.get_marker('taa_acceptance_mechanism')
+    marker = request.node.get_closest_marker('taa_acceptance_mechanism')
     if marker:
         return marker.args[0]
     else:
@@ -172,7 +172,7 @@ def taa_acceptance_mechanism(request, aml_request_kwargs):
 
 @pytest.fixture
 def taa_acceptance_time(request, get_txn_author_agreement):
-    marker = request.node.get_marker('taa_acceptance_time')
+    marker = request.node.get_closest_marker('taa_acceptance_time')
     if marker:
         return marker.args[0]
     else:
@@ -242,6 +242,6 @@ def add_taa_acceptance(
 
 @pytest.fixture
 def request_dict(request, looper, request_json, add_taa_acceptance):
-    if not request.node.get_marker('taa_acceptance_missed'):
+    if not request.node.get_closest_marker('taa_acceptance_missed'):
         request_json = add_taa_acceptance()
     return dict(**json.loads(request_json))

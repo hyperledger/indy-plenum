@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.yield_fixture(scope="function")
+@pytest.fixture(scope="function")
 def cons_proof_service(txnPoolNodeSet):
     ledger_manager = txnPoolNodeSet[0].ledgerManager
     service = ledger_manager._node_leecher._leechers[1]._cons_proof_service

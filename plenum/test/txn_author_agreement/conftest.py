@@ -37,7 +37,7 @@ from .helper import (
 # Note. tconf is necessary for proper config initialization
 @pytest.fixture(scope="module")
 def config_ledger(tconf, tmpdir_factory):
-    tdir = tmpdir_factory.mktemp('').strpath
+    tdir = tmpdir_factory.mktemp('tmp').strpath
     return Ledger(CompactMerkleTree(),
                   dataDir=tdir)
 
@@ -164,7 +164,7 @@ def get_txn_author_agreement(
 
 @pytest.fixture
 def random_taa(request):
-    marker = request.node.get_marker('random_taa')
+    marker = request.node.get_closest_marker('random_taa')
     return gen_random_txn_author_agreement(
         **({} if marker is None else marker.kwargs))
 

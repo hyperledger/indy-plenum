@@ -30,8 +30,7 @@ class NymHandler(WriteRequestHandler):
     def static_validation(self, request: Request):
         pass
 
-    def dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
-        self._validate_request_type(request)
+    def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
         identifier, req_id, operation = get_request_data(request)
         error = None
         if not is_steward(self.state,
@@ -46,6 +45,9 @@ class NymHandler(WriteRequestHandler):
             raise UnauthorizedClientRequest(identifier,
                                             req_id,
                                             error)
+
+    def authorize(self, request):
+        pass
 
     def gen_state_key(self, txn):
         nym = get_payload_data(txn).get(TARGET_NYM)

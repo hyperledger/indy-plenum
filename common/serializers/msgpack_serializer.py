@@ -36,10 +36,10 @@ class MsgPackSerializer(MappingSerializer, StreamSerializer):
         # TODO: it can be that we returned data by `get_lines`, that is already deserialized
         if not isinstance(data, (bytes, bytearray)):
             return data
-        return msgpack.unpackb(data, encoding='utf-8', object_pairs_hook=decode_to_sorted)
+        return msgpack.unpackb(data, raw=False, object_pairs_hook=decode_to_sorted)
 
     def get_lines(self, stream):
-        return msgpack.Unpacker(stream, encoding='utf-8', object_pairs_hook=decode_to_sorted)
+        return msgpack.Unpacker(stream, raw=False, object_pairs_hook=decode_to_sorted)
 
     def _sort_dict(self, d) -> OrderedDict:
         if not isinstance(d, Dict):

@@ -27,6 +27,9 @@ var/
 *.egg
 *.eggs
 
+# Needed for GitHub Actions
+!.github/workflows/build
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -86,8 +89,9 @@ venv/
 # generated doc files
 docs/source/api_docs/
 
-# hidden files
-.*
+# IntelliJ specific config
+*.idea
+*.iml
 
 # log files
 *.log
@@ -100,8 +104,5 @@ target/
 
 # Ipython Notebook
 .ipynb_checkpoints
-
-# Hidden files
-.*
 
 

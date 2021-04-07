@@ -74,7 +74,7 @@ def _reload_module(module):
 
 
 def get_replayable_node_class(tmpdir_factory, tdir, node_class, config):
-    basedirpath = tmpdir_factory.mktemp('').strpath
+    basedirpath = tmpdir_factory.mktemp('tmp').strpath
 
     prepare_directory_for_replay(tdir, basedirpath, config)
 
@@ -102,5 +102,5 @@ def create_replayable_node_and_check(looper, all_nodes, node_to_check,
 
 def create_recorder_for_test(tmpdir_factory, name):
     storage = KeyValueStorageLeveldbIntKeys(
-        tmpdir_factory.mktemp('').strpath, name)
+        tmpdir_factory.mktemp('tmp').strpath, name)
     return Recorder(storage)

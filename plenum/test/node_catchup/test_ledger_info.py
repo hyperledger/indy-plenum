@@ -17,9 +17,10 @@ from plenum.common.messages.node_messages import ConsistencyProof
 from plenum.common.metrics_collector import NullMetricsCollector
 from plenum.server.catchup.catchup_rep_service import CatchupRepService
 from plenum.server.catchup.utils import CatchupDataProvider, CatchupTill
+from state.state import State
 
 
-@pytest.yield_fixture(
+@pytest.fixture(
     scope="function",
     params=[
         'TextFileStorage',
@@ -48,6 +49,9 @@ def create_fake_catchup_rep_service(ledger: Ledger):
         def ledger(self, ledger_id: int) -> Ledger:
             if ledger_id == 0:
                 return self._ledger
+
+        def config_state(self) -> State:
+            pass
 
         def verifier(self, ledger_id: int) -> MerkleVerifier:
             pass

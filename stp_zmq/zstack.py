@@ -570,8 +570,8 @@ class ZStack(NetworkInterface):
                         # Router probing sends empty message on connection
                         continue
                     i += 1
-                    logger.trace("{} received a message from remote {} by socket {} {}", self,
-                                 z85_to_friendly(ident), sock.FD, sock.underlying)
+                    logger.trace("{} received a message from remote {} by socket {} {}".
+                                 format(self, z85_to_friendly(ident), sock.FD, sock.underlying))
                     self._verifyAndAppend(msg, ident)
                 except zmq.Again as e:
                     break

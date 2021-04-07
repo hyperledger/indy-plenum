@@ -289,7 +289,6 @@ def text_txn_author_agreement_can_change_retirement(looper, set_txn_author_agree
     assert taa == rep['result'][DATA]
 
 
-
 def test_send_valid_txn_author_agreement_without_enough_privileges_fails(
         looper, set_txn_author_agreement_aml, txnPoolNodeSet,
         sdk_pool_handle, sdk_wallet_steward, random_taa

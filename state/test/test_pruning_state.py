@@ -12,7 +12,7 @@ from storage.kv_store_rocksdb import KeyValueStorageRocksdb
 i = 0
 
 
-@pytest.yield_fixture(scope="function", params=['rocksdb', 'leveldb', 'in_memory'])
+@pytest.fixture(scope="function", params=['rocksdb', 'leveldb', 'in_memory'])
 def db(request, tempdir) -> KeyValueStorage:
     if request.param == 'leveldb':
         return KeyValueStorageLeveldb(tempdir, 'kv{}'.format(i))
@@ -21,14 +21,14 @@ def db(request, tempdir) -> KeyValueStorage:
     return KeyValueStorageInMemory()
 
 
-@pytest.yield_fixture(scope="function")
+@pytest.fixture(scope="function")
 def state(db) -> State:
     state = PruningState(db)
     yield state
     state.close()
 
 
-@pytest.yield_fixture(scope="function")
+@pytest.fixture(scope="function")
 def state2(db) -> State:
     state = PruningState(db)
     yield state

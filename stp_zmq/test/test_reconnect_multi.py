@@ -74,27 +74,24 @@ def test_reconnect_and_send_multi(looper, tdir, tconf, generated_keys):
     alpha, alpha_motor, alpha_msg_handler = create_stack("Alpha", looper, tdir, tconf)
     beta, beta_motor, beta_msg_handler = create_stack("Beta", looper, tdir, tconf)
 
-    # connect Alpha to Beta
+    # connect both
     connectStack(alpha, beta)
-    # connect Beta to Alpha
     connectStack(beta, alpha)
 
     # check connected
     looper.run(eventually(
         checkStacksConnected, [alpha, beta], timeout=CONNECT_TIMEOUT))
 
-    total_from_alpha = 0
-    total_from_alpha += send(looper, alpha, beta)
+    total_from_alpha = send(looper, alpha, beta)
     check_all_received(looper, frm=alpha, to_msg_handler=beta_msg_handler, num_msg=total_from_alpha)
 
-    total_from_beta = 0
-    total_from_beta += send(looper, beta, alpha)
+    total_from_beta = send(looper, beta, alpha)
     check_all_received(looper, frm=beta, to_msg_handler=alpha_msg_handler, num_msg=total_from_beta)
 
     for i in range(10):
         # reconnect Alpha
         alpha.stop()
-
+        looper.runFor(.1)
         total_from_beta += send(looper, beta, alpha)
 
         alpha.start()
@@ -109,6 +106,7 @@ def test_reconnect_and_send_multi(looper, tdir, tconf, generated_keys):
 
         # reconnect Beta
         beta.stop()
+        looper.runFor(.1)
 
         total_from_alpha += send(looper, alpha, beta)
 
@@ -125,10 +123,13 @@ def test_reconnect_and_send_multi(looper, tdir, tconf, generated_keys):
 
         # reconnect Alpha and then Beta
         alpha.stop()
+        looper.runFor(.1)
         alpha.start()
         connectStack(alpha, beta)
         beta.stop()
+        looper.runFor(.1)
         beta.start()
+
         connectStack(beta, alpha)
         looper.run(eventually(
             checkStacksConnected, [alpha, beta], timeout=CONNECT_TIMEOUT))
@@ -140,9 +141,11 @@ def test_reconnect_and_send_multi(looper, tdir, tconf, generated_keys):
 
         # reconnect Beta and then Alpha
         beta.stop()
+        looper.runFor(.1)
         beta.start()
         connectStack(beta, alpha)
         alpha.stop()
+        looper.runFor(.1)
         alpha.start()
         connectStack(alpha, beta)
         looper.run(eventually(
@@ -201,6 +204,10 @@ def test_reconnect_multiple_time_with_random_waits(looper, tdir, tconf, generate
     connectStack(alpha, beta)
     connectStack(beta, alpha)
 
+    # check connected
+    looper.run(eventually(
+        checkStacksConnected, [alpha, beta], timeout=CONNECT_TIMEOUT))
+
     total = send(looper, alpha, beta)
     check_all_received(looper, frm=alpha, to_msg_handler=beta_msg_handler, num_msg=total)
 
@@ -213,5 +220,8 @@ def test_reconnect_multiple_time_with_random_waits(looper, tdir, tconf, generate
 
         beta.start()
         connectStack(beta, alpha)
+
+        looper.run(eventually(
+            checkStacksConnected, [alpha, beta], timeout=CONNECT_TIMEOUT))
 
         check_all_received(looper, frm=alpha, to_msg_handler=beta_msg_handler, num_msg=total)

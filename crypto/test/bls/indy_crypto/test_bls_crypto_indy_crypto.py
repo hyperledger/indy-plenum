@@ -64,7 +64,7 @@ def test_generate_keys_no_seed(default_params, bls_verifier):
     assert bls_verifier.verify_key_proof_of_possession(key_proof, pk)
 
 
-@pytest.yield_fixture(scope="function", params=['30', '32', '31', '22'])
+@pytest.fixture(scope="function", params=['30', '32', '31', '22'])
 def seed(request):
     seed_len = int(request.param)
     return 'Seed' + '0' * (seed_len - len('Seed'))

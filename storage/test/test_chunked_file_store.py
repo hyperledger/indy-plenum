@@ -28,7 +28,7 @@ def chunkedTextFileStore(tempdir) -> ChunkedFileStore:
     return ChunkedFileStore(tempdir, "chunked_data", True, True, chunkSize)
 
 
-@pytest.yield_fixture(scope="function")
+@pytest.fixture(scope="function")
 def populatedChunkedFileStore(tempdir, chunkedTextFileStore) -> ChunkedFileStore:
     store = chunkedTextFileStore
     store.reset()

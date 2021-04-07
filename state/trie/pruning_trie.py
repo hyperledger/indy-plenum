@@ -5,10 +5,9 @@ import copy
 from common.exceptions import PlenumTypeError, PlenumValueError
 
 import rlp
-from rlp.utils import encode_hex, ascii_chr, str_to_bytes
 from state.db.db import BaseDB
 from state.util.fast_rlp import encode_optimized, decode_optimized
-from state.util.utils import is_string, to_string, sha3, sha3rlp, encode_int
+from state.util.utils import is_string, to_string, sha3, sha3rlp, encode_int, str_to_bytes, encode_hex
 from storage.kv_in_memory import KeyValueStorageInMemory
 
 rlp_encode = encode_optimized
@@ -43,7 +42,7 @@ def nibbles_to_bin(nibbles):
 
     res = b''
     for i in range(0, len(nibbles), 2):
-        res += ascii_chr(16 * nibbles[i] + nibbles[i + 1])
+        res += bytes([16 * nibbles[i] + nibbles[i + 1]])
     return res
 
 
@@ -157,7 +156,7 @@ def pack_nibbles(nibbles):
         nibbles = [flags, 0] + nibbles
     o = b''
     for i in range(0, len(nibbles), 2):
-        o += ascii_chr(16 * nibbles[i] + nibbles[i + 1])
+        o += bytes([16 * nibbles[i] + nibbles[i + 1]])
     return o
 
 
