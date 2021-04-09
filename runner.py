@@ -70,9 +70,9 @@ def run(pytest, output_file, repeatUntilFailure, testDir, test_slice):
     errorTestPat = re.compile('____ (ERROR.+) ____')
     while True:
         for i, tests in enumerate(test_list_sliced):
-            # testRep = '{}.rep'.format(test.split("/")[-1])
+            testResults = '--junitxml={}-test-results.xml'.format(tests.split("/")[-1])
             testStartTime = time.time()
-            pytest_cmd = '{} {} > {}'.format(pytest, tests, testRep)
+            pytest_cmd = '{} {} {} > {}'.format(pytest, testResults, tests, testRep)
             log(pytest_cmd)
             r = os.system(pytest_cmd)
             testExecutionTime = time.time() - testStartTime
