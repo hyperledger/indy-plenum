@@ -47,7 +47,7 @@ if __name__ == "__main__":
     print("Node-stack name is", args.name)
     print("Client-stack name is", args.name + CLIENT_STACK_SUFFIX)
     try:
-        pubkey, verkey, blspk = initNodeKeysForBothStacks(args.name, config.baseDir, args.seed, override=args.force)
+        pubkey, verkey, blspk, key_proof = initNodeKeysForBothStacks(args.name, config.baseDir, args.seed, override=args.force)
         typ = args.type or "node"
         # Print genesis transaction commands
         if args.print_gen_txn:
