@@ -297,7 +297,7 @@ def logcapture(request, whitelist, concerningLogLevels):
         # Converting the log message to its string representation, the log
         # message can be an arbitrary object
         if not (isBenign or isTest):
-            msg = str(record.message if record.message else record.msg)
+            msg = str(record.message if hasattr(record, 'message') else record.msg)
             # TODO combine whitelisted with '|' and use one regex for msg
             isWhiteListed = any(re.search(w, msg)
                                 for w in whiteListedExceptions)
