@@ -102,7 +102,7 @@ RUN mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
 # 	apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CE7709D068DB5E88 && \
 RUN echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list && \
     apt-get update -y && apt-get install -y \ 
-    libindy=1.15.0~1625
+    libindy=1.15.0~1625-xenial
 
 RUN apt-get -y autoremove
 RUN rm -rf /var/lib/apt/lists/*
