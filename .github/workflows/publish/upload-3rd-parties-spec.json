@@ -1,9 +1,0 @@
-{
-    "files": [
-      {
-        "pattern": "/home/runner/tmp/third-party-dependencies/*.deb",
-        "target": "indy/pool/${RELEASE}/i/indy-plenum/"
-      }]
-
-    }
-    
