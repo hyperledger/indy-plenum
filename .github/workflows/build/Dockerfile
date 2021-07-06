@@ -1,7 +1,9 @@
 FROM hyperledger/indy-core-baseci:0.0.3-master
 LABEL maintainer="Hyperledger <hyperledger-indy@lists.hyperledger.org>"
 
-RUN apt-get update -y && apt-get install -y \
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 \
+    && apt-get update -y \
+    && apt-get install -y \
     python3-nacl \
     libindy-crypto=0.4.5 \
     libindy=1.15.0~1625-xenial \
@@ -17,7 +19,9 @@ RUN apt-get update -y && apt-get install -y \
     ruby-dev \
     rubygems \
     gcc \
-    make 
+    make \
+# zstd is needed for caching in github actions pipeline
+    zstd
 
 # install fpm
 RUN gem install --no-ri --no-rdoc rake fpm
