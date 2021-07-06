@@ -17,7 +17,9 @@ RUN apt-get update -y && apt-get install -y \
     ruby-dev \
     rubygems \
     gcc \
-    make 
+    make \
+# zstd is needed for caching in github actions pipeline
+    zstd
 
 # install fpm
 RUN gem install --no-ri --no-rdoc rake fpm
