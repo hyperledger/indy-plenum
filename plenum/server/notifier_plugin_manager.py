@@ -1,5 +1,5 @@
-import pip
 import importlib
+import importlib_metadata
 import math
 from typing import Dict
 import time
@@ -146,6 +146,6 @@ class PluginManager:
         return i, len(self.plugins)
 
     def _findPlugins(self):
-        return [pkg.key
-                for pkg in pip.utils.get_installed_distributions()
-                if pkg.key.startswith(PluginManager.prefix)]
+        return [pkg.metadata["Name"]
+                for pkg in importlib_metadata.distributions()
+                if pkg.metadata["Name"].startswith(PluginManager.prefix)]

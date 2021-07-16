@@ -557,11 +557,11 @@ def randomText(size):
     return ''.join(random.choice(string.ascii_letters) for _ in range(size))
 
 
-def mockGetInstalledDistributions(packages):
+def mockDistributions(packages):
     ret = []
     for pkg in packages:
         obj = type('', (), {})()
-        obj.key = pkg
+        obj.metadata = {'Name': pkg, 'Version': 0.0}
         ret.append(obj)
     return ret
 
