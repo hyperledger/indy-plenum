@@ -24,8 +24,8 @@ from plenum.common.signer_did import DidSigner
 from plenum.common.signer_simple import SimpleSigner
 from plenum.test import waits
 
+import importlib_metadata
 import gc
-import pip
 import pytest
 import plenum.config as plenum_config
 import plenum.server.general_config.ubuntu_platform_config as platform_config
@@ -56,7 +56,7 @@ from plenum.common.util import getNoInstances, randomString
 from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
-    mockGetInstalledDistributions, mockImportModule, chk_all_funcs, \
+    mockDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
     sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check, MockTimer, create_pool_txn_data
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
@@ -769,8 +769,8 @@ def pluginManager(monkeypatch):
     packagesCnt = 3
     packages = [pluginManager.prefix + randomText(10)
                 for _ in range(packagesCnt)]
-    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
-                        partial(mockGetInstalledDistributions,
+    monkeypatch.setattr(importlib_metadata, 'distributions',
+                        partial(mockDistributions,
                                 packages=packages))
     imported, found = pluginManager.importPlugins()
     assert imported == 3
@@ -790,8 +790,8 @@ def patchPluginManager():
 
 @pytest.fixture
 def pluginManagerWithImportedModules(pluginManager, monkeypatch):
-    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
-                        partial(mockGetInstalledDistributions,
+    monkeypatch.setattr(importlib_metadata, 'distributions',
+                        partial(mockDistributions,
                                 packages=[]))
     monkeypatch.setattr(importlib, 'import_module', mockImportModule)
     imported, found = pluginManager.importPlugins()
@@ -799,8 +799,8 @@ def pluginManagerWithImportedModules(pluginManager, monkeypatch):
     packagesCnt = 3
     packages = [pluginManager.prefix + randomText(10)
                 for _ in range(packagesCnt)]
-    monkeypatch.setattr(pip.utils, 'get_installed_distributions',
-                        partial(mockGetInstalledDistributions,
+    monkeypatch.setattr(importlib_metadata, 'distributions',
+                        partial(mockDistributions,
                                 packages=packages))
     imported, found = pluginManager.importPlugins()
     assert imported == 3

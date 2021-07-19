@@ -2,7 +2,6 @@ import json
 import time
 import psutil
 import platform
-import pip
 import os
 import base58
 import subprocess
@@ -10,6 +9,7 @@ import locale
 import codecs
 from dateutil import parser
 import datetime
+import importlib_metadata
 
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_path
@@ -272,7 +272,10 @@ class ValidatorNodeInfoTool:
     @none_on_fail
     def _generate_software_info(self):
         os_version = self._prepare_for_json(platform.platform())
-        installed_packages = [self._prepare_for_json(pack) for pack in pip.get_installed_distributions()]
+        installed_packages = [
+            "{} {}".format(p.metadata["Name"], p.version)
+            for p in importlib_metadata.distributions()
+        ]
         output = self._run_external_cmd("dpkg-query --list | grep indy")
         indy_packages = output.split(os.linesep)
         return {
