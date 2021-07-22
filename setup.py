@@ -108,7 +108,7 @@ setup(
                         'orderedset',
                         'sortedcontainers>=1.5.7',
                         'psutil>=5.6.6',
-                        'pip<10.0.0',
+                        'importlib_metadata>=2.0',
                         'portalocker>=2.2.1',
                         # Pinned because of changing size of `crypto_sign_SECRETKEYBYTES` from 32 to 64
                         'libnacl==1.6.1',

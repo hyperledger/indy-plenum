@@ -1,7 +1,7 @@
-import pip.utils as utils
+import importlib_metadata
 import pytest
 
-from plenum.test.helper import randomText, mockGetInstalledDistributions, \
+from plenum.test.helper import randomText, mockDistributions, \
     mockImportModule
 from functools import partial
 import importlib
@@ -17,10 +17,10 @@ def testPluginManagerFindsPlugins(monkeypatch, pluginManager):
     invalidPackages = [randomText(10) for _ in range(invalidPackagesCnt)]
 
     monkeypatch.setattr(
-        utils,
-        'get_installed_distributions',
+        importlib_metadata,
+        'distributions',
         partial(
-            mockGetInstalledDistributions,
+            mockDistributions,
             packages=validPackages +
                      invalidPackages))
     assert len(pluginManager._findPlugins()) == validPackagesCnt
@@ -31,8 +31,8 @@ def testPluginManagerImportsPlugins(monkeypatch, pluginManager):
     packages = [pluginManager.prefix + randomText(10)
                 for _ in range(packagesCnt)]
 
-    monkeypatch.setattr(utils, 'get_installed_distributions',
-                        partial(mockGetInstalledDistributions,
+    monkeypatch.setattr(importlib_metadata, 'distributions',
+                        partial(mockDistributions,
                                 packages=packages))
     monkeypatch.setattr(importlib, 'import_module', mockImportModule)
 

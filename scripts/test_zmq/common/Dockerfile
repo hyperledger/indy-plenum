@@ -8,6 +8,6 @@ RUN apt update && apt install -y \
 
 # pypi based packages
 RUN pip3 install -U \
-    'pip<10.0.0' \
+    pip \
     setuptools \
     virtualenv

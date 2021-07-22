@@ -22,9 +22,9 @@ PLUGIN_CLIENT_REQUEST_FIELDS = {}
 
 def setup_plugins():
     import os   # noqa
-    import pip  # noqa
     import importlib    # noqa
     from importlib.util import module_from_spec, spec_from_file_location    # noqa: E402
+    import importlib_metadata
     import plenum   # noqa: E402
     import plenum.server.plugin     # noqa: E402
     from plenum.common.config_util import getConfigOnce   # noqa: E402
@@ -57,7 +57,7 @@ def setup_plugins():
                           format(plugin_root))
     sys.path.insert(0, plugin_root.__path__[0])
     enabled_plugins = config.ENABLED_PLUGINS
-    installed_packages = {p.project_name: p for p in pip.get_installed_distributions()}
+    installed_packages = set(p.metadata["Name"] for p in importlib_metadata.distributions())
     for plugin_name in enabled_plugins:
         plugin = find_and_load_plugin(plugin_name, plugin_root, installed_packages)
         plugin_globals = plugin.__dict__
