@@ -246,8 +246,8 @@ jobs:
       - name: Install dependencies
         run: |
           # Explicitly use the existing pip cache location in the plenum-build image.
-          # pip --cache-dir /root/.cache/pip install .[tests]
-          pip install .[tests]
+          pip --cache-dir /root/.cache/pip install .[tests]
+          
 
       - name: Run Indy Plenum ${{ matrix.module }} test slice ${{ matrix.slice }}/${{ strategy.job-total }}
         id: plenum-test
@@ -301,8 +301,8 @@ jobs:
       - name: Install dependencies
         run: |
           # Explicitly use the existing pip cache location in the plenum-build image.
-          # pip --cache-dir /root/.cache/pip install .[tests]
-          pip install .[tests]
+          pip --cache-dir /root/.cache/pip install .[tests]
+         
 
       - name: Run Indy Plenum ${{ matrix.module }} tests
         run: python3 -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}.xml ${{ matrix.module }}
@@ -430,9 +430,7 @@ jobs:
         with:
           path: /tmp/third-party-dependencies
           key: third-party-dependencies-${{ hashFiles('./build-scripts/${{ env.UBUNTU_VERSION }}/build-3rd-parties.sh') }}
-          restore-keys: |
-            third-party-dependencies-
-
+          
       - name: Publish 3rd Party Dependencies
         uses: ./.github/actions/publish-deb
         with:
