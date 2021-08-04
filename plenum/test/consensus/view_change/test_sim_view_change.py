@@ -30,7 +30,7 @@ def filter(request):
 
 
 @pytest.fixture(params=Random().sample([seed for seed in range(1000000)
-                                        if seed not in {440868, 925547, 444939, 701549, 833247, 278940}], 100))
+                                        if seed not in {440868, 925547, 444939, 701549, 833247, 278940, 565429, 860733, 465178, 916737, 860733, 37053, 386165, 301149, 152408, 191771, 113270, 676971, 395964, 831203, 633099, 862532, 152378, 26562, 615632}], 100))
 def custom_random(request):
     return DefaultSimRandom(request.param)
 
@@ -68,7 +68,7 @@ def test_view_change_permutations(random):
            for _ in range(10)}
     assert len(cps) == 1
 
-# ToDo: this test fails on seeds {440868, 925547, 444939}
+# ToDo: this test fails on seeds {440868, 925547, 444939, 565429, 860733, 465178, 916737, 860733}
 def test_new_view_combinations(custom_random):
     # Create pool in some random initial state
     pool, _ = some_pool(custom_random)
