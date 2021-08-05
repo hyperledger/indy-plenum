@@ -391,10 +391,50 @@ jobs:
           ./build-scripts/${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}/build-3rd-parties.sh ./cache/3rd-party-dependencies
           mv ./build-scripts/${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}/cache/* /tmp/third-party-dependencies
 
+  build-python-packages:
+    name: Build Python Packages
+    runs-on: ubuntu-20.04
+    needs: [workflow-setup, indy_plenum_tests, indy_plenum_module_tests, lint]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v1
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install required packages via pip
+        run: |
+          python3 -m pip install pytest-runner wheel
+
+      - name: Set Build Version
+        id: version
+        uses: ./.github/actions/set-version
+        with:
+          moduleName: plenum
+          isDev: ${{ needs.workflow-setup.outputs.isDev }}
+          isRC: ${{ needs.workflow-setup.outputs.isRC }}
+
+      - name: Prepare package and set version
+        run: |
+          ./build-scripts/${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}/prepare-package.sh . plenum "${{ steps.version.outputs.upstreamVer }}" python-packages
+
+      - name: Building python package
+        run: |
+          python3 setup.py sdist --dist-dir /tmp/dist bdist_wheel --dist-dir /tmp/dist
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: plenum-python
+          path: /tmp/dist
+          retention-days: 5
+
+
   publish_artifacts:
     name: Publish Artifacts
     runs-on: ubuntu-20.04
-    needs: [workflow-setup, build_release, build_3rd_party_dependencies]
+    needs: [workflow-setup, build_release, build_3rd_party_dependencies, build-python-packages]
     if: needs.workflow-setup.outputs.publish == 'true'
     env:
       GITHUB_REF: ${{ needs.workflow-setup.outputs.GITHUB_REF }}
@@ -440,3 +480,16 @@ jobs:
           sourceDirectory: /home/runner/tmp/third-party-dependencies
           distribution: ${{ needs.workflow-setup.outputs.distribution }}
           component: ${{ env.GITHUB_REF }}
+
+      - name: Download Python Packages from Pipeline Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: plenum-python
+          path: dist
+
+      - name: Publish Python Package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
