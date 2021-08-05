@@ -24,6 +24,7 @@ jobs:
       # to be in lowercase.
       GITHUB_REPOSITORY_NAME: ${{ steps.repository-name.outputs.lowercase }}
       GITHUB_REF: ${{ steps.cache.outputs.GITHUB_REF }}
+      distribution: ${{ steps.cache.outputs.distribution }}
       isDev: ${{ steps.build-flags.outputs.isDev }}
       isRC: ${{ steps.build-flags.outputs.isRC }}
       publish: ${{ steps.build-flags.outputs.publish }}
@@ -45,11 +46,13 @@ jobs:
             echo "::set-output name=CACHE_KEY_BUILD::${{ hashFiles('.github/workflows/build/Dockerfile.ubuntu-1604') }}"
             echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile.ubuntu-1604') }}"
             echo "::set-output name=UBUNTU_VERSION::ubuntu-1604"
+            echo "::set-output name=distribution::xenial"
           fi
           if [[ "${{github.base_ref}}" == "ubuntu-20.04-upgrade" || "${{github.ref}}" == "refs/heads/ubuntu-20.04-upgrade" ]]; then
             echo "::set-output name=CACHE_KEY_BUILD::${{ hashFiles('.github/workflows/build/Dockerfile.ubuntu-2004') }}"
             echo "::set-output name=CACHE_KEY_LINT::${{ hashFiles('.github/workflows/lint/Dockerfile.ubuntu-2004') }}"
             echo "::set-output name=UBUNTU_VERSION::ubuntu-2004"
+            echo "::set-output name=distribution::focal"
           fi
 
           if [[ "${{github.base_ref}}" == 'master' || "${{github.ref}}" == 'refs/heads/master' || "${{github.base_ref}}" == 'main' || "${{github.ref}}" == 'refs/heads/main' ]]; then
@@ -79,7 +82,7 @@ jobs:
           fi
 
           # Ensure publishing is only performed when the build is executed from the main (hyperledger/indy-plenum) repository.
-          if [[ ${{github.event.repository.full_name}} == 'hyperledger/indy-plenum' && ${{github.event_name}} == 'push' && ( ${{steps.cache.outputs.GITHUB_REF}} == 'main' || ${{steps.cache.outputs.GITHUB_REF}} == 'rc' || ${{steps.cache.outputs.GITHUB_REF}} == 'stable' ) ]]; then
+          if [[ ${{github.event.repository.full_name}} == 'hyperledger/indy-plenum' && ${{github.event_name}} == 'push' && ( ${{steps.cache.outputs.GITHUB_REF}} == 'main' || ${{steps.cache.outputs.GITHUB_REF}} == 'rc' || ${{steps.cache.outputs.GITHUB_REF}} == 'stable' || ${{steps.cache.outputs.GITHUB_REF}} == 'dev' ) ]]; then
             echo "::set-output name=publish::true"
           else
             echo "::set-output name=publish::false"
@@ -421,7 +424,7 @@ jobs:
         uses: ./.github/actions/publish-deb
         with:
           sourceDirectory: /home/runner/work/indy-plenum/indy-plenum/to_publish
-          distribution: focal
+          distribution: ${{ needs.workflow-setup.outputs.distribution }}
           component: ${{ env.GITHUB_REF }}
 
       - name: Download 3rd Party Artifacts Dependencies from Cache
@@ -435,5 +438,5 @@ jobs:
         uses: ./.github/actions/publish-deb
         with:
           sourceDirectory: /home/runner/tmp/third-party-dependencies
-          distribution: focal
+          distribution: ${{ needs.workflow-setup.outputs.distribution }}
           component: ${{ env.GITHUB_REF }}
