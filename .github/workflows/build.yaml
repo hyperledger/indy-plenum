@@ -472,7 +472,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: /tmp/third-party-dependencies
-          key: third-party-dependencies-${{ hashFiles('./build-scripts/${{ env.UBUNTU_VERSION }}/build-3rd-parties.sh') }}
+          key: ${{ format('third-party-dependencies-{0}', hashFiles(format('./build-scripts/{0}/build-3rd-parties.sh', needs.workflow-setup.outputs.UBUNTU_VERSION ))) }}           
           
       - name: Publish 3rd Party Dependencies
         uses: ./.github/actions/publish-deb
@@ -492,4 +492,5 @@ jobs:
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
+          skip_existing: true
 
