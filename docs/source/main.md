@@ -1,7 +1,7 @@
 # Overview of the system
 
 - The system maintains a replicated ordered log of transactions called the ledger. 
-- Participants of the system which maintain this log are called the nodes. The nodes run a consensus protocol ([RBFT](http://lig-membres.imag.fr/aublin/rbft/report.pdf)) to agree on the order of transactions. For simplicity it can be assumed that one of the node is the leader (primary) which determines the order of transactions and communicates it to the rest of the nodes (followers).
+- Participants of the system which maintain this log are called the nodes. The nodes run a consensus protocol ([RBFT](https://lig-membres.imag.fr/aublin/rbft/report.pdf)) to agree on the order of transactions. For simplicity it can be assumed that one of the node is the leader (primary) which determines the order of transactions and communicates it to the rest of the nodes (followers).
 - Each run (3 phase commit) of the consensus protocol orders a batch (collection) of transactions.
 - Nodes maintain several ledgers, each for a distinct purpose. It has a pool ledger for node membership transactions like addition of new node, suspension of a node, change of IP/port or keys of a node, a ledger for identity transactions, etc 
 - Apart for the ledger, nodes maintain state (for each ledger) which is [Merkle Patricia Trie](https://github.com/ethereum/wiki/wiki/Patricia-Tree). It might maintain several other projections of the ledger. For more on storage, refer the [storage document](storage.md). 
