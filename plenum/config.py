@@ -328,7 +328,7 @@ DATETIME_LIMIT = 35
 TAA_ACCEPTANCE_MECHANISM_FIELD_LIMIT = 64
 
 PLUGIN_ROOT = 'plenum.server.plugin'
-ENABLED_PLUGINS = []
+ENABLED_PLUGINS = ['did_plugin']
 
 # 0 for normal operation
 # 1 for recorder
