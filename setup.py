@@ -98,7 +98,7 @@ setup(
                         'jsonpickle==0.9.6',
                         'ujson==1.33',
                         'prompt_toolkit==0.57',
-                        'pygments==2.2.0',
+                        'pygments==2.7.4',
                         'rlp==0.5.1',
                         'sha3==0.2.1',
                         'leveldb',
