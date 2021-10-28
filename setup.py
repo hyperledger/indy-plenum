@@ -28,7 +28,7 @@ with open(metadata['__file__'], 'r') as f:
     exec(f.read(), metadata)
 
 tests_require = ['attrs==19.1.0', 'pytest==3.3.1', 'pytest-xdist==1.22.1', 'pytest-forked==0.2',
-                 'python3-indy==1.15.0-dev-1625', 'pytest-asyncio==0.8.0']
+                 'python3-indy==1.16.0', 'pytest-asyncio==0.8.0']
 
 
 class PyZMQCommand(distutils.cmd.Command):
@@ -98,7 +98,7 @@ setup(
                         'jsonpickle==0.9.6',
                         'ujson==1.33',
                         'prompt_toolkit==0.57',
-                        'pygments==2.2.0',
+                        'pygments==2.7.4',
                         'rlp==0.5.1',
                         'sha3==0.2.1',
                         'leveldb',
@@ -108,7 +108,7 @@ setup(
                         'orderedset==2.0.3',
                         'sortedcontainers==1.5.7',
                         'psutil==5.6.6',
-                        'importlib_metadata>=2.0',
+                        'importlib-metadata==2.1.1',
                         'portalocker==0.5.7',
                         'libnacl==1.6.1',
                         'six==1.11.0',
@@ -118,7 +118,7 @@ setup(
                         'python-dateutil==2.6.1',
                         'pympler==0.8',
                         'packaging==19.0',
-                        'python-ursa==0.1.1',
+                        'python-ursa==0.1.1'
                       ],
 
     setup_requires=['pytest-runner'],

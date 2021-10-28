@@ -28,8 +28,9 @@ RUN apt-get update -y && apt-get install -y \
 # issues with pip>=10:
 # https://github.com/pypa/pip/issues/5240
 # https://github.com/pypa/pip/issues/5221
-RUN python3 -m pip install -U pip setuptools \
-    && pip3 list
+RUN pip3 install -U \ 
+    pip \
+    'setuptools<=50.3.2' 
 
 # install fpm
 RUN gem install --no-ri --no-rdoc rake fpm
