@@ -24,7 +24,7 @@ Built packages are placed in a docker volume `indy-plenum-deb-u1604`.
 ### Build 3rd-party dependencies
 
 ```
-./build-3rd-parties-docker.sh <output-path: default='.'>
+./build-3rd-parties.sh <output-path: default='.'>
 ```
 
 Built packages are placed in the `output-path` folder.

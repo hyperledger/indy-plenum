@@ -108,5 +108,6 @@ build_from_pypi python-rocksdb 0.6.9
 build_from_pypi pympler 0.8
 build_from_pypi packaging 19.0
 build_from_pypi python-ursa 0.1.1
+build_from_pypi importlib-metadata 2.1.1
 
 popd >/dev/null
