@@ -112,6 +112,6 @@ build_from_pypi importlib-metadata 2.1.1
 # TODO: remove as install dependency because it is just needed for documentation
 build_from_pypi pygments 2.7.4
 # Is a dependency of importlib-metadata. In focal it is part of the Canonical archive
-build_from_pypi zipp 1.0.0
+build_from_pypi zipp 1.2.0
 
 popd >/dev/null
