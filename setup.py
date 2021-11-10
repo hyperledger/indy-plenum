@@ -97,7 +97,8 @@ setup(
     install_requires=[
                         # 'base58==2.1.0',
                         'base58',
-                        'importlib_metadata>=2.0',
+                        # pinned because issue with fpm from v4.0.0
+                        'importlib_metadata==3.10.1',
                         # 'ioflo==2.0.2',
                         'ioflo',
                         # 'jsonpickle==2.0.0',
