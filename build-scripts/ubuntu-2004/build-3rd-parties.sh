@@ -27,6 +27,10 @@ function build_from_pypi {
 
     if [ -z $2 ]; then
         PACKAGE_VERSION=""
+        # Get the most recent package version from PyPI to be included in the package name of the Debian artifact
+        curl -X GET "https://pypi.org/pypi/${PACKAGE_NAME}/json" > "${PACKAGE_NAME}.json"
+        PACKAGE_VERSION="==$(cat "${PACKAGE_NAME}.json" | jq --raw-output '.info.version')"
+        rm "${PACKAGE_NAME}.json"
     else
         PACKAGE_VERSION="==$2"
     fi
@@ -97,9 +101,9 @@ build_from_pypi pyzmq 18.1.0 bundled
 
 ##### install_requires
 build_from_pypi base58 
-build_from_pypi importlib_metadata
+build_from_pypi importlib-metadata 
 build_from_pypi ioflo 
-build_from_pypi jsonpickle 
+build_from_pypi jsonpickle
 build_from_pypi leveldb 
 build_from_pypi libnacl 1.6.1
 build_from_pypi msgpack-python
@@ -109,7 +113,7 @@ build_from_pypi portalocker
 build_from_pypi prompt-toolkit 3.0.18
 build_from_pypi psutil 
 build_from_pypi pympler 0.8
-build_from_pypi python-dateutil 
+build_from_pypi python-dateutil
 build_from_pypi python-rocksdb
 build_from_pypi python-ursa 0.1.1
 build_from_pypi rlp 0.6.0
@@ -118,5 +122,3 @@ build_from_pypi sha3
 build_from_pypi six 
 build_from_pypi sortedcontainers 1.5.7
 build_from_pypi ujson 1.33
-
-
