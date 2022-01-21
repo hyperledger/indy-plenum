@@ -1,5 +1,8 @@
 ![logo](indy-logo.png)
 
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://gitpod.io/#https://github.com/hyperledger/indy-plenum/tree/ubuntu-20.04-upgrade)
+
+
 * [Plenum Byzantine Fault Tolerant Protocol](#plenum-byzantine-fault-tolerant-protocol)
 * [Technical Overview of Indy Plenum](#technical-overview-of-indy-plenum)
 * [Other Documentation](#other-documentation)
@@ -83,6 +86,18 @@ Use project name `INDY`.
 
 
 ## How to Start Working with the Code
+
+The preferred method of setting up the development environment is to use the devcontainers.
+All configuration files for VSCode and [Gitpod](https://gitpod.io) are already placed in this repository.
+If you are new to the concept of devcontainers in combination with VSCode [here](https://code.visualstudio.com/docs/remote/containers) is a good article about it.
+
+Simply clone this repository and VSCode will most likely ask you to open it in the devcontainer, if you have the correct extension("ms-vscode-remote.remote-containers") installed.
+If VSCode didn't ask to open it, open the command palette and use the `Remote-Containers: Rebuild and Reopen in Container` command.
+
+If you want to use Gitpod simply use this [link](https://gitpod.io/#https://github.com/hyperledger/indy-plenum/tree/ubuntu-20.04-upgrade) 
+or if you want to work with your fork, prefix the entire URL of your branch with  `gitpod.io/#` so that it looks like `https://gitpod.io/#https://github.com/hyperledger/indy-plenum/tree/ubuntu-20.04-upgrade`.
+
+**Note**: Be aware that the config files for Gitpod and VSCode are currently only used in the `ubuntu-20.04-upgrade` branch!
 
 Please have a look at [Dev Setup](https://github.com/hyperledger/indy-node/blob/master/docs/setup-dev.md) in indy-node repo.
 It contains common setup for both indy-plenum and indy-node.

@@ -1,9 +1,9 @@
-FROM ubuntu:20.04
+FROM gitpod/workspace-full as base
 
-ARG uid=1000
-ARG user=indy
+USER gitpod
 
-RUN apt-get update -y && apt-get install -y \
+
+RUN sudo apt-get update -y && sudo apt-get install -y \
     # common stuff
     git \
     wget \
@@ -17,24 +17,21 @@ RUN apt-get update -y && apt-get install -y \
 # ========================================================================================================
 # Update repository signing keys
 # --------------------------------------------------------------------------------------------------------
-    # Hyperledger
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 && \
+# Hyperledger
+RUN sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 && \
     # Sovrin
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
+    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
 # ========================================================================================================
 
 # Plenum
 #  - https://github.com/hyperledger/indy-plenum/issues/1546
 #  - Needed to pick up rocksdb=5.8.8
-RUN echo "deb https://hyperledger.jfrog.io/artifactory/indy focal dev"  >> /etc/apt/sources.list && \
-    echo "deb http://security.ubuntu.com/ubuntu bionic-security main"  >> /etc/apt/sources.list && \
-    echo "deb https://repo.sovrin.org/deb bionic master" >> /etc/apt/sources.list && \
-    echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list
+RUN sudo add-apt-repository 'deb https://hyperledger.jfrog.io/artifactory/indy focal dev' && \
+    sudo add-apt-repository 'deb http://security.ubuntu.com/ubuntu bionic-security main' && \
+    sudo add-apt-repository 'deb https://repo.sovrin.org/deb bionic master'  && \
+    sudo add-apt-repository 'deb https://repo.sovrin.org/sdk/deb bionic master' 
 
-# Sovrin
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 
-
-RUN apt-get update -y && apt-get install -y \
+RUN sudo apt-get update -y && sudo apt-get install -y \
     # Python
     python3-pip \
     python3-nacl \
@@ -60,17 +57,17 @@ RUN apt-get update -y && apt-get install -y \
     # Indy SDK
     libindy=1.15.0~1625-bionic \
     # Need to move libursa.so to parent dir
-    && mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
+    && sudo mv /usr/lib/ursa/* /usr/lib && sudo rm -rf /usr/lib/ursa
 
 RUN pip3 install -U \
     # Required by setup.py
-    setuptools==50.3.2
-
+    setuptools==50.3.2 \
+    # Linting tools
+    pep8==1.7.1 \
+    pep8-naming==0.6.1 \
+    flake8==3.8.4
 
 # install rake
-RUN gem install --no-document rake 
+RUN sudo gem install --no-document rake 
 ## install fpm; needs to be pinned to 1.13.1 because some packages cannot be built with the newest release 1.14.0
-RUN gem install --no-document fpm -v 1.13.1
-
-RUN apt-get -y autoremove \
-    && rm -rf /var/lib/apt/lists/*
+RUN sudo gem install --no-document fpm -v 1.13.1
