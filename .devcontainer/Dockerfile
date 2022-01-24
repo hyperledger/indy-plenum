@@ -1,7 +1,12 @@
-FROM ubuntu:20.04
+# See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.209.6/containers/ubuntu/.devcontainer/base.Dockerfile
 
-ARG uid=1000
-ARG user=indy
+# [Choice] Ubuntu version (use hirsuite or bionic on local arm64/Apple Silicon): hirsute, focal, bionic
+ARG VARIANT="focal"
+FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT}
+
+# [Optional] Uncomment this section to install additional OS packages.
+# RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+#     && apt-get -y install --no-install-recommends <your-package-list-here>
 
 RUN apt-get update -y && apt-get install -y \
     # common stuff
@@ -14,6 +19,7 @@ RUN apt-get update -y && apt-get install -y \
     curl \
     jq
 
+
 # ========================================================================================================
 # Update repository signing keys
 # --------------------------------------------------------------------------------------------------------
@@ -23,16 +29,14 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 &&
     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
 # ========================================================================================================
 
+
 # Plenum
 #  - https://github.com/hyperledger/indy-plenum/issues/1546
 #  - Needed to pick up rocksdb=5.8.8
-RUN echo "deb https://hyperledger.jfrog.io/artifactory/indy focal dev"  >> /etc/apt/sources.list && \
+RUN echo "deb  https://hyperledger.jfrog.io/artifactory/indy focal dev"  >> /etc/apt/sources.list && \
     echo "deb http://security.ubuntu.com/ubuntu bionic-security main"  >> /etc/apt/sources.list && \
     echo "deb https://repo.sovrin.org/deb bionic master" >> /etc/apt/sources.list && \
     echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list
-
-# Sovrin
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 
 
 RUN apt-get update -y && apt-get install -y \
     # Python
@@ -64,13 +68,14 @@ RUN apt-get update -y && apt-get install -y \
 
 RUN pip3 install -U \
     # Required by setup.py
-    setuptools==50.3.2
+    setuptools==50.3.2 \
+    # Linting tools
+    pep8==1.7.1 \
+    pep8-naming==0.6.1 \
+    flake8==3.8.4
 
 
 # install rake
 RUN gem install --no-document rake 
 ## install fpm; needs to be pinned to 1.13.1 because some packages cannot be built with the newest release 1.14.0
 RUN gem install --no-document fpm -v 1.13.1
-
-RUN apt-get -y autoremove \
-    && rm -rf /var/lib/apt/lists/*
