@@ -1,6 +1,6 @@
 ![logo](indy-logo.png)
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://gitpod.io/#https://github.com/hyperledger/indy-plenum/tree/ubuntu-20.04-upgrade)
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/hyperledger/indy-plenum/tree/ubuntu-20.04-upgrade)
 
 
 * [Plenum Byzantine Fault Tolerant Protocol](#plenum-byzantine-fault-tolerant-protocol)
