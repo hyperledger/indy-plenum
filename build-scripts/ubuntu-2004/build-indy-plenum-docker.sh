@@ -13,12 +13,12 @@ if [[ (-z "${PKG_SOURCE_PATH}") || (-z "${VERSION}") ]]; then
 fi
 
 if [ -z "$5" ]; then
-    CMD="/root/build-${PKG_NAME}.sh /input ${VERSION} /output ${PACKAGE_VERSION}"
+    CMD="/input/build-scripts/ubuntu-2004/build-${PKG_NAME}.sh /input ${VERSION} /output ${PACKAGE_VERSION}"
 else
     CMD="$5"
 fi
 
-docker build -t "${IMAGE_NAME}" -f Dockerfile .
+docker build -t "${IMAGE_NAME}" -f ../../.github/workflows/build/Dockerfile.ubuntu-2004 .
 docker volume create --name "${OUTPUT_VOLUME_NAME}"
 
 docker run \
