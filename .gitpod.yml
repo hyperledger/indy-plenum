@@ -4,7 +4,7 @@ image:
 tasks:
   - name: Pip installs
     #Deprecated Legacy Resolver neeeded because of https://github.com/hyperledger/indy-sdk/issues/2473
-    init: pip install --use-deprecated legacy-resolver .[tests]
+    init: pip install .[tests]
 
 github:
   prebuilds:
