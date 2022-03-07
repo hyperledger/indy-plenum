@@ -8,5 +8,6 @@
     "python.testing.pytestArgs": [
         "-c",
         "pytest.ini"
-    ]
+    ],
+    "files.eol": "\n"
 }
