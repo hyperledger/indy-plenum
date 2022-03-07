@@ -1,0 +1,116 @@
+name: "Test Indy Plenum"
+
+on:
+  workflow_call:
+    inputs:
+      GITHUB_REPOSITORY_NAME:
+        required: true
+        type: string
+      UBUNTU_VERSION:
+        required: true
+        type: string
+
+jobs:
+  indy_plenum_tests:
+    name: Sliced Module Tests
+    # Reference to workflow-setup job is required to access the GITHUB_REPOSITORY_NAME output.
+    runs-on: ubuntu-20.04
+    # Fix for scacap/action-surefire-report out of memory error:
+    # - https://github.com/ScaCap/action-surefire-report/issues/17
+    env:
+      NODE_OPTIONS: "--max_old_space_size=4096"
+      UBUNTU_VERSION: ${{ inputs.UBUNTU_VERSION }}
+    container:
+      image: ghcr.io/${{ inputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ inputs.UBUNTU_VERSION }}
+    strategy:
+      matrix:
+        module: [plenum]
+        # To slice up the tests into smaller chunks add additional sequential
+        # numbers here.  The subsequent steps will adjust automatically.
+        # ${{ strategy.job-total }} is used to get the total number of slices.
+        slice: [1, 2, 3, 4, 5, 6, 7, 8]
+      fail-fast: false
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          # pip cache on the plenum-build image is not in the default location.
+          # path: ~/.cache/pip
+          path: /root/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          # Explicitly use the existing pip cache location in the plenum-build image.
+          pip --cache-dir /root/.cache/pip install .[tests]
+          
+
+      - name: Run Indy Plenum ${{ matrix.module }} test slice ${{ matrix.slice }}/${{ strategy.job-total }}
+        id: plenum-test
+        run: RUSTPYTHONASYNCIODEBUG=0 python3 runner.py --pytest "python3 -m pytest -l -vv" --dir "${{ matrix.module }}" --output "test-result-plenum-${{ matrix.slice }}.txt" --test-only-slice "${{ matrix.slice }}/${{ strategy.job-total }}"
+
+      - name: Publish Test Report
+        if: success() || failure()
+        uses: scacap/action-surefire-report@v1.0.7
+        continue-on-error: true
+        with:
+          check_name: Indy Plenum ${{ matrix.module }} Test Report for slice ${{ matrix.slice }}/${{ strategy.job-total }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          report_paths: "*-test-results.xml"
+
+      - name: Upload Detailed Test Failure Results
+        # The test runner only emits the detailed test results if the tests fail.
+        if: (steps.plenum-test.outcome == 'failure') && failure()
+        uses: actions/upload-artifact@v2
+        with:
+          name: detailed-test-result-slice-${{ matrix.slice }}
+          path: test-result-plenum-${{ matrix.slice }}.txt
+          retention-days: 5
+
+  indy_plenum_module_tests:
+    name: Module Tests
+    # Reference to workflow-setup job is required to access the GITHUB_REPOSITORY_NAME output.
+    runs-on: ubuntu-20.04
+    env:
+      UBUNTU_VERSION: ${{ inputs.UBUNTU_VERSION }}
+    container:
+      image: ghcr.io/${{ inputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ inputs.UBUNTU_VERSION }}
+    strategy:
+      matrix:
+        module: [common, crypto, ledger, state, storage, stp_core, stp_zmq]
+      fail-fast: false
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          # pip cache on the plenum-build image is not in the default location.
+          # path: ~/.cache/pip
+          path: /root/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          # Explicitly use the existing pip cache location in the plenum-build image.
+          pip --cache-dir /root/.cache/pip install .[tests]
+         
+
+      - name: Run Indy Plenum ${{ matrix.module }} tests
+        run: python3 -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}.xml ${{ matrix.module }}
+
+      - name: Publish Test Report
+        uses: scacap/action-surefire-report@v1.0.7
+        continue-on-error: true
+        with:
+          check_name: Indy Plenum ${{ matrix.module }} Test Report
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          report_paths: test-result-plenum-${{ matrix.module }}.xml
