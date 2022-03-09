@@ -1,0 +1,71 @@
+name: Test Artifacts Download
+
+on:
+  push:
+    tags:        
+      - test**
+    
+jobs:
+  test:
+    name: Test download
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        
+      - name: Download Plenum Artifacts from Github Action Artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          workflow: releasepr.yaml
+          workflow_conclusion: success
+          name: plenum-deb
+          path: artifacts/plenum-deb
+      - name: Download Plenum Artifacts from Github Action Artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          workflow: releasepr.yaml
+          workflow_conclusion: success
+          name: plenum-python
+          path: artifacts/plenum-python
+      - name: Download Plenum Artifacts from Github Action Artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          github_token: ${{secrets.GITHUB_TOKEN}}
+          workflow: releasepr.yaml
+          workflow_conclusion: success
+          name: third-party-dependencies
+          path: artifacts/third-party-dependencies
+      - uses: actions/upload-artifact@v2
+        with:
+          name: third-party-dependencies
+          path: artifacts/third-party-dependencies
+          retention-days: 5
+      - uses: actions/upload-artifact@v2
+        with:
+          name: plenum-deb
+          path: artifacts/plenum-deb
+          retention-days: 5
+      - uses: actions/upload-artifact@v2
+        with:
+          name: plenum-python
+          path: artifacts/plenum-python
+          retention-days: 5
+      - name: Zip Files for Release
+        run: |
+          zip -r artifacts/plenum-deb.zip artifacts/plenum-deb
+          zip -r artifacts/plenum-python.zip artifacts/plenum-python
+          zip -r artifacts/third-party-dependencies.zip artifacts/third-party-dependencies
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: testrelease
+          files: |
+            artifacts/**.zip
+          generate_release_notes: true
+          body: "testrelease"
+          prerelease: true
+          target_commitish: ${{github.event.ref}}
+          name: "testrelease"
+          token: ${{ secrets.BOT_PR_PAT }}
