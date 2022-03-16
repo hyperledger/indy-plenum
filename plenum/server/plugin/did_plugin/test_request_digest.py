@@ -11,8 +11,8 @@ from plenum.common.util import randomString
 
 from plenum.test.helper import sdk_random_request_objects, sdk_multisign_request_object, sdk_get_and_check_replies, \
     sdk_send_signed_requests, sdk_gen_request, sdk_sign_and_submit_req_obj, sdk_get_reply
-from plenum.test.plugin.demo_plugin import dummy_field_length
-from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AMOUNT, AUCTION_START
+from plenum.server.plugin.did_plugin import dummy_field_length
+from plenum.server.plugin.did_plugin.constants import PLACE_BID, AMOUNT, AUCTION_START
 
 
 @pytest.fixture(scope='function')

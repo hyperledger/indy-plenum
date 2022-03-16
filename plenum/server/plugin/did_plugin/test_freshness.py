@@ -3,8 +3,8 @@ import pytest
 from plenum.test.freshness.helper import get_multi_sig_values_for_all_nodes, \
     check_updated_bls_multi_sig_for_ledger, check_freshness_updated_for_ledger
 from plenum.test.helper import freshness
-from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
-from plenum.test.plugin.demo_plugin.helper import send_auction_txn
+from plenum.server.plugin.did_plugin import AUCTION_LEDGER_ID
+from plenum.server.plugin.did_plugin.helper import send_auction_txn
 from stp_core.loop.eventually import eventually
 
 FRESHNESS_TIMEOUT = 5

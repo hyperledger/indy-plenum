@@ -5,9 +5,9 @@ from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.read_request_handler import ReadRequestHandler
 from plenum.server.request_handlers.handler_interfaces.write_request_handler import WriteRequestHandler
-from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
-from plenum.test.plugin.demo_plugin.constants import AUCTION_START, PLACE_BID, AMOUNT, GET_BAL
-from plenum.test.plugin.demo_plugin.request_handlers.abstract_auction_req_handler import AbstractAuctionReqHandler
+from plenum.server.plugin.did_plugin import AUCTION_LEDGER_ID
+from plenum.server.plugin.did_plugin.constants import AUCTION_START, PLACE_BID, AMOUNT, GET_BAL
+from plenum.server.plugin.did_plugin.request_handlers.abstract_auction_req_handler import AbstractAuctionReqHandler
 
 
 class GetBalHandler(ReadRequestHandler):

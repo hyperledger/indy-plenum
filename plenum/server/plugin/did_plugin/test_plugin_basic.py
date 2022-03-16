@@ -6,8 +6,8 @@ from plenum.test.helper import sdk_gen_request, \
     sdk_get_and_check_replies
 from plenum.common.constants import TXN_TYPE, DATA
 from plenum.common.util import randomString
-from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID, dummy_field_length
-from plenum.test.plugin.demo_plugin.constants import GET_BAL
+from plenum.server.plugin.did_plugin import AUCTION_LEDGER_ID, dummy_field_length
+from plenum.server.plugin.did_plugin.constants import GET_BAL
 
 
 def test_plugin_setup(txn_pool_node_set_post_creation):

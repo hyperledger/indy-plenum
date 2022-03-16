@@ -3,8 +3,8 @@ import pytest
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.freshness.helper import check_update_bls_multi_sig_during_ordering
 from plenum.test.helper import freshness
-from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
-from plenum.test.plugin.demo_plugin.helper import send_auction_txn
+from plenum.server.plugin.did_plugin import AUCTION_LEDGER_ID
+from plenum.server.plugin.did_plugin.helper import send_auction_txn
 
 FRESHNESS_TIMEOUT = 10
 

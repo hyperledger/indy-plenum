@@ -1,7 +1,7 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.server.batch_handlers.batch_request_handler import BatchRequestHandler
 from plenum.server.database_manager import DatabaseManager
-from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
+from plenum.server.plugin.did_plugin import AUCTION_LEDGER_ID
 
 
 class AuctionBatchHandler(BatchRequestHandler):

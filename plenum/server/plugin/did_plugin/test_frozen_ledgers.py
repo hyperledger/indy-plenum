@@ -1,5 +1,5 @@
 import pytest
-from plenum.test.plugin.demo_plugin.constants import AUCTION_LEDGER_ID
+from plenum.server.plugin.did_plugin.constants import AUCTION_LEDGER_ID
 
 from plenum.test.freeze_ledgers.helper import sdk_send_freeze_ledgers, sdk_get_frozen_ledgers
 from plenum.test.helper import freshness

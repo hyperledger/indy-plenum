@@ -1,14 +1,14 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.server.client_authn import CoreAuthNr
-from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
-from plenum.test.plugin.demo_plugin.batch_handlers.auction_batch_handler import AuctionBatchHandler
-from plenum.test.plugin.demo_plugin.config import get_config
-from plenum.test.plugin.demo_plugin.request_handlers.auction_end_handler import AuctionEndHandler
-from plenum.test.plugin.demo_plugin.request_handlers.auction_start_handler import AuctionStartHandler
-from plenum.test.plugin.demo_plugin.request_handlers.get_auction import GetAuctionHandler
-from plenum.test.plugin.demo_plugin.request_handlers.get_bal_handler import GetBalHandler
-from plenum.test.plugin.demo_plugin.request_handlers.place_bid_handler import PlaceBidHandler
-from plenum.test.plugin.demo_plugin.storage import get_auction_hash_store, \
+from plenum.server.plugin.did_plugin import AUCTION_LEDGER_ID
+from plenum.server.plugin.did_plugin.batch_handlers.auction_batch_handler import AuctionBatchHandler
+from plenum.server.plugin.did_plugin.config import get_config
+from plenum.server.plugin.did_plugin.request_handlers.auction_end_handler import AuctionEndHandler
+from plenum.server.plugin.did_plugin.request_handlers.auction_start_handler import AuctionStartHandler
+from plenum.server.plugin.did_plugin.request_handlers.get_auction import GetAuctionHandler
+from plenum.server.plugin.did_plugin.request_handlers.get_bal_handler import GetBalHandler
+from plenum.server.plugin.did_plugin.request_handlers.place_bid_handler import PlaceBidHandler
+from plenum.server.plugin.did_plugin.storage import get_auction_hash_store, \
     get_auction_ledger, get_auction_state
 
 

@@ -5,8 +5,8 @@ from copy import deepcopy
 
 from plenum import setup_plugins, PLUGIN_LEDGER_IDS, PLUGIN_CLIENT_REQUEST_FIELDS
 from plenum.common.pkg_util import update_module_vars
-from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
-from plenum.test.plugin.demo_plugin.main import integrate_plugin_in_node
+from plenum.server.plugin.did_plugin import AUCTION_LEDGER_ID
+from plenum.server.plugin.did_plugin.main import integrate_plugin_in_node
 
 
 def do_plugin_initialisation_for_tests():

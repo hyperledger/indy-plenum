@@ -1,4 +1,4 @@
-from plenum.test.plugin.demo_plugin import DemoTransactions
+from plenum.server.plugin.did_plugin import DemoTransactions
 
 AUCTION_LEDGER_ID = 909
 

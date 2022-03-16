@@ -1,6 +1,6 @@
 from plenum.common.messages.fields import FixedLengthField
-from plenum.test.plugin.demo_plugin.transactions import DemoTransactions
-from plenum.test.plugin.demo_plugin.constants import AUCTION_LEDGER_ID
+from plenum.server.plugin.did_plugin.transactions import DemoTransactions
+from plenum.server.plugin.did_plugin.constants import AUCTION_LEDGER_ID
 
 
 dummy_field_length = 10

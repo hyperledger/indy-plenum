@@ -5,8 +5,8 @@ from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.request_handlers.handler_interfaces.read_request_handler import ReadRequestHandler
-from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
-from plenum.test.plugin.demo_plugin.constants import GET_AUCTION
+from plenum.server.plugin.did_plugin import AUCTION_LEDGER_ID
+from plenum.server.plugin.did_plugin.constants import GET_AUCTION
 
 
 class GetAuctionHandler(ReadRequestHandler):
