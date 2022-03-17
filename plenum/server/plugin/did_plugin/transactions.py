@@ -3,7 +3,7 @@ from plenum.common.transactions import Transactions
 
 # DO NOT CHANGE ONCE CODE IS DEPLOYED ON THE LEDGER
 # TODO: Might need a short hash with unique entropy, plugin name being input of hash.
-PREFIX = '9999'
+PREFIX = '2022'
 
 
 class DemoTransactions(Transactions):
@@ -11,8 +11,9 @@ class DemoTransactions(Transactions):
     #  because that would break backwards compatibility with the ledger
     # Also the numeric constants CANNOT collide with other transactions hence a
     # prefix is used
-    AUCTION_START = PREFIX + '0'
-    AUCTION_END = PREFIX + '1'
-    PLACE_BID = PREFIX + '2'
-    GET_BAL = PREFIX + '3'
-    GET_AUCTION = PREFIX + '4'
+    CREATE_DID = PREFIX + '0'
+    CREATE_NETWORK_DID = PREFIX + '1'
+    FETCH_DID = PREFIX + '2'
+    UPDATE_DID = PREFIX + '3'
+    UPDATE_NETWORK_DID = PREFIX + '4'
+    DEACTIVATE_DID = PREFIX + '5'

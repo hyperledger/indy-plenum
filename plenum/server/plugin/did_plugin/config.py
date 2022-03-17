@@ -2,7 +2,7 @@ from plenum.common.constants import KeyValueStorageType
 
 
 def get_config(config):
-    config.auctionTransactionsFile = 'auction_transactions'
-    config.auctionStateStorage = KeyValueStorageType.Leveldb
-    config.auctionStateDbName = 'auction_state'
+    config.didPluginTransactionsFile = 'did_plugin_transactions'
+    config.didPluginStateStorage = KeyValueStorageType.Leveldb
+    config.didPluginStateDbName = 'did_plugin_state'
     return config

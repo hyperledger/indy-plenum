@@ -6,19 +6,19 @@ from storage.helper import initKeyValueStorage
 from plenum.common.constants import HS_LEVELDB
 
 
-def get_auction_hash_store(data_dir):
+def get_did_plugin_hash_store(data_dir):
     return DbHashStore(dataDir=data_dir,
-                       fileNamePrefix='auction',
+                       fileNamePrefix='did_plugin',
                        db_type=HS_LEVELDB)
 
 
-def get_auction_ledger(data_dir, name, hash_store, config):
+def get_did_plugin_ledger(data_dir, name, hash_store, config):
     return Ledger(CompactMerkleTree(hashStore=hash_store),
                   dataDir=data_dir,
                   fileName=name,
                   ensureDurability=config.EnsureLedgerDurability)
 
 
-def get_auction_state(data_dir, name, config):
+def get_did_plugin_state(data_dir, name, config):
     return PruningState(initKeyValueStorage(
-        config.auctionStateStorage, data_dir, name))
+        config.didPluginStateStorage, data_dir, name))

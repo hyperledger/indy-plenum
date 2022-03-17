@@ -1,12 +1,14 @@
 from plenum.server.plugin.did_plugin import DemoTransactions
 
-AUCTION_LEDGER_ID = 909
+DID_PLUGIN_LEDGER_ID = 20220
 
-AUCTION_START = DemoTransactions.AUCTION_START.value
-AUCTION_END = DemoTransactions.AUCTION_END.value
-PLACE_BID = DemoTransactions.PLACE_BID.value
-GET_BAL = DemoTransactions.GET_BAL.value
-GET_AUCTION = DemoTransactions.GET_AUCTION.value
+CREATE_DID = DemoTransactions.CREATE_DID.value
+CREATE_NETWORK_DID = DemoTransactions.CREATE_NETWORK_DID.value
+FETCH_DID = DemoTransactions.FETCH_DID.value
+UPDATE_DID = DemoTransactions.UPDATE_DID.value
+UPDATE_NETWORK_DID = DemoTransactions.UPDATE_NETWORK_DID.value
+DEACTIVATE_DID = DemoTransactions.DEACTIVATE_DID.value
+
 
 AMOUNT = "amount"
 ID = "id"
