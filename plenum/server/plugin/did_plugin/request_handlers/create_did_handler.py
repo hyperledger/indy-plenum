@@ -11,6 +11,7 @@ from plenum.common.exceptions import InvalidClientRequest, MissingSignature, Inv
 from plenum.server.database_manager import DatabaseManager
 from plenum.server.plugin.did_plugin.constants import CREATE_DID
 from plenum.server.plugin.did_plugin.request_handlers.abstract_did_req_handler import AbstractDIDReqHandler
+from plenum.server.plugin.did_plugin.common import DID, libnacl_validate
 
 from plenum.common.txn_util import get_payload_data, get_from, \
     get_seq_no, get_txn_time, get_request_data
@@ -30,10 +31,10 @@ CreateDID request structure:
     ],
 
     # Mandatory
-    "id": "did:iin:iin123:tradelens",
+    "id": "did:iin:iin123:shippingcompany",
 
     "verificationMethod": [{
-        "id": "did:iin:iin123:tradelens#key-1",
+        "id": "did:iin:iin123:shippingcompany#key-1",
         "type": "Ed25519VerificationKey2020", 
         "controller": "did:example:123456789abcdefghi",
         "publicKeyBase64": "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
@@ -43,12 +44,12 @@ CreateDID request structure:
     # Mandatory
     "authentication": [
         
-        "did:iin:iin123:tradelens#keys-1",
+        "did:iin:iin123:shippingcompany#keys-1",
         
         {
-        "id": "did:iin:iin123:tradelens#keys-2",
+        "id": "did:iin:iin123:shippingcompany#keys-2",
         "type": "Ed25519VerificationKey2020",
-        "controller": "did:tradelens",
+        "controller": "did:shippingcompany",
         "publicKeyBase64": "zH3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
         }
     ],
@@ -57,7 +58,7 @@ CreateDID request structure:
 
     # Mandatory
     "signature":{
-        "verificationMethod": "did:iin:iin123:tradelens#keys-1",
+        "verificationMethod": "did:iin:iin123:shippingcompany#keys-1",
         "sigbase64": "sdfsdfsdf"
     }
 
@@ -66,37 +67,6 @@ CreateDID request structure:
 
 """
 
-class DID:
-    did = None
-    id = None
-    verification_methods = None
-    authentication_methods = None
-
-    def __init__(self, did_json) -> None:
-        self.did = json.loads(did_json)
-        self.id = self.did["id"]
-
-        # populate verification methods:
-        self.verification_methods = {}
-        for method in self.did["verificationMethod"]:
-            self.verification_methods[method["id"]] = method
-        
-        # populate authentication methods:
-        self.authentication_methods = {}
-        for method in self.did["authentication"]:
-            if isinstance(method, dict):
-                # fully specified method
-                self.authentication_methods[method["id"]] = method
-            elif isinstance(method, str):
-                # id points to a verification method
-                # TODO: if it points to a different did -> resolve that did and fetch method
-                if method in self.verification_methods:
-                    self.authentication_methods[method] = self.verification_methods[method]
-
-    def fetch_authentication_method(self, authentication_method_id: str) -> dict:
-        if authentication_method_id in self.authentication_methods:
-            return self.authentication_methods[authentication_method_id]
-        return None
 
 
 class CreateDIDRequest:
@@ -119,23 +89,14 @@ class CreateDIDRequest:
         
         if auth_method["type"] == "libnacl":
             # validate signature
-            self._libnacl_validate(auth_method["publicKeyBase64"], self.signature["sigbase64"])
+            # TODO: Json serialization is not faithful. Use ordered collections isntead.
+            originalhash = libnacl.crypto_hash_sha256(self.did_str)
+            libnacl_validate(auth_method["publicKeyBase64"], self.signature["sigbase64"], originalhash)
+
             # TODO: Add more authentication methods / some standard
         else:
             raise InvalidSignature("Unknown signature type: ", auth_method["type"])
 
-    def _libnacl_validate(self, vk_base64, signature_base64):
-        vk = libnacl.encode.base64_decode(vk_base64)
-        signature = libnacl.encode.base64_decode(signature_base64)
-        verifiedhash = libnacl.crypto_sign_open(signature, vk)
-        originalhash = libnacl.crypto_hash_sha256(self.did_str)
-        print("=============")
-        print(self.did_str)
-        print(originalhash)
-        print(verifiedhash)
-        if verifiedhash != originalhash:
-            # TODO: Json serialization is not faithful. Use ordered collections isntead.
-            raise InvalidSignature("The hash of the DIDDocument did not match.")
 
 class CreateDIDHandler(AbstractDIDReqHandler):
 

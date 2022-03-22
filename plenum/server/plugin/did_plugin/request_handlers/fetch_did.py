@@ -19,14 +19,9 @@ class FetchDIDHandler(ReadRequestHandler):
 
     def get_result(self, request: Request):
         did = request.operation.get(DATA).get("id").encode()
-        print("*********************", did)
         serialized_did = self.state.get(did, isCommitted=True)
-        print("============", serialized_did)
         did_data, proof = self._get_value_from_state(did, with_proof=True)
-        print("============>", did_data, proof)
-
-
-
+        
         did = JsonSerializer().deserialize(serialized_did) if serialized_did else None
 
         return {**request.operation, **{
