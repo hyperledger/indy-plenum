@@ -105,11 +105,10 @@ class CreateDIDRequest:
     signature = None
 
 
-    def __init__(self, request_json: str) -> None:
-        requestDict = json.loads(request_json)
-        self.did_str = json.dumps(requestDict["DIDDocument"])
+    def __init__(self, request_dict: str) -> None:
+        self.did_str = json.dumps(request_dict["DIDDocument"])
         self.did = DID(self.did_str)
-        self.signature = requestDict["signature"]
+        self.signature = request_dict["signature"]
     
     def authenticate(self):
         # Get authentication method
@@ -130,6 +129,10 @@ class CreateDIDRequest:
         signature = libnacl.encode.base64_decode(signature_base64)
         verifiedhash = libnacl.crypto_sign_open(signature, vk)
         originalhash = libnacl.crypto_hash_sha256(self.did_str)
+        print("=============")
+        print(self.did_str)
+        print(originalhash)
+        print(verifiedhash)
         if verifiedhash != originalhash:
             # TODO: Json serialization is not faithful. Use ordered collections isntead.
             raise InvalidSignature("The hash of the DIDDocument did not match.")
@@ -138,22 +141,19 @@ class CreateDIDHandler(AbstractDIDReqHandler):
 
     def __init__(self, database_manager: DatabaseManager, did_dict: dict):
         super().__init__(database_manager, CREATE_DID, did_dict)
-        print("we are here $$$$$$$$$$$$$$$$$$$$")
 
     def additional_dynamic_validation(self, request: Request, req_pp_time: Optional[int]):
 
-        print("we are here 1$$$$$$$$$$$$$$$$$$$$")
         operation = request.operation
-        create_did_request_str = operation.get(DATA)
+        create_did_request_dict = operation.get(DATA)
         
         # parse create did request
         try:
-            create_did_request = CreateDIDRequest(create_did_request_str)
+            create_did_request = CreateDIDRequest(create_did_request_dict)
         except:
             raise InvalidClientRequest(request.identifier, request.reqId, "Malformed CREATE_DID request.")
 
         # TODO Check if the did uri corresponds to this iin or not.
-        print("we are here 2$$$$$$$$$$$$$$$$$$$$")
 
         # Check if did already in this iin or not.
         serialized_did = self.state.get(create_did_request.did.id, isCommitted=True)
