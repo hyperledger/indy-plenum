@@ -4,7 +4,7 @@ on:
     branches:
       # - master
       - ubuntu-20.04-upgrade
-
+      - ReleaseWorkflow
   pull_request:
     branches:
       # - master
@@ -55,24 +55,45 @@ jobs:
   build_packages:
     name: Build Packages
     needs: [workflow-setup, plenum_tests]
-    uses: ./.github/workflows/reuseable_buildpackages.yaml
+    uses: pschlarb/indy-shared-gha/.github/workflows/buildpackages.yaml@parametrization
     with:
       DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
       UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
       isDev: 'true'
       isRC: 'false'
       moduleName: plenum
-
+  
   publish_artifacts:
     name: Publish Artifacts
-    needs: [workflow-setup, build_packages]
-    if: needs.workflow-setup.outputs.publish == 'true'
-    uses: pschlarb/indy-shared-gha/.github/workflows/publish_artifacts.yaml@parametrization
-    with:
-      COMPONENT: 'dev'
-      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
-      distribution: ${{ needs.workflow-setup.outputs.distribution }}
-      moduleName: plenum
-    secrets:
-      INDY_ARTIFACTORY_REPO_CONFIG: ${{ secrets.INDY_ARTIFACTORY_REPO_CONFIG }}
-      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+    needs: [build_packages]
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v1
+      - name: Download Python Packages from Pipeline Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: plenum-python
+          path: dist
+
+      - name: Publish Python Package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip_existing: true
+          repository_url: https://test.pypi.org/legacy/
+
+  # publish_artifacts:
+  #   name: Publish Artifacts
+  #   needs: [workflow-setup, build_packages]
+  #   if: needs.workflow-setup.outputs.publish == 'true'
+  #   uses: pschlarb/indy-shared-gha/.github/workflows/publish_artifacts.yaml@parametrization
+  #   with:
+  #     COMPONENT: 'dev'
+  #     UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+  #     distribution: ${{ needs.workflow-setup.outputs.distribution }}
+  #     moduleName: plenum
+  #   secrets:
+  #     INDY_ARTIFACTORY_REPO_CONFIG: ${{ secrets.INDY_ARTIFACTORY_REPO_CONFIG }}
+  #     PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
