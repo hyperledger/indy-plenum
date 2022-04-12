@@ -1,0 +1,75 @@
+name: Indy Plenum - Push Workflow
+on:
+  push:
+    branches:
+      # - master
+      - ubuntu-20.04-upgrade
+      - ReleaseWorkflow
+    paths:
+      - '**.py'
+            
+jobs:
+  workflow-setup:
+    name: Initialize Workflow
+    runs-on: ubuntu-latest
+    outputs:
+      CACHE_KEY_BUILD: ${{ steps.setup.outputs.CACHE_KEY_BUILD }}
+      UBUNTU_VERSION: ${{ steps.setup.outputs.UBUNTU_VERSION }}
+      # Expose the lowercase version of the GitHub repository name
+      # to all subsequent jobs that reference image repositories
+      # as the push and pull operations require the URL of the repository
+      # to be in lowercase.
+      GITHUB_REPOSITORY_NAME: ${{ steps.setup.outputs.GITHUB_REPOSITORY_NAME }} 
+      distribution: ${{ steps.setup.outputs.distribution }}
+      publish: ${{ steps.setup.outputs.publish }}
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v2
+      - name: setup
+        id: setup
+        uses: pschlarb/indy-shared-gha/.github/actions/workflow-setup@parametrization
+
+  lint:
+    name: Lint
+    uses: pschlarb/indy-shared-gha/.github/workflows/lint.yaml@parametrization
+
+  build-docker-image:
+    name: Create Builder Image
+    needs: [workflow-setup, lint]
+    uses:  pschlarb/indy-shared-gha/.github/workflows/buildimage.yaml@parametrization
+    with:
+      CACHE_KEY_BUILD: ${{ needs.workflow-setup.outputs.CACHE_KEY_BUILD }}
+      DOCKER_IMAGE: ghcr.io/${{  needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+      
+  plenum_tests:
+    name: Test Plenum
+    needs: [workflow-setup, lint, build-docker-image]
+    uses: ./.github/workflows/reuseable_test.yaml
+    with:
+      GITHUB_REPOSITORY_NAME: ${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+
+  build_packages:
+    name: Build Packages
+    needs: [workflow-setup, plenum_tests]
+    uses: pschlarb/indy-shared-gha/.github/workflows/buildpackages.yaml@parametrization
+    with:
+      DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+      isDev: 'true'
+      isRC: 'false'
+      moduleName: plenum
+  
+  publish_artifacts:
+    name: Publish Artifacts
+    needs: [workflow-setup, build_packages]
+    uses: pschlarb/indy-shared-gha/.github/workflows/publish_artifacts.yaml@parametrization
+    with:
+      COMPONENT: 'dev'
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+      distribution: ${{ needs.workflow-setup.outputs.distribution }}
+      moduleName: plenum
+    secrets:
+      INDY_ARTIFACTORY_REPO_CONFIG: ${{ secrets.INDY_ARTIFACTORY_REPO_CONFIG }}
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
