@@ -18,6 +18,7 @@ jobs:
       isVersionBump: ${{ steps.get-release-info.outputs.isVersionBump }}
       isPreRelease: ${{ steps.get-release-info.outputs.isRC }}
       versionTag: ${{ steps.get-release-info.outputs.versionTag }}
+      version: ${{ steps.get-release-info.outputs.version }}
       component: ${{ steps.get-release-info.outputs.component}}
       CACHE_KEY_BUILD: ${{ steps.workflow-setup.outputs.CACHE_KEY_BUILD }}
       UBUNTU_VERSION: ${{ steps.workflow-setup.outputs.UBUNTU_VERSION }}
@@ -118,3 +119,15 @@ jobs:
     secrets:
       INDY_ARTIFACTORY_REPO_CONFIG: ${{ secrets.INDY_ARTIFACTORY_REPO_CONFIG }}
       PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+  
+  triggerNodeUpdate:
+    runs-on: ubuntu-latest
+    needs: [release-infos, publish_artifacts]
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.NEOBOT }}
+          repository: wadebarnes/workflow-trigger-test
+          event-type: plenum-updated
+          client-payload: '{"version": "${{ needs.release_infos.outputs.version }}"}'
