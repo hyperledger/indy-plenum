@@ -60,7 +60,7 @@ function build_from_pypi {
         fpm --input-type "python" \
             --output-type "deb" \
             --architecture "amd64" \
-            --python-setup-py-arguments "--zmq=bundled" \
+            --python-setup-py-arguments "${3}" \
             --verbose \
             --python-package-name-prefix "python3"\
             --python-bin "/usr/bin/python3" \
@@ -100,7 +100,7 @@ build_from_pypi python-dateutil 2.6.1
 build_from_pypi semver 2.7.9
 build_from_pypi pygments 2.2.0
 build_from_pypi psutil 5.6.6
-build_from_pypi pyzmq 18.1.0 bundled
+build_from_pypi pyzmq 22.3.0 --zmq=bundled
 build_from_pypi intervaltree 2.1.0
 build_from_pypi jsonpickle 0.9.6
 # TODO: add libsnappy dependency for python-rocksdb package

@@ -127,10 +127,12 @@ def warnfilters():
             message='inspect\.getargspec\(\) is deprecated')
         warnings.filterwarnings(
             'ignore', category=ResourceWarning, message='unclosed event loop')
+        # These warnings occur when zmq sockets are still open when being garbage collected.
+        # The sockets are then automatically closed.
         warnings.filterwarnings(
             'ignore',
             category=ResourceWarning,
-            message='unclosed.*socket\.socket')
+            message='unclosed.*socket.*\<zmq\.Socket')
 
     return _
 

@@ -419,6 +419,7 @@ class ZStack(NetworkInterface):
             self._conns = set()
         else:
             if self.listener_monitor is not None:
+                self.listener_monitor.linger = 0
                 self.listener.disable_monitor()
                 self.listener_monitor = None
             self.listener.unbind(self.listener.LAST_ENDPOINT)

@@ -34,7 +34,7 @@ tests_require = ['attrs==20.3.0', 'pytest==6.2.2', 'pytest-xdist==2.2.1', 'pytes
 class PyZMQCommand(distutils.cmd.Command):
     description = 'pyzmq install target'
 
-    version = 'pyzmq==18.1.0'
+    version = 'pyzmq==22.3.0'
     options = '--install-option=--zmq=bundled'
 
     def initialize_options(self):
