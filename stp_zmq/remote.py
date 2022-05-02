@@ -74,17 +74,16 @@ class Remote:
 
     def connect(self, context, localPubKey, localSecKey, typ=None):
         typ = typ or zmq.DEALER
-        sock = context.socket(typ)
-        sock.curve_publickey = localPubKey
-        sock.curve_secretkey = localSecKey
-        sock.curve_serverkey = self.publicKey
-        sock.identity = localPubKey
-        set_keepalive(sock, self.config)
-        set_zmq_internal_queue_size(sock, self.queue_size)
+        self.socket = context.socket(typ)
+        self.socket.curve_publickey = localPubKey
+        self.socket.curve_secretkey = localSecKey
+        self.socket.curve_serverkey = self.publicKey
+        self.socket.identity = localPubKey
+        set_keepalive(self.socket, self.config)
+        set_zmq_internal_queue_size(self.socket, self.queue_size)
         addr = '{protocol}://{bind_ip}:0;{}:{}'.format(*self.ha, bind_ip=self.bind_ip, protocol=ZMQ_NETWORK_PROTOCOL)
-        logger.trace('connecting socket {} to remote {}, addr: {}'.format(sock.FD, self, addr))
-        sock.connect(addr)
-        self.socket = sock
+        logger.trace('connecting socket {} to remote {}, addr: {}'.format(self.socket.FD, self, addr))
+        self.socket.connect(addr)
 
     def close_monitor_socket(self):
         if self.socket._monitor_socket:

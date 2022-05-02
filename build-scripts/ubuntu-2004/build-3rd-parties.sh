@@ -64,7 +64,7 @@ function build_from_pypi {
         fpm --input-type "python" \
             --output-type "deb" \
             --architecture "amd64" \
-            --python-setup-py-arguments "--zmq=bundled" \
+            --python-setup-py-arguments "${3}" \
             --verbose \
             --python-package-name-prefix "python3"\
             --python-bin "/usr/bin/python3" \
@@ -88,16 +88,16 @@ function build_from_pypi {
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 pushd `dirname ${SCRIPT_PATH}` >/dev/null
 
+# Install any python requirements needed for the builds.
+pip install -r requirements.txt
 
 # Build rocksdb at first
 ### Can be removed once the code has been updated to run with rocksdb v. 5.17
 ### Issue 1551: Update RocksDB; https://github.com/hyperledger/indy-plenum/issues/1551
 build_rocksdb_deb 5.8.8
 
-
 #### PyZMQCommand
-build_from_pypi pyzmq 18.1.0 bundled
-
+build_from_pypi pyzmq 22.3.0 --zmq=bundled
 
 ##### install_requires
 build_from_pypi base58 
