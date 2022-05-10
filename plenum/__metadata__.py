@@ -50,7 +50,7 @@ def set_manifest(manifest: Any, manifest_file: str = MANIFEST_FILE):
         _f.write('\n')
 
 
-__title__ = 'indy-plenum-newgha'
+__title__ = 'indy-plenum'
 __version_info__ = load_version()
 __version__ = __version_info__.full
 __manifest__ = load_manifest()

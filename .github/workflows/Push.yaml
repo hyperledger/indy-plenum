@@ -4,7 +4,6 @@ on:
     branches:
       # - master
       - ubuntu-20.04-upgrade
-      - ReleaseWorkflow
     paths:
       - '**.py'
             
@@ -27,16 +26,16 @@ jobs:
         uses: actions/checkout@v2
       - name: setup
         id: setup
-        uses: pschlarb/indy-shared-gha/.github/actions/workflow-setup@parametrization
+        uses: hyperledger/indy-shared-gha/.github/actions/workflow-setup@main
 
   lint:
     name: Lint
-    uses: pschlarb/indy-shared-gha/.github/workflows/lint.yaml@parametrization
+    uses: hyperledger/indy-shared-gha/.github/workflows/lint.yaml@main
 
   build-docker-image:
     name: Create Builder Image
     needs: [workflow-setup, lint]
-    uses:  pschlarb/indy-shared-gha/.github/workflows/buildimage.yaml@parametrization
+    uses:  hyperledger/indy-shared-gha/.github/workflows/buildimage.yaml@main
     with:
       CACHE_KEY_BUILD: ${{ needs.workflow-setup.outputs.CACHE_KEY_BUILD }}
       DOCKER_IMAGE: ghcr.io/${{  needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
@@ -53,7 +52,7 @@ jobs:
   build_packages:
     name: Build Packages
     needs: [workflow-setup, plenum_tests]
-    uses: pschlarb/indy-shared-gha/.github/workflows/buildpackages.yaml@parametrization
+    uses: hyperledger/indy-shared-gha/.github/workflows/buildpackages.yaml@main
     with:
       DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
       UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
@@ -64,7 +63,7 @@ jobs:
   publish_artifacts:
     name: Publish Artifacts
     needs: [workflow-setup, build_packages]
-    uses: pschlarb/indy-shared-gha/.github/workflows/publish_artifacts.yaml@parametrization
+    uses: hyperledger/indy-shared-gha/.github/workflows/publish_artifacts.yaml@main
     with:
       COMPONENT: 'dev'
       UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}

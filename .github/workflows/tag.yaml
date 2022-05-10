@@ -26,21 +26,9 @@ jobs:
           echo "::debug::BASE is being set to $branch"
       - name: get-release-info
         id: get-release-info
-        uses: pschlarb/indy-shared-gha/.github/actions/get-release-info@parametrization
+        uses: hyperledger/indy-shared-gha/.github/actions/get-release-info@main
         with:
           versionString: "${{ github.ref }}"
-
-  triggerTest:
-    runs-on: ubuntu-latest
-    needs: [taginfos]
-    steps:
-      - name: Repository Dispatch
-        uses: peter-evans/repository-dispatch@v2
-        with:
-          token: ${{ secrets.NEOBOT }}
-          repository: wadebarnes/workflow-trigger-test
-          event-type: plenum-updated
-          client-payload: '{"version": "${{ needs.taginfos.outputs.version }}"}'  
 
   bump_version:
     name: Bump Version Number

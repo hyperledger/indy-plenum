@@ -1,15 +1,11 @@
-# GitHub Actions Workflow
+# GitHub Actions Workflows
 
-The workflow in the [push_pr.yaml](push_pr.yaml) file runs on push and pull requests to the ubuntu-20-04-upgrade branch.
-It uses the following reusable workflows in thisfolder.
+The  [PR](push_pr.yaml) workflow runs on Pull Requests to the ubuntu-20.04-upgrade branch, 
+which only contain changes to python files. If no python file is affected it doesn't run.
+The same applies to the [Push](Push.yaml) workflow respectively for pushes. 
 
-+ [reuseable_lint.yaml](reuseable_lint.yaml)
-   This workflow runs the linting with flake8.
-+ [reuseable_buildimage.yaml](reuseable_buildimage.yaml)
-   This workflow builds the dockerimages and pushes them to the GHCR.
+The [tag](tag.yaml), [releasepr](releasepr.yaml) and [publishRelease](publishRelease.yaml) workflows are used for the new [Release Workflow](../../docs/source/diagrams/release-workflow.png). 
+They use reuseable workflows from the [indy-shared-gha](https://github.com/hyperledger) repository and the following workflow in this folder.
+
 + [reuseable_test.yaml](reuseable_test.yaml)
    This workflow runs the tests inside the uploaded docker images.
-+ [reusable_buildpackages.yaml](reusable_buildpackages.yaml)
-   This workflows builds the python and debian packages. It also uploads them to the workflow.
-+ [reuseable_publish_artifacts.yaml](reuseable_publish_artifacts.yaml)
-   This workflow uploads the packages to PYPI and Artifactory.

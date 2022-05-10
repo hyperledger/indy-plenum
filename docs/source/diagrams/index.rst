@@ -2,6 +2,12 @@ Plenum Diagrams
 ===============
 
 
+Release Workflow
+-----------------
+
+.. image:: release-workflow.png
+   :width: 100%
+
 Consensus Protocol
 ------------------
 
