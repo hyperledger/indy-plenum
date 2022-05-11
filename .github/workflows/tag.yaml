@@ -46,7 +46,8 @@ jobs:
           pip install base58 \
                       importlib_metadata==3.10.1 \
                       packaging \
-                      python-dateutil
+                      python-dateutil \
+                      msgpack-python
           pip list
       - name: Prepare package and set version
         run: |
