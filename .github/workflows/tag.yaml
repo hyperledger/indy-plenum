@@ -47,7 +47,8 @@ jobs:
                       importlib_metadata==3.10.1 \
                       packaging \
                       python-dateutil \
-                      msgpack-python
+                      msgpack-python \
+                      jsonpickle
           pip list
       - name: Prepare package and set version
         run: |
