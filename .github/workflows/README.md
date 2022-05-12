@@ -1,6 +1,6 @@
 # GitHub Actions Workflows
 
-The  [PR](push_pr.yaml) workflow runs on Pull Requests to the ubuntu-20.04-upgrade branch, 
+The  [PR](PR.yaml) workflow runs on Pull Requests to the ubuntu-20.04-upgrade branch, 
 which only contain changes to python files. If no python file is affected it doesn't run.
 The same applies to the [Push](Push.yaml) workflow respectively for pushes. 
 

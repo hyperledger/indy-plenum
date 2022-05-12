@@ -28,6 +28,7 @@ jobs:
       # to be in lowercase.
       GITHUB_REPOSITORY_NAME: ${{ steps.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
       distribution: ${{ steps.workflow-setup.outputs.distribution }}
+      publish: ${{ steps.workflow-setup.outputs.publish}}
     steps:
       - name: checkout source code
         uses: actions/checkout@v2
@@ -49,7 +50,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         
-      - name: Download Plenum Artifacts from Github Action Artifacts
+      - name: Download Plenum deb Artifacts from Github Action Artifacts
         uses: dawidd6/action-download-artifact@v2
         with:
           github_token: ${{secrets.GITHUB_TOKEN}}
@@ -57,7 +58,7 @@ jobs:
           workflow_conclusion: success
           name: plenum-deb
           path: artifacts/plenum-deb
-      - name: Download Plenum Artifacts from Github Action Artifacts
+      - name: Download Plenum python Artifacts from Github Action Artifacts
         uses: dawidd6/action-download-artifact@v2
         with:
           github_token: ${{secrets.GITHUB_TOKEN}}
@@ -65,7 +66,7 @@ jobs:
           workflow_conclusion: success
           name: plenum-python
           path: artifacts/plenum-python
-      - name: Download Plenum Artifacts from Github Action Artifacts
+      - name: Download Plenum third party dependency Artifacts from Github Action Artifacts
         uses: dawidd6/action-download-artifact@v2
         with:
           github_token: ${{secrets.GITHUB_TOKEN}}
@@ -93,7 +94,7 @@ jobs:
           zip -r artifacts/plenum-deb.zip artifacts/plenum-deb
           zip -r artifacts/plenum-python.zip artifacts/plenum-python
           zip -r artifacts/third-party-dependencies.zip artifacts/third-party-dependencies
-      - name: Release
+      - name: Generate Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ needs.release-infos.outputs.VERSIONTAG }}
@@ -109,7 +110,7 @@ jobs:
   publish_artifacts:
     name: Publish Artifacts
     needs: [release-infos, createRelease]
-    if: needs.release-infos.outputs.isVersionBump == 'true'
+    if: needs.release-infos.outputs.isVersionBump == 'true' && needs.release-infos.outputs.publish == 'true'
     uses: hyperledger/indy-shared-gha/.github/workflows/publish_artifacts.yaml@main
     with:
       COMPONENT: ${{ needs.release-infos.component }}

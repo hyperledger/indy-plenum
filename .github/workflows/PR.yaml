@@ -35,7 +35,7 @@ jobs:
   build-docker-image:
     name: Create Builder Image
     needs: [workflow-setup, lint]
-    uses:  pschlarb/indy-shared-gha/.github/workflows/buildimage.yaml@main
+    uses:  hyperledger/indy-shared-gha/.github/workflows/buildimage.yaml@main
     with:
       CACHE_KEY_BUILD: ${{ needs.workflow-setup.outputs.CACHE_KEY_BUILD }}
       DOCKER_IMAGE: ghcr.io/${{  needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build

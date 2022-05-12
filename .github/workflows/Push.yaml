@@ -63,6 +63,7 @@ jobs:
   publish_artifacts:
     name: Publish Artifacts
     needs: [workflow-setup, build_packages]
+    if: needs.workflow-setup.outputs.publish == 'true'
     uses: hyperledger/indy-shared-gha/.github/workflows/publish_artifacts.yaml@main
     with:
       COMPONENT: 'dev'

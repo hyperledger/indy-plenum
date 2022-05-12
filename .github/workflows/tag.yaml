@@ -42,7 +42,12 @@ jobs:
         with:
           python-version: '3.8'
       - name: Install deps for version change
-        run: pip install base58
+        run: pip install base58 \
+                      importlib_metadata==3.10.1 \
+                      packaging \
+                      python-dateutil \
+                      msgpack-python \
+                      jsonpickle
       - name: Prepare package and set version
         run: |
           ./bump_version.sh ${{ needs.taginfos.outputs.VERSION }}
