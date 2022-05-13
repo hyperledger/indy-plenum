@@ -6,6 +6,9 @@ on:
       - ubuntu-20.04-upgrade
     paths:
       - '**.py'
+      - '.github/**'
+      - 'build-scripts/**'
+      - 'bump_version.sh'
             
 jobs:
   workflow-setup:
