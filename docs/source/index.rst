@@ -11,6 +11,7 @@ Welcome to Indy Plenum's documentation!
 
    main.md
    glossary.md
+   ci-cd.md
    diagrams/index.rst
    request_handling.md
    storage.md
