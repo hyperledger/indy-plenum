@@ -4,12 +4,7 @@ on:
     branches:
       # - master
       - ubuntu-20.04-upgrade
-    paths:
-      - '**.py'
-      - '.github/**'
-      - 'build-scripts/**'
-      - 'bump_version.sh'
-            
+
 jobs:
   workflow-setup:
     name: Initialize Workflow
@@ -24,15 +19,28 @@ jobs:
       GITHUB_REPOSITORY_NAME: ${{ steps.setup.outputs.GITHUB_REPOSITORY_NAME }} 
       distribution: ${{ steps.setup.outputs.distribution }}
       publish: ${{ steps.setup.outputs.publish }}
+      testsNeeded: ${{ steps.testsNeeded.outputs.testsNeeded }}
     steps:
       - name: checkout source code
         uses: actions/checkout@v2
       - name: setup
         id: setup
         uses: hyperledger/indy-shared-gha/.github/actions/workflow-setup@v1
+      - name: testsNeeded
+        id: testsNeeded
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            testsNeeded:
+              - '**.py'
+              - '.github/**'
+              - 'build-scripts/**'
+              - 'bump_version.sh'            
 
   lint:
     name: Lint
+    needs: [workflow-setup]
+    if: ${{ needs.workflow-setup.outputs.testsNeeded == 'true' }}
     uses: hyperledger/indy-shared-gha/.github/workflows/lint.yaml@v1
 
   build-docker-image:
@@ -62,3 +70,11 @@ jobs:
       isDev: 'true'
       isRC: 'false'
       moduleName: plenum
+
+  statusCheck:
+    name: statusCheck
+    runs-on: ubuntu-latest
+    needs: [workflow-setup, build_packages]
+    if: ${{ needs.workflow-setup.outputs.testsNeeded == 'false' || success() }}
+    steps:
+      - run: 'echo "Just a status Check (Always true, when executed) for branch protection rules(blocks merging while test are running and if tests fail)." '
