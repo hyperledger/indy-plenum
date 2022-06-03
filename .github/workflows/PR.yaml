@@ -52,7 +52,7 @@ jobs:
     uses:  hyperledger/indy-shared-gha/.github/workflows/buildimage.yaml@v1
     with:
       CACHE_KEY_BUILD: ${{ needs.workflow-setup.outputs.CACHE_KEY_BUILD }}
-      DOCKER_IMAGE: ghcr.io/${{  needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
+      DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
       UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
 
   plenum_tests:
