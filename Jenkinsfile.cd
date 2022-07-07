@@ -1,6 +1,6 @@
 #!groovy
 
-@Library('SovrinHelpers@v2.2.1') _
+@Library('SovrinHelpers@v2.2.3') _
 
 
 String name = 'indy-plenum'
