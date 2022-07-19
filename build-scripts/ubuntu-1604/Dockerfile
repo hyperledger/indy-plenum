@@ -26,7 +26,7 @@ RUN apt-get update -y && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install -U \ 
-    pip \
+    'pip<10.0.0' \
     'setuptools<=50.3.2' 
 
 # install fpm
