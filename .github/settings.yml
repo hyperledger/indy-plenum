@@ -6,7 +6,7 @@ repository:
   name: indy-plenum
   description: Plenum Byzantine Fault Tolerant Protocol
   homepage: https://wiki.hyperledger.org/display/indy
-  default_branch: master
+  default_branch: main
   has_downloads: true
   has_issues: true
   has_projects: false
