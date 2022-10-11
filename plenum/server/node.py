@@ -1756,7 +1756,7 @@ class Node(HasActionQueue, Motor, Propagator, MessageProcessor, HasFileStorage,
                         (ledger_id == DOMAIN_LEDGER_ID or ledger_id == CONFIG_LEDGER_ID):
                     timestamp = get_txn_time(txn)
                     if timestamp is not None:
-                        self.stateTsDbStorage.set(timestamp, state.headHash)
+                        self.stateTsDbStorage.set(timestamp, state.headHash, ledger_id=ledger_id)
                 logger.trace("{} added transaction with seqNo {} to ledger {} during catchup, state root {}"
                              .format(self, get_seq_no(txn), ledger_id,
                                      state_roots_serializer.serialize(bytes(state.committedHeadHash))))
