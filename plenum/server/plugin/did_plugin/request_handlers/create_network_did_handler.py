@@ -21,72 +21,73 @@ import libnacl
 import libnacl.encode
 
 """
-CreateDID request structure:
+CreateNetworkDID request structure:
 
 {
-    # Mandatory
-    "NetworkDIDDocument": {
-    "@context": [
-        "https://www.w3.org/ns/did/v1",
-        "https://w3id.org/security/suites/ed25519-2020/v1"
-    ],
-
-    # Mandatory
-    "id": "did:iin:iin123:logistics.network",
-
-    # Mandatory
+  "NetworkDIDDocument": {
+    "id": "did:iin:<iin_name>:<network_name>",
     "networkParticipants": [
-    "did:iin:iin123:shippingcompany",
-    "did:iin:iin123:oceanliner",
-    "did:iin:iin123:seller"
+      "did:iin:<iin_name>:<network_participant_1>",
+      "did:iin:<iin_name>:<network_participant_2>",
+      "did:iin:<iin_name>:<network_participant_3>"
     ],
-
-    "verificationMethod": [
-        {
-        "id": "did:iin:iin123:logistics.network#multisig",
-        "type": "BlockchainNetworkMultiSig",
-        "controller": "did:iin:iin123:logistics.network",
+    "verificationMethod": [{
+        "id": "did:iin:<iin_name>:<network_name>#multisig",
+        "type": "GroupMultiSig",
+        "controller": "did:iin:<iin_name>:<network_name>",
         "multisigKeys": [
-            "did:iin:iin123:shippingcompany#key1",
-            "did:iin:iin123:oceanliner#key1",
-            "did:iin:iin123:seller#key1"
+          "did:iin:<iin_name>:<network_participant_1>#key1",
+          "did:iin:<iin_name>:<network_participant_2>#key3",
+          "did:iin:<iin_name>:<network_participant_3>#key1"
         ],
         "updatePolicy": {
-            "id": "did:iin:iin123:logistics.network#updatepolicy",
-            "controller": "did:iin:iin123:logistics.network",
-            "type": "VerifiableCondition2021",
-            "conditionAnd": [{
-                "id": "did:iin:iin123:logistics.network#updatepolicy-1",
-                "controller": "did:iin:iin123:logistics.network",
-                "type": "VerifiableCondition2021",
-                "conditionOr": ["did:iin:iin123:shippingcompany#key1",
-                "did:iin:iin123:seller#key1"
-                ]
+          "id": "did:iin:<iin_name>:<network_name>#updatepolicy",
+          "controller": "did:iin:<iin_name>:<network_name>",
+          "type": "VerifiableCondition2021",
+          "conditionAnd": [{
+              "id": "did:iin:<iin_name>:<network_name>#updatepolicy-1",
+              "controller": "did:iin:<iin_name>:<network_name>",
+              "type": "VerifiableCondition2021",
+              "conditionOr": ["did:iin:<iin_name>:<network_participant_3>#key1",
+                "did:iin:<iin_name>:<network_participant_2>#key3"
+              ]
             },
-            "did:iin:iin123:oceanliner#key1"
-            ]
+            "did:iin:<iin_name>:<network_participant_1>#key1"
+          ]
         }
-        }
-    ],
-    
+      },
 
-    # Mandatory
+      {
+        "id": "did:iin:<iin_name>:<network_name>#fabriccerts",
+        "type": "DataplaneCredentials",
+        "controller": "did:iin:<iin_name>:<network_name>",
+        "FabricCredentials": {
+          "did:iin:<iin_name>:<network_participant_1>": "Certificate3_Hash",
+          "did:iin:<iin_name>:<network_participant_2>": "Certificate2_Hash",
+          "did:iin:<iin_name>:<network_participant_3>": "Certificate3_Hash"
+        }
+      }
+    ],
     "authentication": [
-        
-        "did:iin:iin123:logistics.network#multisig"
+      "did:iin:<iin_name>:<network_name>#multisig"
     ],
-    
-    },
+    "networkGatewayEndpoints": [{
+        "hostname": "10.0.0.8",
+        "port": "8888"
+      },
+      {
+        "hostname": "10.0.0.9",
+        "port": "8888"
+      }
 
-    # Mandatory
-    "signatures":{
-        "did:iin:iin123:shippingcompany":"...",
-        "did:iin:iin123:oceanliner":"...",
-        "did:iin:iin123:seller":"..."
-    }
-
+    ]
+  },
+  "signatures": {
+    "did:iin:<iin_name>:<network_participant_1>": "...",
+    "did:iin:<iin_name>:<network_participant_2>": "...",
+    "did:iin:<iin_name>:<network_participant_3>": "..."
+  }
 }
-
 
 """
 
@@ -112,6 +113,9 @@ class CreateNetworkDIDRequest:
         party_did_id = did_id_from_url(party_key_url)
         # Fetch party did
         # TODO: if did is in some other iin network
+
+        # 1 did:iin:someotheriin1:sdfsdfsd
+        # did:iin:somethingelse:asdasd
 
         # If did is in the same indy iin network
         serialized_party_did = self.this_indy_state.get(party_did_id, isCommitted=True)
@@ -155,19 +159,6 @@ class CreateNetworkDIDRequest:
             # TODO: Add more authentication methods / some standard
         else:
             raise InvalidSignature("Unknown signature type: ", auth_method["type"])
-
-    def _libnacl_validate(self, vk_base64, signature_base64):
-        vk = libnacl.encode.base64_decode(vk_base64)
-        signature = libnacl.encode.base64_decode(signature_base64)
-        verifiedhash = libnacl.crypto_sign_open(signature, vk)
-        originalhash = libnacl.crypto_hash_sha256(self.did_str)
-        print("=============")
-        print(self.did_str)
-        print(originalhash)
-        print(verifiedhash)
-        if verifiedhash != originalhash:
-            # TODO: Json serialization is not faithful. Use ordered collections isntead.
-            raise InvalidSignature("The hash of the NetworkDIDDocument did not match.")
 
 class CreateNetworkDIDHandler(AbstractDIDReqHandler):
 

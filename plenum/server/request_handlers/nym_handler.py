@@ -5,7 +5,7 @@ from typing import Optional
 from common.serializers.serialization import domain_state_serializer
 from ledger.util import F
 from plenum.common.constants import NYM, ROLE, STEWARD, DOMAIN_LEDGER_ID, \
-    TXN_TIME, VERKEY, TARGET_NYM
+    TXN_TIME, VERKEY, TARGET_NYM, LedgerState
 from plenum.common.exceptions import UnauthorizedClientRequest
 from plenum.common.request import Request
 from plenum.common.txn_util import get_payload_data, get_from, \
@@ -45,6 +45,12 @@ class NymHandler(WriteRequestHandler):
             raise UnauthorizedClientRequest(identifier,
                                             req_id,
                                             error)
+
+        # Fetch a did uri did:METHOD:asdasda/adsada
+        # switch(METHOD)
+            # thisindymethod === query from LedgerState
+            # [do this] someindymethod == import indy client and query transaction
+            # someother non indy method == 
 
     def authorize(self, request):
         pass
