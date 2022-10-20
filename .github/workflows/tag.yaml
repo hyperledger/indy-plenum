@@ -22,8 +22,11 @@ jobs:
         run: |
           raw=$(git branch -r --contains ${{ github.ref }})
           branch=${raw/origin\/}
-          echo ::set-output\ name=BASE::$branch
+          echo "BASE=$branch" >> $GITHUB_OUTPUT
           echo "::debug::BASE is being set to $branch"
+          echo "::group::DEBUG"
+          echo "BASE is being set to $branch"
+          echo "::endgroup::"
       - name: get-release-info
         id: get-release-info
         uses: hyperledger/indy-shared-gha/.github/actions/get-release-info@v1
@@ -36,7 +39,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
