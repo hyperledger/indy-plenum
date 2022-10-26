@@ -1,5 +1,5 @@
 from common.serializers.serialization import domain_state_serializer, config_state_serializer
-from plenum.common.constants import DOMAIN_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT
+from plenum.common.constants import CONFIG_LEDGER_ID, GET_TXN_AUTHOR_AGREEMENT
 from plenum.common.txn_util import get_req_id, get_from, get_txn_time, get_payload_data
 from plenum.common.util import get_utc_epoch
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
@@ -86,7 +86,7 @@ def test_fill_ts_store_for_config_after_catchup(txnPoolNodeSet,
     req_handler = node_to_disconnect.read_manager.request_handlers[GET_TXN_AUTHOR_AGREEMENT]
     last_digest = StaticTAAHelper.get_taa_digest(req_handler.state)
     key = StaticTAAHelper.state_path_taa_digest(last_digest)
-    root_hash = req_handler.database_manager.ts_store.get_equal_or_prev(get_txn_time(sdk_reply[1]['result']))
+    root_hash = req_handler.database_manager.ts_store.get_equal_or_prev(get_txn_time(sdk_reply[1]['result']), ledger_id=CONFIG_LEDGER_ID)
     assert root_hash
     from_state = req_handler.state.get_for_root_hash(root_hash=root_hash,
                                                      key=key)
