@@ -67,6 +67,12 @@ RUN pip3 install -U \
     pep8-naming==0.6.1 \
     flake8==3.8.4
 
+RUN pip3 install -U \
+    # Required by setup.py
+    setuptools==50.3.2 \
+    'pyzmq==22.3.0'
+
+
 # install rake
 RUN sudo gem install --no-document rake 
 ## install fpm; needs to be pinned to 1.13.1 because some packages cannot be built with the newest release 1.14.0
