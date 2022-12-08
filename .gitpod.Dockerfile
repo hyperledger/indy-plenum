@@ -70,4 +70,4 @@ RUN pip3 install -U \
 # install rake
 RUN sudo gem install --no-document rake 
 ## install fpm; needs to be pinned to 1.13.1 because some packages cannot be built with the newest release 1.14.0
-RUN sudo gem install --no-document fpm -v 1.13.1
+RUN sudo gem install --no-document fpm -v 1.14.2
