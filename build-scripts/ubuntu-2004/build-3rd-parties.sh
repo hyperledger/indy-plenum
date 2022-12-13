@@ -110,7 +110,7 @@ build_from_pypi leveldb
 build_from_pypi libnacl 1.6.1
 build_from_pypi msgpack-python
 build_from_pypi orderedset
-build_from_pypi packaging 
+build_from_pypi packaging 21.3
 build_from_pypi portalocker
 build_from_pypi prompt-toolkit 3.0.18
 build_from_pypi psutil 
