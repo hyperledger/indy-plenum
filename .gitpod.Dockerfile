@@ -1,4 +1,4 @@
-FROM gitpod/workspace-full as base
+FROM gitpod/workspace-base:2022-12-09-04-00-52 as base
 
 USER gitpod
 
@@ -65,9 +65,10 @@ RUN pip3 install -U \
     # Linting tools
     pep8==1.7.1 \
     pep8-naming==0.6.1 \
+    'pyzmq==22.3.0'\
     flake8==3.8.4
 
 # install rake
 RUN sudo gem install --no-document rake 
 ## install fpm; needs to be pinned to 1.13.1 because some packages cannot be built with the newest release 1.14.0
-RUN sudo gem install --no-document fpm -v 1.13.1
+RUN sudo gem install --no-document fpm -v 1.14.2

@@ -56,7 +56,7 @@ jobs:
 
       - name: Publish Test Report
         if: success() || failure()
-        uses: scacap/action-surefire-report@v1.0.7
+        uses: scacap/action-surefire-report@v1
         continue-on-error: true
         with:
           check_name: Indy Plenum ${{ matrix.module }} Test Report for slice ${{ matrix.slice }}/${{ strategy.job-total }}
@@ -108,7 +108,7 @@ jobs:
         run: python3 -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}.xml ${{ matrix.module }}
 
       - name: Publish Test Report
-        uses: scacap/action-surefire-report@v1.0.7
+        uses: scacap/action-surefire-report@v1
         continue-on-error: true
         with:
           check_name: Indy Plenum ${{ matrix.module }} Test Report
