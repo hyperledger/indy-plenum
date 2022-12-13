@@ -65,13 +65,8 @@ RUN pip3 install -U \
     # Linting tools
     pep8==1.7.1 \
     pep8-naming==0.6.1 \
+    'pyzmq==22.3.0'\
     flake8==3.8.4
-
-RUN pip3 install -U \
-    # Required by setup.py
-    setuptools==50.3.2 \
-    'pyzmq==22.3.0'
-
 
 # install rake
 RUN sudo gem install --no-document rake 

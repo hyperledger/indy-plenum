@@ -69,6 +69,7 @@ RUN apt-get update -y && apt-get install -y \
 RUN pip3 install -U \
     # Required by setup.py
     setuptools==50.3.2 \
+    'pyzmq==22.3.0'\
     # Linting tools
     pep8==1.7.1 \
     pep8-naming==0.6.1 \
