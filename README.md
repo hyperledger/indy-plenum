@@ -14,7 +14,7 @@
 
 Plenum is the heart of the distributed ledger technology inside Hyperledger
 Indy. As such, it provides features somewhat similar in scope to those
-found in Fabric. However, it is special-purposed for use in an identity
+found in [Fabric](https://github.com/hyperledger/fabric). However, it is special-purposed for use in an identity
 system, whereas Fabric is general purpose.
 
 ## Technical Overview of Indy Plenum
