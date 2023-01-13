@@ -13,20 +13,17 @@ jobs:
       version: ${{ steps.get-release-info.outputs.version }}
       versionTag: ${{ steps.get-release-info.outputs.versionTag }}
       prBranch: ${{ steps.get-release-info.outputs.prBranch }}
-      BASE: ${{ steps.branch.outputs.BASE }}
+      BASE: ${{ steps.get-branch.outputs.branch }}
     steps:
       - name: checkout source code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: extract branch 
-        id: branch
-        run: |
-          raw=$(git branch -r --contains ${{ github.ref }})
-          branch=${raw/origin\/}
-          echo "BASE=$branch" >> $GITHUB_OUTPUT
-          echo "::debug::BASE is being set to $branch"
-          echo "::group::DEBUG"
-          echo "BASE is being set to $branch"
-          echo "::endgroup::"
+        id: get-branch
+        uses: hyperledger/indy-shared-gha/.github/actions/branch-from-tag@v1
+        with:
+          tag: ${{ github.ref }}
       - name: get-release-info
         id: get-release-info
         uses: hyperledger/indy-shared-gha/.github/actions/get-release-info@v1
