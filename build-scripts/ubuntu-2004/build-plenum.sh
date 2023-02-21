@@ -22,6 +22,8 @@ fpm --input-type "python" \
     --output-type "deb" \
     --architecture "amd64" \
     --depends "python3-pyzmq (= 22.3.0)" \
+    --depends "rocksdb (=5.8.8)"\
+    --depends "ursa (= 0.3.2-1)"\
     --verbose \
     --python-package-name-prefix "python3"\
     --python-bin "/usr/bin/python3" \
