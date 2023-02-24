@@ -10,8 +10,10 @@ function build_rocksdb_deb {
     VERSION_TAG="rocksdb-$VERSION"
 
     git clone https://github.com/evernym/rocksdb.git /tmp/rocksdb
+    scriptpath="$(dirname "$(realpath "$0")")"/make_rocksdb.sh
     cd /tmp/rocksdb
     git checkout $VERSION_TAG
+    cp $scriptpath /tmp/rocksdb/build_tools/make_package.sh
     sed -i 's/-m rocksdb@fb.com/-m "Hyperledger <hyperledger-indy@lists.hyperledger.org>"/g' \
         ./build_tools/make_package.sh
     PORTABLE=1 EXTRA_CFLAGS="-fPIC" EXTRA_CXXFLAGS="-fPIC" ./build_tools/make_package.sh $VERSION
