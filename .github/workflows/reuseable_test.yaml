@@ -44,6 +44,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      - name: Download plenum deb build
+        uses: actions/download-artifact@v3
+        with:
+          name: plenum-deb
+
+      - name: Install dependencies from deb
+        run: |
+          ls -lisha 
+          aptStr=$(dpkg-deb -I indy-plenum_*.deb | grep -P "Depends: " | sed 's~Depends:~~g;s~(~~g;s~)~~g;s~>~~g;s~<~~g' | tr -d " \t\n\r" | tr "," "\n")
+          apt install ./indy-plenum_*.deb $aptStr libindy
+          ln -s /usr/lib/ursa/libursa.so /usr/lib/libursa.so
+
       - name: Install dependencies
         run: |
           # Explicitly use the existing pip cache location in the plenum-build image.
@@ -98,11 +110,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      - name: Download plenum deb build
+        uses: actions/download-artifact@v3
+        with:
+          name: plenum-deb
+
+      - name: Install dependencies from deb
+        run: |
+          ls -lisha 
+          aptStr=$(dpkg-deb -I indy-plenum_*.deb | grep -P "Depends: " | sed 's~Depends:~~g;s~(~~g;s~)~~g;s~>~~g;s~<~~g' | tr -d " \t\n\r" | tr "," "\n")
+          apt install ./indy-plenum_*.deb $aptStr libindy
+          ln -s /usr/lib/ursa/libursa.so /usr/lib/libursa.so
+
       - name: Install dependencies
         run: |
           # Explicitly use the existing pip cache location in the plenum-build image.
           pip --cache-dir /root/.cache/pip install .[tests]
-         
 
       - name: Run Indy Plenum ${{ matrix.module }} tests
         run: python3 -m pytest -l -vv --junitxml=test-result-plenum-${{ matrix.module }}.xml ${{ matrix.module }}

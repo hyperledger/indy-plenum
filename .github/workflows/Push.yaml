@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - ubuntu-20.04-upgrade
+      - rocksdbfix
     paths:
       - '**.py'
       - '.github/**'
@@ -42,29 +43,29 @@ jobs:
       CACHE_KEY_BUILD: ${{ needs.workflow-setup.outputs.CACHE_KEY_BUILD }}
       DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
       UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
-      
-  plenum_tests:
-    name: Test Plenum
-    needs: [workflow-setup, lint, build-docker-image]
-    uses: ./.github/workflows/reuseable_test.yaml
-    with:
-      GITHUB_REPOSITORY_NAME: ${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
-      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
-
+    
   build_packages:
     name: Build Packages
-    needs: [workflow-setup, plenum_tests]
+    needs: [workflow-setup, build-docker-image]
     uses: hyperledger/indy-shared-gha/.github/workflows/buildpackages.yaml@v1
     with:
       DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
       UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
       isDev: 'true'
       isRC: 'false'
-      moduleName: plenum
+      moduleName: plenum      
   
+  plenum_tests:
+    name: Test Plenum
+    needs: [workflow-setup, lint, build_packages]
+    uses: ./.github/workflows/reuseable_test.yaml
+    with:
+      GITHUB_REPOSITORY_NAME: ${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+
   publish_artifacts:
     name: Publish Artifacts
-    needs: [workflow-setup, build_packages]
+    needs: [workflow-setup, plenum_tests]
     if: needs.workflow-setup.outputs.publish == 'true'
     uses: hyperledger/indy-shared-gha/.github/workflows/publish_artifacts.yaml@v1
     with:
