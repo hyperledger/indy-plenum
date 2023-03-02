@@ -51,7 +51,6 @@ jobs:
 
       - name: Install dependencies from deb
         run: |
-          ls -lisha 
           aptStr=$(dpkg-deb -I indy-plenum_*.deb | grep -P "Depends: " | sed 's~Depends:~~g;s~(~~g;s~)~~g;s~>~~g;s~<~~g' | tr -d " \t\n\r" | tr "," "\n")
           apt install -y ./indy-plenum_*.deb $aptStr libindy
           ln -s /usr/lib/ursa/libursa.so /usr/lib/libursa.so
@@ -117,7 +116,6 @@ jobs:
 
       - name: Install dependencies from deb
         run: |
-          ls -lisha 
           aptStr=$(dpkg-deb -I indy-plenum_*.deb | grep -P "Depends: " | sed 's~Depends:~~g;s~(~~g;s~)~~g;s~>~~g;s~<~~g' | tr -d " \t\n\r" | tr "," "\n")
           apt install -y ./indy-plenum_*.deb $aptStr libindy
           ln -s /usr/lib/ursa/libursa.so /usr/lib/libursa.so

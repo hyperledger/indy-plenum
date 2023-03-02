@@ -55,17 +55,9 @@ jobs:
       DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
       UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
 
-  plenum_tests:
-    name: Test Plenum
-    needs: [workflow-setup, lint, build-docker-image]
-    uses: ./.github/workflows/reuseable_test.yaml
-    with:
-      GITHUB_REPOSITORY_NAME: ${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
-      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
-
   build_packages:
     name: Build Packages
-    needs: [workflow-setup, plenum_tests]
+    needs: [workflow-setup, build-docker-image]
     uses: hyperledger/indy-shared-gha/.github/workflows/buildpackages.yaml@v1
     with:
       DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
@@ -74,10 +66,18 @@ jobs:
       isRC: 'false'
       moduleName: plenum
 
+  plenum_tests:
+    name: Test Plenum
+    needs: [workflow-setup, lint, build_packages]
+    uses: ./.github/workflows/reuseable_test.yaml
+    with:
+      GITHUB_REPOSITORY_NAME: ${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+
   statusCheck:
     name: statusCheck
     runs-on: ubuntu-latest
-    needs: [workflow-setup, build_packages]
+    needs: [workflow-setup, plenum_tests]
     if: ${{ needs.workflow-setup.outputs.testsNeeded == 'false' || success() }}
     steps:
       - run: 'echo "Just a status Check (Always true, when executed) for branch protection rules(blocks merging while test are running and if tests fail)." '
