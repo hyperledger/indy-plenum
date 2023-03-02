@@ -8,7 +8,8 @@ OUTPUT_PATH=${1:-.}
 function build_rocksdb_deb {
     VERSION=$1
     VERSION_TAG="rocksdb-$VERSION"
-
+    #Install rocksdb requirements (libsnappy lbz2 llz4)
+    apt update && apt install -y libsnappy-dev libbz2-dev liblz4-dev zlib1g-dev libgflags-dev
     git clone https://github.com/evernym/rocksdb.git /tmp/rocksdb
     scriptpath="$(dirname "$(realpath "$0")")"/make_rocksdb.sh
     cd /tmp/rocksdb
