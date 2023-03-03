@@ -115,7 +115,7 @@ setup(
                         'packaging',
                         # 'portalocker==2.2.1',
                         'portalocker',
-                        'prompt_toolkit>=3.0.16',
+                        'prompt_toolkit>=3.0.18',
                         # 'psutil==5.6.6',
                         'psutil',
                         # Pinned because tests fail with v.0.9
