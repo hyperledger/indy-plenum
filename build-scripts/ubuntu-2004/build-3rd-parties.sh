@@ -122,7 +122,7 @@ build_from_pypi python-dateutil
 build_from_pypi python-rocksdb
 build_from_pypi python-ursa 0.1.1
 build_from_pypi rlp 0.6.0
-build_from_pypi semver 
+build_from_pypi semver 2.13.0
 build_from_pypi sha3 
 build_from_pypi six 
 build_from_pypi sortedcontainers 1.5.7
