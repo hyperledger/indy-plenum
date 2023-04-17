@@ -6,7 +6,7 @@ on:
       - "!plenum/__version__.json"
 
     branches:
-      - ubuntu-20.04-upgrade
+      - main
 
 jobs:
   workflow-setup:
