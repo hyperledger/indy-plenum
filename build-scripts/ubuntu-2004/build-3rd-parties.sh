@@ -78,7 +78,7 @@ function build_from_pypi {
             --before-remove ${PREREM_TMP} \
             --package ${OUTPUT_PATH} \
             ${PACKAGE_NAME}${PACKAGE_VERSION}
-            
+
             # --python-pip "$(which pip)" \
         # ERROR:  download_if_necessary': Unexpected directory layout after easy_install. Maybe file a bug? The directory is /tmp/package-python-build-c42d23109dcca1e98d9f430a04fe79a815f10d8ed7a719633aa969424f94 (RuntimeError)
     fi
@@ -103,27 +103,27 @@ build_rocksdb_deb 5.8.8
 build_from_pypi pyzmq 22.3.0 --zmq=bundled
 
 ##### install_requires
-build_from_pypi base58 
+build_from_pypi base58
 ### Needs to be pinned to 3.10.1 because from v4.0.0 the package name ends in python3-importlib-metadata_0.0.0_amd64.deb
 ### https://github.com/hyperledger/indy-plenum/runs/4166593170?check_suite_focus=true#step:5:5304
 build_from_pypi importlib-metadata 3.10.1
-build_from_pypi ioflo 
+build_from_pypi ioflo
 build_from_pypi jsonpickle
-build_from_pypi leveldb 
+build_from_pypi leveldb
 build_from_pypi libnacl 1.6.1
 build_from_pypi msgpack-python
 build_from_pypi orderedset
 build_from_pypi packaging 21.3
-build_from_pypi portalocker
+build_from_pypi portalocker 2.7.0
 build_from_pypi prompt-toolkit 3.0.18
-build_from_pypi psutil 
+build_from_pypi psutil
 build_from_pypi pympler 0.8
 build_from_pypi python-dateutil
 build_from_pypi python-rocksdb
 build_from_pypi python-ursa 0.1.1
 build_from_pypi rlp 0.6.0
 build_from_pypi semver 2.13.0
-build_from_pypi sha3 
-build_from_pypi six 
+build_from_pypi sha3
+build_from_pypi six
 build_from_pypi sortedcontainers 1.5.7
 build_from_pypi ujson 1.33
