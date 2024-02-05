@@ -236,6 +236,6 @@ if(on_rtd):
     
     except:
         e = sys.exc_info()[0]
-        print e
+        print(e)
     finally:      
         os.system("rm -rf remote_conf/ __pycache__/ remote_conf.py")
