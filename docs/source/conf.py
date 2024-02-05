@@ -163,8 +163,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'IndyPlenum', 'Indy Plenum Documentation',
-     author, 'IndyPlenum', 'Plenum is the heart of the distributed ledger technology inside Hyperledger
-Indy.',
+     author, 'IndyPlenum', 'Plenum is the heart of the distributed ledger technology inside Hyperledger Indy.',
      'Miscellaneous'),
 ]
 
