@@ -73,7 +73,8 @@ RUN pip3 install -U \
     # Linting tools
     pep8==1.7.1 \
     pep8-naming==0.6.1 \
-    flake8==3.8.4
+    flake8==3.8.4 \
+    Cython==0.29.36
 
 
 # install rake

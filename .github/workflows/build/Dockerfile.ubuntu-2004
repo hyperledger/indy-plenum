@@ -34,6 +34,6 @@ RUN echo "deb https://hyperledger.jfrog.io/artifactory/indy focal dev"  >> /etc/
 RUN apt-get update -y && apt-get install -y \
     # Python
     python3-pip \
-    rubygems &&\
-    gem install --no-document fpm -v 1.14.2
-
+    rubygems && \
+    gem install --no-document fpm -v 1.14.2 && \
+    pip3 install Cython==0.29.36
