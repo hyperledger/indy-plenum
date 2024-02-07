@@ -2,7 +2,7 @@ name: Triggered by set Tag
 
 on:
   push:
-    tags:        
+    tags:
       - setRelease-v**
 
 jobs:
@@ -16,10 +16,10 @@ jobs:
       BASE: ${{ steps.get-branch.outputs.branch }}
     steps:
       - name: checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: extract branch 
+      - name: extract branch
         id: get-branch
         uses: hyperledger/indy-shared-gha/.github/actions/branch-from-tag@v1
         with:
@@ -36,9 +36,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.8'
       - name: Install deps for version change
@@ -65,4 +65,3 @@ jobs:
           body: "[${{ needs.taginfos.outputs.versionTag }}] - Update Version number for Release"
           delete-branch: true
           token: ${{ secrets.BOT_PR_PAT }}
-    
