@@ -29,7 +29,7 @@ RUN sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE
 RUN sudo add-apt-repository 'deb https://hyperledger.jfrog.io/artifactory/indy focal dev' && \
     sudo add-apt-repository 'deb http://security.ubuntu.com/ubuntu bionic-security main' && \
     sudo add-apt-repository 'deb https://repo.sovrin.org/deb bionic master'  && \
-    sudo add-apt-repository 'deb https://repo.sovrin.org/sdk/deb bionic master' 
+    sudo add-apt-repository 'deb https://repo.sovrin.org/sdk/deb bionic master'
 
 RUN sudo apt-get update -y && sudo apt-get install -y \
     # Python
@@ -68,7 +68,5 @@ RUN pip3 install -U \
     'pyzmq==22.3.0'\
     flake8==3.8.4
 
-# install rake
-RUN sudo gem install --no-document rake 
-## install fpm; needs to be pinned to 1.13.1 because some packages cannot be built with the newest release 1.14.0
-RUN sudo gem install --no-document fpm -v 1.14.2
+# install fpm
+RUN sudo gem install --no-document rake dotenv:2.8.1 fpm:1.14.2

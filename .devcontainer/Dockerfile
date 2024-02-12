@@ -77,7 +77,5 @@ RUN pip3 install -U \
     Cython==0.29.36
 
 
-# install rake
-RUN gem install --no-document rake 
-## install fpm; needs to be pinned to 1.13.1 because some packages cannot be built with the newest release 1.14.0
-RUN gem install --no-document fpm -v 1.14.2
+# install fpm
+RUN gem install --no-document rake dotenv:2.8.1 fpm:1.14.2
