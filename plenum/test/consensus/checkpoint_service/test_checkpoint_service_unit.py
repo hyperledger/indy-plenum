@@ -121,7 +121,7 @@ def test_process_backup_catchup_msg(checkpoint_service, tconf, checkpoint):
 
     checkpoint_service._received_checkpoints[key] = {"frm"}
     checkpoint_service._received_checkpoints[new_key] = {"frm"}
-    checkpoint_service._data.checkpoints.append(checkpoint)
+    checkpoint_service._data.checkpoints.add(checkpoint)
 
     checkpoint_service._data.last_ordered_3pc = (checkpoint_service.view_no, till_seq_no)
     checkpoint_service.caught_up_till_3pc(checkpoint_service._data.last_ordered_3pc)

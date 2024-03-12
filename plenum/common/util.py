@@ -538,7 +538,7 @@ def getCallableName(callable: Callable):
 
 def updateNestedDict(d, u, nestedKeysToUpdate=None):
     for k, v in u.items():
-        if isinstance(v, collections.Mapping) and \
+        if isinstance(v, collections.abc.Mapping) and \
                 (not nestedKeysToUpdate or k in nestedKeysToUpdate):
             r = updateNestedDict(d.get(k, {}), v)
             d[k] = r

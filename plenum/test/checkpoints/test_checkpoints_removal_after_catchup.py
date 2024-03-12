@@ -26,7 +26,7 @@ def clear_checkpoints(txnPoolNodeSet):
                                                                                          max_key=stable_cp_seq_no))
             replica._consensus_data.checkpoints.clear()
             if len(own_stable_checkpoints) > 0:
-                replica._consensus_data.checkpoints.append(own_stable_checkpoints[0])
+                replica._consensus_data.checkpoints.add(own_stable_checkpoints[0])
             replica._checkpointer._received_checkpoints.clear()
 
 

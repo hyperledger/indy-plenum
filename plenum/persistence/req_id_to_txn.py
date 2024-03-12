@@ -1,6 +1,6 @@
 import string
 
-from collections import Iterable
+from collections.abc import Iterable
 
 from common.exceptions import LogicError
 from storage.kv_store import KeyValueStorage

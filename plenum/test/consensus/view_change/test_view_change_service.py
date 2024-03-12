@@ -29,7 +29,7 @@ def view_change_service_builder(consensus_data, timer, internal_bus, external_bu
         data.node_mode = Mode.participating
         digest = cp_digest(DEFAULT_STABLE_CHKP)
         cp = Checkpoint(instId=0, viewNo=initial_view_no, seqNoStart=0, seqNoEnd=DEFAULT_STABLE_CHKP, digest=digest)
-        data.checkpoints.append(cp)
+        data.checkpoints.add(cp)
 
         ViewChangeTriggerService(data=data,
                                  timer=timer,
@@ -631,7 +631,7 @@ def test_do_not_send_instance_change_on_timeout_when_multiple_view_change_finish
     # receive quorum of ViewChanges and ViewChangeAcks
     non_primaries = [item for item in validators if item != primary_name]
     vc = create_view_change(initial_view_no + 1)
-    service._data.checkpoints.append(Checkpoint(instId=0,
+    service._data.checkpoints.add(Checkpoint(instId=0,
                                                 viewNo=initial_view_no + 1,
                                                 seqNoStart=0,
                                                 seqNoEnd=DEFAULT_STABLE_CHKP,
