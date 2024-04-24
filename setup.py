@@ -27,7 +27,7 @@ metadata = {'__file__': os.path.join(here, 'plenum', '__metadata__.py')}
 with open(metadata['__file__'], 'r') as f:
     exec(f.read(), metadata)
 
-tests_require = ['attrs==20.3.0', 'pytest==6.2.2', 'pytest-xdist==2.2.1', 'pytest-forked==1.3.0',
+tests_require = ['attrs==20.3.0', 'pytest==6.2.5', 'pytest-xdist==2.2.1', 'pytest-forked==1.3.0',
                  'python3-indy==1.16.0.post236', 'pytest-asyncio==0.14.0']
 
 
@@ -126,14 +126,14 @@ setup(
                         'python-rocksdb',
                         'python-ursa==0.1.1',
                         ### Tests fail without version pin (GHA run: https://github.com/udosson/indy-plenum/actions/runs/1078745445)
-                        'rlp==0.6.0',
+                        'rlp==2.0.0',
                         'semver==2.13.0',
                         # 'sha3==0.2.1',
                         'sha3',
                         # 'six==1.15.0',
                         'six',
                         ### Tests fail without version pin (GHA run: https://github.com/udosson/indy-plenum/actions/runs/1078741118)
-                        'sortedcontainers==1.5.7',
+                        'sortedcontainers==2.1.0',
                         ### Tests fail without version pin (GHA run: https://github.com/udosson/indy-plenum/actions/runs/1078741118)
                         'ujson==1.33',
                         ],

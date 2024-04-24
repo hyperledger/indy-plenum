@@ -252,7 +252,7 @@ class CheckpointService:
         # because according to paper, checkpoints cleared only when next stabilized.
         # Avoid using it while implement other services.
         self._data.checkpoints.clear()
-        self._data.checkpoints.append(self._data.initial_checkpoint)
+        self._data.checkpoints.add(self._data.initial_checkpoint)
 
     def __str__(self) -> str:
         return "{} - checkpoint_service".format(self._data.name)

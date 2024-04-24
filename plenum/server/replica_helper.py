@@ -1,5 +1,5 @@
 from _sha256 import sha256
-from collections import OrderedDict, defaultdict
+from collections import defaultdict, OrderedDict
 from enum import IntEnum, unique
 from typing import List
 

@@ -17,7 +17,7 @@ def _set_ppseqno(nodes, new_ppsn):
             repl._checkpointer.set_watermarks(low_watermark=new_ppsn)
             st_chk = new_ppsn - new_ppsn % 100
             repl._consensus_data.stable_checkpoint = st_chk
-            repl._consensus_data.checkpoints.append(Checkpoint(0, repl.viewNo, st_chk - 100, st_chk, None))
+            repl._consensus_data.checkpoints.add(Checkpoint(0, repl.viewNo, st_chk - 100, st_chk, None))
             repl.last_ordered_3pc = (repl.viewNo, new_ppsn)
 
 

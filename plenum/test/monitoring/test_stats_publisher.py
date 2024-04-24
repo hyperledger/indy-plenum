@@ -17,8 +17,7 @@ def listener():
     loop = asyncio.get_event_loop()
     server = loop.run_until_complete(
         asyncio.start_server(_acceptClient,
-                             host=STATS_SERVER_IP, port=STATS_SERVER_PORT,
-                             loop=loop))
+                             host=STATS_SERVER_IP, port=STATS_SERVER_PORT))
     yield server
     server.close()
     loop.run_until_complete(server.wait_closed())

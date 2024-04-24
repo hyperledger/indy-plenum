@@ -1909,8 +1909,8 @@ class OrderingService:
 
         r = 0
         while self.prePreparesPendingPrevPP and self._can_dequeue_pre_prepare(
-                *self.prePreparesPendingPrevPP.iloc[0]):
-            _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(last=False)
+                *self.prePreparesPendingPrevPP.keys()[0]):
+            _, (pp, sender) = self.prePreparesPendingPrevPP.popitem(index=0)
             if not self._can_pp_seq_no_be_in_view(pp.viewNo, pp.ppSeqNo):
                 self._discard(pp, "Pre-Prepare from a previous view",
                               logger.debug)

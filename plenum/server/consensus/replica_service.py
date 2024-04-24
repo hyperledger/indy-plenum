@@ -98,7 +98,7 @@ class ReplicaService:
         self._add_ledgers()
 
         # TODO: This is just for testing purposes only
-        self._data.checkpoints.append(
+        self._data.checkpoints.add(
             Checkpoint(instId=0, viewNo=0, seqNoStart=0, seqNoEnd=0,
                        digest='4F7BsTMVPKFshM1MwLf6y23cid6fL3xMpazVoF9krzUw'))
 

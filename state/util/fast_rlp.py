@@ -76,10 +76,13 @@ if sys.version_info.major == 2:
     encode_optimized = _encode_optimized
     decode_optimized = _decode_optimized
 else:
-    encode_optimized = rlp.codec.encode_raw
+    # The raw encode doesn't support str
+    # encode_optimized = rlp.codec.encode_raw
     # rlp does not implement a decode_raw function.
     # decode_optimized = rlp.codec.decode_raw
-    decode_optimized = _decode_optimized
+    # decode_optimized = _decode_optimized
+    encode_optimized = rlp.encode
+    decode_optimized = rlp.decode
 
 
 def main():

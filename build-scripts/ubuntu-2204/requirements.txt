@@ -1,0 +1,2 @@
+# Requirements for buuilding the python3-pyzmq_22.3.x_amd64.deb package.
+packaging

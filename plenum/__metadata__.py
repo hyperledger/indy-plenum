@@ -4,7 +4,7 @@ plenum package metadata
 import os
 import json
 from typing import Any
-import collections.abc
+from collections.abc import Iterable
 
 from common.version import PlenumVersion, InvalidVersionError
 
@@ -21,7 +21,7 @@ MANIFEST_FILE = os.path.join(
 def load_version(version_file: str = VERSION_FILE) -> PlenumVersion:
     with open(version_file, 'r') as _f:
         version = json.load(_f)
-        if not isinstance(version, collections.abc.Iterable):
+        if not isinstance(version, Iterable):
             raise InvalidVersionError(
                 "Failed to load from {}: data '{}' is not iterable"
                 .format(version_file, version)
