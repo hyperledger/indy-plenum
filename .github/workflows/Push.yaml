@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - ubuntu-22.04
     paths:
       - '**.py'
       - '.github/**'
