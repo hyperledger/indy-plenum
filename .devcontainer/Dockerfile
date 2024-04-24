@@ -1,7 +1,7 @@
 # See here for image contents: https://github.com/microsoft/vscode-dev-containers/tree/v0.209.6/containers/ubuntu/.devcontainer/base.Dockerfile
 
 # [Choice] Ubuntu version (use hirsuite or bionic on local arm64/Apple Silicon): hirsute, focal, bionic
-ARG VARIANT="focal"
+ARG VARIANT="jammy"
 FROM mcr.microsoft.com/vscode/devcontainers/base:${VARIANT}
 
 # [Optional] Uncomment this section to install additional OS packages.
@@ -19,16 +19,16 @@ RUN apt-get update -y && apt-get install -y \
     curl \
     jq
 
-
 # ========================================================================================================
 # Update repository signing keys
 # --------------------------------------------------------------------------------------------------------
     # Hyperledger
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 && \
     # Sovrin
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 && \
+    # bionic-security
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 3B4FE6ACC0B21F32
 # ========================================================================================================
-
 
 # Plenum
 #  - https://github.com/hyperledger/indy-plenum/issues/1546
@@ -37,6 +37,12 @@ RUN echo "deb  https://hyperledger.jfrog.io/artifactory/indy focal dev"  >> /etc
     echo "deb http://security.ubuntu.com/ubuntu bionic-security main"  >> /etc/apt/sources.list && \
     echo "deb https://repo.sovrin.org/deb bionic master" >> /etc/apt/sources.list && \
     echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list
+
+# Kim's temp repo
+# TODO:
+#    - Remove dependency on Kim's temp repo.
+#    - Change this to official repo
+RUN echo "deb [trusted=yes] http://209.141.41.82:8000/ packagedir/" >> /etc/apt/sources.list
 
 RUN apt-get update -y && apt-get install -y \
     # Python
@@ -63,6 +69,11 @@ RUN apt-get update -y && apt-get install -y \
     ursa=0.3.2-1 \
     # Indy SDK
     libindy=1.15.0~1625-bionic \
+    # Kim's updated packages
+    #  - TODO: Remove dependency on Kim's temp repo.
+    python3-sortedcontainers \
+    python3-rlp \
+    python3-ioflo \
     # Need to move libursa.so to parent dir
     && mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
 
@@ -78,4 +89,4 @@ RUN pip3 install -U \
 
 
 # install fpm
-RUN gem install --no-document rake dotenv:2.8.1 fpm:1.14.2
+RUN gem install --no-document rake dotenv:2.8.1 fpm:1.15.0
