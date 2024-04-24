@@ -3,9 +3,16 @@
 set -e
 set -x
 
+# Ensure OUTPUT_PATH is defined as a fully qualified path
+pushd $(dirname $(realpath "$0"))
 OUTPUT_PATH=${1:-.}
-wheel2debconf="$(dirname "$(realpath "$0")")"/wheel2deb.yml
+if [ ! -d "${OUTPUT_PATH}" ]; then
+    mkdir -p ${OUTPUT_PATH}
+fi
+OUTPUT_PATH=$(realpath ${OUTPUT_PATH})
+popd
 
+wheel2debconf="$(dirname "$(realpath "$0")")"/wheel2deb.yml
 
 function build_rocksdb_deb {
     VERSION=$1
@@ -37,7 +44,6 @@ function build_ioflo_deb {
     python3 setup.py bdist_wheel
     pushd dist
     wheel2deb --config ${wheel2debconf}
-    mkdir -p ${OUTPUT_PATH}
     mv output/*.deb ${OUTPUT_PATH}
 
     popd
@@ -127,7 +133,6 @@ function build_from_pypi_wheel {
     # Can't build cytoolz using wheel for rlp, but can't build rlp with fpm
     rm -f /tmp/wheel/cytoolz*
     wheel2deb --config ${wheel2debconf}
-    mkdir -p ${OUTPUT_PATH}
     popd
     mv /tmp/wheel/output/*.deb ${OUTPUT_PATH}
     rm -rvf /tmp/wheel
