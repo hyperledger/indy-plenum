@@ -37,7 +37,7 @@ function build_rocksdb_deb {
 function build_ioflo_deb {
     VERSION=$1
 
-    git clone https://github.com/reflectivedevelopment/ioflo.git /tmp/ioflo
+    git clone https://github.com/ioflo/ioflo.git /tmp/ioflo
     pushd /tmp/ioflo
     git checkout $VERSION
 
@@ -161,7 +161,10 @@ build_from_pypi_wheel base58
 ### Needs to be pinned to 3.10.1 because from v4.0.0 the package name ends in python3-importlib-metadata_0.0.0_amd64.deb
 ### https://github.com/hyperledger/indy-plenum/runs/4166593170?check_suite_focus=true#step:5:5304
 build_from_pypi_wheel importlib-metadata 3.10.1
-build_ioflo_deb 2.0.3
+# ToDo:
+#  - Currently being built off a commit from the main repo
+#  - Update to build from PyPi Wheel once a release containing Kim's updates is available on PyPi
+build_ioflo_deb 45bcddbf680d22af84469406a04286ff1c79043a
 build_from_pypi_wheel jsonpickle
 build_from_pypi_wheel leveldb
 build_from_pypi_wheel libnacl 1.6.1
