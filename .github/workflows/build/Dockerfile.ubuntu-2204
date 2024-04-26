@@ -19,19 +19,21 @@ RUN apt-get update -y && apt-get install -y \
     # Hyperledger
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 && \
     # Sovrin
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 && \
+    # Bionic-Security
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 3B4FE6ACC0B21F32
 # ========================================================================================================
+
+# ToDo:
+#  - Eliminate dependency on obsolete bionic repositories.
 
 # Plenum
 #  - https://github.com/hyperledger/indy-plenum/issues/1546
 #  - Needed to pick up rocksdb=5.8.8
-#RUN echo "deb https://hyperledger.jfrog.io/artifactory/indy focal dev"  >> /etc/apt/sources.list && \
-#    echo "deb https://repo.sovrin.org/deb bionic master" >> /etc/apt/sources.list && \
-#    echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list
-
-# TODO change this to official repo
-RUN echo "deb [trusted=yes] http://209.141.41.82:8000/ packagedir/" >> /etc/apt/sources.list
-
+RUN echo "deb https://hyperledger.jfrog.io/artifactory/indy jammy dev"  >> /etc/apt/sources.list && \
+    echo "deb http://security.ubuntu.com/ubuntu bionic-security main"  >> /etc/apt/sources.list && \
+    echo "deb https://repo.sovrin.org/deb bionic master" >> /etc/apt/sources.list && \
+    echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.listst
 
 RUN apt-get update -y && apt-get install -y \
     # Python

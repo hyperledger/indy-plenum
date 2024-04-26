@@ -14,7 +14,7 @@ jobs:
   indy_plenum_tests:
     name: Sliced Module Tests
     # Reference to workflow-setup job is required to access the GITHUB_REPOSITORY_NAME output.
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     # Fix for scacap/action-surefire-report out of memory error:
     # - https://github.com/ScaCap/action-surefire-report/issues/17
     env:
@@ -86,7 +86,7 @@ jobs:
   indy_plenum_module_tests:
     name: Module Tests
     # Reference to workflow-setup job is required to access the GITHUB_REPOSITORY_NAME output.
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       UBUNTU_VERSION: ${{ inputs.UBUNTU_VERSION }}
     container:
