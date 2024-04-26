@@ -10,6 +10,10 @@ on:
       - 'build-scripts/**'
       - 'bump_version.sh'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   workflow-setup:
     name: Initialize Workflow

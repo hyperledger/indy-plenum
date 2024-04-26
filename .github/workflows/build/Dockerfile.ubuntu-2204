@@ -33,7 +33,7 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 &&
 RUN echo "deb https://hyperledger.jfrog.io/artifactory/indy jammy dev"  >> /etc/apt/sources.list && \
     echo "deb http://security.ubuntu.com/ubuntu bionic-security main"  >> /etc/apt/sources.list && \
     echo "deb https://repo.sovrin.org/deb bionic master" >> /etc/apt/sources.list && \
-    echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.listst
+    echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list
 
 RUN apt-get update -y && apt-get install -y \
     # Python
