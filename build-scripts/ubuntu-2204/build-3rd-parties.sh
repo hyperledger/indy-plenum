@@ -3,7 +3,8 @@
 set -e
 set -x
 
-OUTPUT_PATH=${1:-.}
+# Ensure the output is an absolute path and not a relative path
+OUTPUT_PATH="$(realpath -m ${1:-.})"
 wheel2debconf="$(dirname "$(realpath "$0")")"/wheel2deb.yml
 
 
@@ -23,6 +24,7 @@ function build_rocksdb_deb {
     # Install it in the system as it is needed by python-rocksdb.
     make install
     cd -
+    mkdir -p ${OUTPUT_PATH}
     cp /tmp/rocksdb/package/rocksdb_${VERSION}_amd64.deb $OUTPUT_PATH
     rm -rf /tmp/rocksdb
 }
@@ -140,7 +142,7 @@ pushd `dirname ${SCRIPT_PATH}` >/dev/null
 
 # Install any python requirements needed for the builds.
 pip install -r requirements.txt
-pip3 install wheel2deb && apt-get install -y debhelper
+pip3 install wheel2deb && apt update && apt install -y debhelper
 apt-get install -y cython3
 
 # Build rocksdb at first

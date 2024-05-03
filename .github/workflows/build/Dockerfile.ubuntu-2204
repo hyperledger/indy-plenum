@@ -17,9 +17,8 @@ RUN apt-get update -y && apt-get install -y \
 # Update repository signing keys
 # --------------------------------------------------------------------------------------------------------
     # Hyperledger
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 && \
-    # Sovrin
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61
+
 # ========================================================================================================
 
 # Plenum
@@ -30,7 +29,8 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 &&
 #    echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list
 
 # TODO change this to official repo
-RUN echo "deb [trusted=yes] http://209.141.41.82:8000/ packagedir/" >> /etc/apt/sources.list
+RUN echo "deb https://hyperledger.jfrog.io/artifactory/indy focal stable" >> /etc/apt/sources.list 
+RUN echo "deb https://hyperledger.jfrog.io/artifactory/indy bionic master" >> /etc/apt/sources.list 
 
 
 RUN apt-get update -y && apt-get install -y \

@@ -3,11 +3,13 @@ on:
   push:
     branches:
       - main
+      - ubuntu-22.04
     paths:
       - '**.py'
       - '.github/**'
       - 'build-scripts/**'
       - 'bump_version.sh'
+
 
 jobs:
   workflow-setup:

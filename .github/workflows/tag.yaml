@@ -5,6 +5,10 @@ on:
     tags:
       - setRelease-v**
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   taginfos:
     name: get Tag infos
@@ -33,7 +37,7 @@ jobs:
   bump_version:
     name: Bump Version Number
     needs: taginfos
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Check out code
         uses: actions/checkout@v4

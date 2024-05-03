@@ -108,7 +108,7 @@ setup(
                         # Pinned because of changing size of `crypto_sign_SECRETKEYBYTES` from 32 to 64
                         'libnacl==1.6.1',
                         # 'msgpack-python==0.5.6',
-                        'msgpack-python',
+                        'msgpack==0.5.6',
                         # 'orderedset==2.0.3',
                         'orderedset',
                         # 'packaging==20.9',
@@ -123,7 +123,7 @@ setup(
                         # 'python-dateutil==2.8.1',
                         'python-dateutil',
                         # 'python-rocksdb==0.7.0',
-                        'python-rocksdb',
+                        'python-rocksdb==0.7.0',
                         'python-ursa==0.1.1',
                         ### Tests fail without version pin (GHA run: https://github.com/udosson/indy-plenum/actions/runs/1078745445)
                         'rlp==2.0.0',
