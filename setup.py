@@ -101,8 +101,7 @@ setup(
                         'importlib_metadata==3.10.1',
                         # 'ioflo==2.0.2',
                         'ioflo',
-                        # 'jsonpickle==2.0.0',
-                        'jsonpickle',
+                        'jsonpickle==3.0.3',
                         # 'leveldb==0.201',
                         'leveldb',
                         # Pinned because of changing size of `crypto_sign_SECRETKEYBYTES` from 32 to 64

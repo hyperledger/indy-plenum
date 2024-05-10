@@ -47,7 +47,7 @@ jobs:
                       packaging \
                       python-dateutil \
                       msgpack-python \
-                      jsonpickle
+                      jsonpickle=3.0.3
       - name: Prepare package and set version
         run: |
           ./bump_version.sh ${{ needs.taginfos.outputs.VERSION }}

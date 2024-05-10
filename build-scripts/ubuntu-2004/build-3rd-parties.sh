@@ -108,7 +108,7 @@ build_from_pypi base58
 ### https://github.com/hyperledger/indy-plenum/runs/4166593170?check_suite_focus=true#step:5:5304
 build_from_pypi importlib-metadata 3.10.1
 build_from_pypi ioflo
-build_from_pypi jsonpickle
+build_from_pypi jsonpickle 3.0.3
 build_from_pypi leveldb
 build_from_pypi libnacl 1.6.1
 build_from_pypi msgpack-python

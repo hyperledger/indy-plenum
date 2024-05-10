@@ -48,7 +48,7 @@
             iniconfig==1.1.1 \
             intervaltree==2.1.0 \
             ioflo==2.0.2 \
-            jsonpickle==2.0.0 \
+            jsonpickle==3.0.3 \
             leveldb==0.201 \
             libnacl==1.7.2 \
             mccabe==0.6.1 \
