@@ -51,7 +51,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download Plenum deb Artifacts from Github Action Artifacts
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v5
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: releasepr.yaml
@@ -59,7 +59,7 @@ jobs:
           name: plenum-deb
           path: artifacts/plenum-deb
       - name: Download Plenum python Artifacts from Github Action Artifacts
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v5
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: releasepr.yaml
@@ -67,7 +67,7 @@ jobs:
           name: plenum-python
           path: artifacts/plenum-python
       - name: Download Plenum third party dependency Artifacts from Github Action Artifacts
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v5
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: releasepr.yaml
