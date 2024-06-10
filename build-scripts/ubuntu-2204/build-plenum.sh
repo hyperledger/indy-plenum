@@ -27,7 +27,7 @@ fpm --input-type "python" \
     --verbose \
     --python-package-name-prefix "python3"\
     --python-bin "/usr/bin/python3" \
-    --exclude "usr/local/lib/python3.8/dist-packages/data" \
+    --exclude "usr/local/lib/python3.10/dist-packages/data" \
     --exclude "usr/local/bin" \
     --exclude "*.pyc" \
     --exclude "*.pyo" \
