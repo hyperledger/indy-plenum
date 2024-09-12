@@ -3,14 +3,9 @@ import string
 
 
 import hashlib
-if hasattr(hashlib, 'sha3_256'):
-    def sha3_256(x):
-        return hashlib.sha3_256(x).digest()
-else:
-    import sha3 as _sha3
-    def sha3_256(x):
-        return _sha3.sha3_256(x).digest()
 
+def sha3_256(x):
+    return hashlib.sha3_256(x).digest()
 
 import rlp
 from rlp.sedes import big_endian_int, BigEndianInt, Binary
