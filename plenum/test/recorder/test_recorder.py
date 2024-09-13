@@ -1,13 +1,9 @@
 import random
 import time
+import json
 from collections import OrderedDict
 
 from plenum.common.util import randomString
-
-try:
-    import ujson as json
-except ImportError:
-    import json
 
 import pytest
 

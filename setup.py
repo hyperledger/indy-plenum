@@ -131,8 +131,6 @@ setup(
                         'six',
                         ### Tests fail without version pin (GHA run: https://github.com/udosson/indy-plenum/actions/runs/1078741118)
                         'sortedcontainers==1.5.7',
-                        ### Tests fail without version pin (GHA run: https://github.com/udosson/indy-plenum/actions/runs/1078741118)
-                        'ujson==5.4.0',
                         ],
 
     setup_requires=['pytest-runner==5.3.0'],

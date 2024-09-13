@@ -1,10 +1,5 @@
 from test_zmq.authenticator import MultiZapAuthenticator
-
-try:
-    import ujson as json
-except ImportError:
-    import json
-
+import json
 import os
 import shutil
 import sys

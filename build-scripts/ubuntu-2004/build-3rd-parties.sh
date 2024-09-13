@@ -126,4 +126,3 @@ build_from_pypi semver 2.13.0
 build_from_pypi sha3
 build_from_pypi six
 build_from_pypi sortedcontainers 1.5.7
-build_from_pypi ujson 1.33
