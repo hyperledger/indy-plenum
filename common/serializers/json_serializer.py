@@ -2,45 +2,25 @@
 
 
 import base64
+import json
 from typing import Dict
 
 from common.serializers.mapping_serializer import MappingSerializer
 
-try:
-    import ujson as json
-    from ujson import encode as uencode
+class OrderedJsonEncoder(json.JSONEncoder):
+    def __init__(self, *args, **kwargs):
+        kwargs['ensure_ascii'] = False
+        kwargs['sort_keys'] = True
+        kwargs['separators'] = (',', ':')
+        super().__init__(*args, **kwargs)
 
-    # Older versions of ujson's encode do not support `sort_keys`, if that
-    # is the case default to using json
-    uencode({'xx': '123', 'aa': 90}, sort_keys=True)
+    def encode(self, o):
+        if isinstance(o, (bytes, bytearray)):
+            return '"{}"'.format(base64.b64encode(o).decode("utf-8"))
+        else:
+            return super().encode(o)
 
-    class UJsonEncoder:
-        @staticmethod
-        def encode(o):
-            if isinstance(o, (bytes, bytearray)):
-                return '"{}"'.format(base64.b64encode(o).decode("utf-8"))
-            else:
-                return uencode(o, sort_keys=True)
-
-    JsonEncoder = UJsonEncoder()
-
-except (ImportError, TypeError):
-    import json
-
-    class OrderedJsonEncoder(json.JSONEncoder):
-        def __init__(self, *args, **kwargs):
-            kwargs['ensure_ascii'] = False
-            kwargs['sort_keys'] = True
-            kwargs['separators'] = (',', ':')
-            super().__init__(*args, **kwargs)
-
-        def encode(self, o):
-            if isinstance(o, (bytes, bytearray)):
-                return '"{}"'.format(base64.b64encode(o).decode("utf-8"))
-            else:
-                return super().encode(o)
-
-    JsonEncoder = OrderedJsonEncoder()
+JsonEncoder = OrderedJsonEncoder()
 
 
 class JsonSerializer(MappingSerializer):

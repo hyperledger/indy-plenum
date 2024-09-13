@@ -29,7 +29,6 @@ if [ "$distro_packages" = "debian-packages" ]; then
   # Update the package names to match the versions that are pre-installed on the os.
   echo -e "\nAdapt the dependencies for the Canonical archive"
   #### ToDo adjust packages for the Cannonical archive for Ubuntu 20.04 (focal)
-  # sed -i "s~ujson==1.33~ujson==1.33-1build1~" setup.py
   # sed -i "s~prompt_toolkit==0.57~prompt_toolkit==0.57-1~" setup.py
   # sed -i "s~msgpack-python==0.4.6~msgpack==0.4.6-1build1~" setup.py
 elif [ "$distro_packages" = "python-packages" ]; then
