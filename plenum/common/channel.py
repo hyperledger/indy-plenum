@@ -156,7 +156,7 @@ class RouterBase:
         # This is done so that messages can include additional metadata
         # isinstance is not used here because it returns true for NamedTuple
         # as well.
-        if type(msg) != tuple:
+        if not isinstance(type(msg), tuple):
             msg = (msg,)
         handler = self._find_handler(msg[0])
         if handler is None:
