@@ -7,6 +7,7 @@ from typing import Dict
 
 from common.serializers.mapping_serializer import MappingSerializer
 
+
 class OrderedJsonEncoder(json.JSONEncoder):
     def __init__(self, *args, **kwargs):
         kwargs['ensure_ascii'] = False
@@ -19,6 +20,7 @@ class OrderedJsonEncoder(json.JSONEncoder):
             return '"{}"'.format(base64.b64encode(o).decode("utf-8"))
         else:
             return super().encode(o)
+
 
 JsonEncoder = OrderedJsonEncoder()
 

@@ -6,11 +6,11 @@ import jsonpickle
 from plenum.common.types import EVENT_PERIODIC_STATS_THROUGHPUT, \
     EVENT_NODE_STARTED, EVENT_REQ_ORDERED, EVENT_PERIODIC_STATS_LATENCIES, \
     PLUGIN_TYPE_STATS_CONSUMER, EVENT_VIEW_CHANGE, EVENT_PERIODIC_STATS_NODES, \
-    EVENT_PERIODIC_STATS_TOTAL_REQUESTS, EVENT_PERIODIC_STATS_NODE_INFO,\
+    EVENT_PERIODIC_STATS_TOTAL_REQUESTS, EVENT_PERIODIC_STATS_NODE_INFO, \
     EVENT_PERIODIC_STATS_SYSTEM_PERFORMANCE_INFO
 from stp_core.common.log import getlogger
 from plenum.config import STATS_SERVER_IP, STATS_SERVER_PORT, STATS_SERVER_MESSAGE_BUFFER_MAX_SIZE
-from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher,\
+from plenum.server.plugin.stats_consumer.stats_publisher import StatsPublisher, \
     Topic
 from plenum.server.plugin_loader import HasDynamicallyImportedModules
 from plenum.server.stats_consumer import StatsConsumer
