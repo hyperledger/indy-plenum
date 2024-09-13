@@ -1,4 +1,5 @@
 import inspect
+import json
 
 from plenum.common.constants import OP_FIELD_NAME, BATCH
 from plenum.common.metrics_collector import NullMetricsCollector
@@ -8,10 +9,6 @@ from stp_core.common.config.util import getConfig
 from stp_core.common.constants import CONNECTION_PREFIX, ZMQ_NETWORK_PROTOCOL
 from stp_zmq.client_message_provider import ClientMessageProvider
 
-try:
-    import ujson as json
-except ImportError:
-    import json
 
 import os
 import shutil
