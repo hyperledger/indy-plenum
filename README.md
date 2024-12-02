@@ -114,7 +114,7 @@ or if you want to work with your fork, prefix the entire URL of your branch with
 
 **Note**: Be aware that the config files for Gitpod and VSCode are currently only used in the `main` branch!
 
-Please have a look at [Dev Setup](https://github.com/hyperledger/indy-node/blob/master/docs/setup-dev.md) in indy-node repo.
+Please have a look at [Dev Setup](https://github.com/hyperledger/indy-node/blob/main/docs/source/setup-dev.md) in indy-node repo.
 It contains common setup for both indy-plenum and indy-node.
 
 
