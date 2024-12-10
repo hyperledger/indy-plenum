@@ -108,7 +108,6 @@ def create_ledger_rocksdb_storage(txn_serializer, hash_serializer, tempdir, init
 
 
 def create_ledger_chunked_file_storage(txn_serializer, hash_serializer, tempdir, init_genesis_txn_file=None):
-    chunk_creator = None
     db_name = 'transactions'
     if isinstance(txn_serializer, MsgPackSerializer):
         # TODO: fix chunk_creator support
@@ -119,6 +118,8 @@ def create_ledger_chunked_file_storage(txn_serializer, hash_serializer, tempdir,
                                                   isLineNoKey=True,
                                                   storeContentHash=False,
                                                   ensureDurability=False)
+    else:
+        chunk_creator = None
     store = ChunkedFileStore(tempdir,
                              db_name,
                              isLineNoKey=True,
