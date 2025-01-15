@@ -2,6 +2,9 @@
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/hyperledger/indy-plenum/tree/main)
 
+<p float="left">
+  <a href="https://scorecard.dev/viewer/?uri=github.com/hyperledger/indy-plenum"><img src="https://api.scorecard.dev/projects/github.com/hyperledger/indy-plenum/badge" />
+</p>
 
 - [Announcements](#announcements)
   - [April 12 2023](#april-12-2023)
