@@ -22,12 +22,13 @@ RUN apt-get update -y && apt-get install -y \
 # ========================================================================================================
 # Update repository signing keys
 # --------------------------------------------------------------------------------------------------------
-    # Hyperledger
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 && \
-    # Sovrin
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 && \
-    # Bionic-Security
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 3B4FE6ACC0B21F32
+# Hyperledger
+RUN gpg --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 && \
+    gpg --export 9692C00E657DDE61 > /etc/apt/keyrings/hyperledger.gpg
+
+# todo: Will be removed when libindy will have been replace by indy-vdr, askar, and indy-credx
+RUN gpg --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 && \
+    gpg --export CE7709D068DB5E88 > /etc/apt/keyrings/sovrin.gpg
 # ========================================================================================================
 
 # ToDo:
@@ -36,10 +37,12 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 &&
 # Plenum
 #  - https://github.com/hyperledger/indy-plenum/issues/1546
 #  - Needed to pick up rocksdb=5.8.8
-RUN echo "deb  https://hyperledger.jfrog.io/artifactory/indy jammy dev"  >> /etc/apt/sources.list && \
-    echo "deb http://security.ubuntu.com/ubuntu bionic-security main"  >> /etc/apt/sources.list && \
-    echo "deb https://repo.sovrin.org/deb bionic master" >> /etc/apt/sources.list && \
-    echo "deb https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list
+RUN echo "deb [signed-by=/etc/apt/keyrings/hyperledger.gpg] https://hyperledger.jfrog.io/artifactory/indy jammy dev rc" > /etc/apt/sources.list.d/hyperledger.list
+
+# todo: Will be removed when libindy will have been replace by indy-vdr, askar, and indy-credx
+RUN echo "deb [signed-by=/etc/apt/keyrings/sovrin.gpg] https://repo.sovrin.org/deb bionic master" > /etc/apt/sources.list.d/sovrin.list
+RUN echo "deb [signed-by=/etc/apt/keyrings/sovrin.gpg] https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list.d/sovrin.list
+
 
 RUN apt-get update -y && apt-get install -y \
     # Python

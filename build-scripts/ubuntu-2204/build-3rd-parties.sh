@@ -145,8 +145,7 @@ pushd `dirname ${SCRIPT_PATH}` >/dev/null
 
 # Install any python requirements needed for the builds.
 pip install -r requirements.txt
-pip3 install wheel2deb && apt-get install -y debhelper
-apt-get install -y cython3
+pip3 install wheel2deb && apt update && apt install -y debhelper cython3
 
 # Build rocksdb at first
 ### Can be removed once the code has been updated to run with rocksdb v. 5.17
