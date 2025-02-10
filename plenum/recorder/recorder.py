@@ -1,13 +1,9 @@
 import os
 import time
+import json
 from typing import Callable
 
 from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
-
-try:
-    import ujson as json
-except ImportError:
-    import json
 
 
 class Recorder:

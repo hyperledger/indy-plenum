@@ -82,7 +82,6 @@
             sortedcontainers==1.5.7 \
             timeout-decorator==0.5.0 \
             toml==0.10.2 \
-            ujson==1.33 \
             wcwidth==0.2.5 \
             wheel==0.34.2 \
             zipp==1.2.0
