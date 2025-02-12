@@ -1,18 +1,7 @@
-name: Indy Plenum - PR Workflow
+name: Indy Plenum - Push Workflow manual dispatch
 on:
-  pull_request:
-    paths:
-      - '**'
-      - "!plenum/__version__.json"
-
-    branches:
-      - main
-      - ubuntu-22.04
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
+  workflow_dispatch:
+ 
 jobs:
   workflow-setup:
     name: Initialize Workflow
@@ -27,34 +16,21 @@ jobs:
       GITHUB_REPOSITORY_NAME: ${{ steps.setup.outputs.GITHUB_REPOSITORY_NAME }}
       distribution: ${{ steps.setup.outputs.distribution }}
       publish: ${{ steps.setup.outputs.publish }}
-      testsNeeded: ${{ steps.testsNeeded.outputs.testsNeeded }}
     steps:
       - name: checkout source code
         uses: actions/checkout@v4
       - name: setup
         id: setup
-        uses: hyperledger/indy-shared-gha/.github/actions/workflow-setup@v2
-      - name: testsNeeded
-        id: testsNeeded
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            testsNeeded:
-              - '**.py'
-              - '.github/**'
-              - 'build-scripts/**'
-              - 'bump_version.sh'
+        uses: hyperledger/indy-shared-gha/.github/actions/workflow-setup@v1
 
   lint:
     name: Lint
-    needs: [workflow-setup]
-    if: ${{ needs.workflow-setup.outputs.testsNeeded == 'true' }}
-    uses: hyperledger/indy-shared-gha/.github/workflows/lint.yaml@v2
+    uses: hyperledger/indy-shared-gha/.github/workflows/lint.yaml@v1
 
   build-docker-image:
     name: Create Builder Image
     needs: [workflow-setup, lint]
-    uses:  hyperledger/indy-shared-gha/.github/workflows/buildimage.yaml@v2
+    uses:  hyperledger/indy-shared-gha/.github/workflows/buildimage.yaml@v1
     with:
       CACHE_KEY_BUILD: ${{ needs.workflow-setup.outputs.CACHE_KEY_BUILD }}
       DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
@@ -63,7 +39,7 @@ jobs:
   build_packages:
     name: Build Packages
     needs: [workflow-setup, build-docker-image]
-    uses: hyperledger/indy-shared-gha/.github/workflows/buildpackages.yaml@v2
+    uses: hyperledger/indy-shared-gha/.github/workflows/buildpackages.yaml@v1
     with:
       DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
       UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
@@ -79,10 +55,16 @@ jobs:
       GITHUB_REPOSITORY_NAME: ${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
       UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
 
-  statusCheck:
-    name: statusCheck
-    runs-on: ubuntu-latest
+  publish_artifacts:
+    name: Publish Artifacts
     needs: [workflow-setup, plenum_tests]
-    if: ${{ needs.workflow-setup.outputs.testsNeeded == 'false' || success() }}
-    steps:
-      - run: 'echo "Just a status Check (Always true, when executed) for branch protection rules(blocks merging while test are running and if tests fail)." '
+    if: needs.workflow-setup.outputs.publish == 'true'
+    uses: hyperledger/indy-shared-gha/.github/workflows/publish_artifacts.yaml@v1
+    with:
+      COMPONENT: 'dev'
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+      distribution: ${{ needs.workflow-setup.outputs.distribution }}
+      moduleName: plenum
+    secrets:
+      INDY_ARTIFACTORY_REPO_CONFIG: ${{ secrets.INDY_ARTIFACTORY_REPO_CONFIG }}
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
