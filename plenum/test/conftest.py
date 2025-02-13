@@ -14,7 +14,8 @@ from typing import Dict, Any, List
 
 from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
 from indy.wallet import create_wallet, open_wallet, close_wallet
-from indy.did import create_and_store_my_did
+from plenum.test.wallet_helper import create_and_store_did, wallet_helper
+from indy_vdr import set_protocol_version
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
 from plenum.bls.bls_crypto_factory import create_default_bls_crypto_factory
@@ -75,6 +76,7 @@ GENERAL_CONFIG_DIR = 'etc/indy'
 
 DEV_NULL_PATH = '/dev/null'
 ROCKSDB_WRITE_BUFFER_SIZE = 256 * 1024
+
 
 
 def get_data_for_role(pool_txn_data, role):
@@ -897,18 +899,21 @@ def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_data):
         logger.debug("Unhandled exception: {}".format(e))
 
 
-async def _gen_wallet_handler(wallet_data):
-    wallet_config, wallet_credentials = wallet_data
-    await create_wallet(wallet_config, wallet_credentials)
-    wallet_handle = await open_wallet(wallet_config, wallet_credentials)
-    return wallet_handle
+@pytest.fixture(scope="session", autouse=True)
+def set_proto_ver():
+    """
+    Sets sdk protocol version to 2
+    """
+    yield set_protocol_version(2)
 
 
-@pytest.fixture(scope='module')
-def sdk_wallet_handle(looper, sdk_wallet_data):
-    wallet_handle = looper.loop.run_until_complete(_gen_wallet_handler(sdk_wallet_data))
+@pytest.fixture(scope="module")
+async def sdk_wallet_handle(set_proto_ver):
+    """
+    Creates a wallet handle and yields it
+    """
+    wallet_handle, _, _ = await wallet_helper()
     yield wallet_handle
-    looper.loop.run_until_complete(close_wallet(wallet_handle))
 
 
 @pytest.fixture(scope='module')
@@ -944,16 +949,14 @@ def sdk_new_client_seed():
 @pytest.fixture(scope='module')
 def sdk_wallet_trustee(looper, sdk_wallet_handle, sdk_trustee_seed):
     (trustee_did, trustee_verkey) = looper.loop.run_until_complete(
-        create_and_store_my_did(sdk_wallet_handle,
-                                json.dumps({'seed': sdk_trustee_seed})))
+        create_and_store_did(sdk_wallet_handle,sdk_trustee_seed))
     return sdk_wallet_handle, trustee_did
 
 
 @pytest.fixture(scope='module')
 def sdk_wallet_steward(looper, sdk_wallet_handle, sdk_steward_seed):
     (steward_did, steward_verkey) = looper.loop.run_until_complete(
-        create_and_store_my_did(sdk_wallet_handle,
-                                json.dumps({'seed': sdk_steward_seed})))
+        create_and_store_did(sdk_wallet_handle,sdk_steward_seed))
     return sdk_wallet_handle, steward_did
 
 
@@ -972,8 +975,7 @@ def sdk_wallet_stewards(looper, sdk_wallet_handle, poolTxnStewardNames, poolTxnD
     for name in poolTxnStewardNames:
         seed = poolTxnData["seeds"][name]
         (steward_did, steward_verkey) = looper.loop.run_until_complete(
-            create_and_store_my_did(sdk_wallet_handle,
-                                    json.dumps({'seed': seed})))
+            create_and_store_did(sdk_wallet_handle,seed))
         stewards.append((sdk_wallet_handle, steward_did))
 
     yield stewards
@@ -982,16 +984,14 @@ def sdk_wallet_stewards(looper, sdk_wallet_handle, poolTxnStewardNames, poolTxnD
 @pytest.fixture(scope='module')
 def sdk_wallet_client(looper, sdk_wallet_handle, sdk_client_seed):
     (client_did, _) = looper.loop.run_until_complete(
-        create_and_store_my_did(sdk_wallet_handle,
-                                json.dumps({'seed': sdk_client_seed})))
+        create_and_store_did(sdk_wallet_handle, sdk_client_seed))
     return sdk_wallet_handle, client_did
 
 
 @pytest.fixture(scope='module')
 def sdk_wallet_client2(looper, sdk_wallet_handle, sdk_client_seed2):
     (client_did, _) = looper.loop.run_until_complete(
-        create_and_store_my_did(sdk_wallet_handle,
-                                json.dumps({'seed': sdk_client_seed2})))
+        create_and_store_did(sdk_wallet_handle, sdk_client_seed2))
     return sdk_wallet_handle, client_did
 
 
