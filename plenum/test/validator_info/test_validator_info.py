@@ -101,6 +101,10 @@ def test_validator_info_file_pool_fields_valid(looper, info, txnPoolNodesLooper,
 
     others, disconnected = txnPoolNodeSet[:-1], txnPoolNodeSet[-1]
     disconnect_node_and_ensure_disconnected(txnPoolNodesLooper, txnPoolNodeSet, disconnected)
+    
+    # Wait for the information to be updated, if we dont pause, the test will fail 50 % of the time
+    looper.runFor(2)
+    
     latest_info = node._info_tool.info
 
     assert latest_info['Pool_info']['Reachable_nodes_count'] == nodeCount - 1

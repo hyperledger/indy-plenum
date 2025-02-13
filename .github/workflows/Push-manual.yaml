@@ -1,0 +1,70 @@
+name: Indy Plenum - Push Workflow manual dispatch
+on:
+  workflow_dispatch:
+ 
+jobs:
+  workflow-setup:
+    name: Initialize Workflow
+    runs-on: ubuntu-latest
+    outputs:
+      CACHE_KEY_BUILD: ${{ steps.setup.outputs.CACHE_KEY_BUILD }}
+      UBUNTU_VERSION: ${{ steps.setup.outputs.UBUNTU_VERSION }}
+      # Expose the lowercase version of the GitHub repository name
+      # to all subsequent jobs that reference image repositories
+      # as the push and pull operations require the URL of the repository
+      # to be in lowercase.
+      GITHUB_REPOSITORY_NAME: ${{ steps.setup.outputs.GITHUB_REPOSITORY_NAME }}
+      distribution: ${{ steps.setup.outputs.distribution }}
+      publish: ${{ steps.setup.outputs.publish }}
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v4
+      - name: setup
+        id: setup
+        uses: hyperledger/indy-shared-gha/.github/actions/workflow-setup@v1
+
+  lint:
+    name: Lint
+    uses: hyperledger/indy-shared-gha/.github/workflows/lint.yaml@v1
+
+  build-docker-image:
+    name: Create Builder Image
+    needs: [workflow-setup, lint]
+    uses:  hyperledger/indy-shared-gha/.github/workflows/buildimage.yaml@v1
+    with:
+      CACHE_KEY_BUILD: ${{ needs.workflow-setup.outputs.CACHE_KEY_BUILD }}
+      DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+
+  build_packages:
+    name: Build Packages
+    needs: [workflow-setup, build-docker-image]
+    uses: hyperledger/indy-shared-gha/.github/workflows/buildpackages.yaml@v1
+    with:
+      DOCKER_IMAGE: ghcr.io/${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}/plenum-build:${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+      isDev: 'true'
+      isRC: 'false'
+      moduleName: plenum
+
+  plenum_tests:
+    name: Test Plenum
+    needs: [workflow-setup, lint, build_packages]
+    uses: ./.github/workflows/reuseable_test.yaml
+    with:
+      GITHUB_REPOSITORY_NAME: ${{ needs.workflow-setup.outputs.GITHUB_REPOSITORY_NAME }}
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+
+  publish_artifacts:
+    name: Publish Artifacts
+    needs: [workflow-setup, plenum_tests]
+    if: needs.workflow-setup.outputs.publish == 'true'
+    uses: hyperledger/indy-shared-gha/.github/workflows/publish_artifacts.yaml@v1
+    with:
+      COMPONENT: 'dev'
+      UBUNTU_VERSION: ${{ needs.workflow-setup.outputs.UBUNTU_VERSION }}
+      distribution: ${{ needs.workflow-setup.outputs.distribution }}
+      moduleName: plenum
+    secrets:
+      INDY_ARTIFACTORY_REPO_CONFIG: ${{ secrets.INDY_ARTIFACTORY_REPO_CONFIG }}
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
