@@ -1,6 +1,6 @@
 from plenum.test.bls.helper import check_update_bls_key
 from indy import ledger
-from indy.did import create_and_store_my_did
+from plenum.test.wallet_helper import create_and_store_did
 
 from plenum.test.delayers import cDelay
 from plenum.test.stasher import delay_rules, delay_rules_without_processing
@@ -43,7 +43,7 @@ def test_get_txn_after_bls_key_rotation(looper, txnPoolNodeSet,
         with delay_rules_without_processing(txnPoolNodeSet[1].nodeIbStasher, cDelay(delay=1200, sender_filter=txnPoolNodeSet[0].name)):
             with delay_rules_without_processing(txnPoolNodeSet[2].nodeIbStasher, cDelay(delay=1200, sender_filter=txnPoolNodeSet[1].name)):
                 with delay_rules_without_processing(txnPoolNodeSet[3].nodeIbStasher, cDelay(delay=1200, sender_filter=txnPoolNodeSet[2].name)):
-                    did_future = create_and_store_my_did(sdk_wallet_client[0], "{}")
+                    did_future = create_and_store_did(sdk_wallet_client[0])
                     did, verkey = looper.loop.run_until_complete(did_future)
                     nym_request_future = ledger.build_nym_request(sdk_wallet_trustee[1], did, verkey, None, None)
                     nym_request = looper.loop.run_until_complete(nym_request_future)

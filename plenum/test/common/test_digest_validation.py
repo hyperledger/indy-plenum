@@ -2,7 +2,8 @@ import json
 import types
 
 import pytest
-from indy.did import create_and_store_my_did
+
+from plenum.test.wallet_helper import create_and_store_did
 
 from plenum.server.consensus.ordering_service import OrderingService
 
@@ -28,7 +29,7 @@ def op(looper, sdk_wallet_stewards):
     wh, did = sdk_wallet_stewards[0]
     seed = randomString(32)
     new_did, new_verkey = looper.loop.run_until_complete(
-        create_and_store_my_did(wh, json.dumps({'seed': seed})))
+        create_and_store_did(wh, seed))
     op = {'type': '1',
           'dest': new_did,
           'verkey': new_verkey,
