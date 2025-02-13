@@ -1,7 +1,6 @@
 import json
 
 import pytest
-from indy.did import create_and_store_my_did
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node

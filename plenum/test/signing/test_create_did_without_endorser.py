@@ -2,7 +2,7 @@ import json
 import types
 
 import pytest
-from indy.did import create_and_store_my_did
+from plenum.test.wallet_helper import create_and_store_did
 from indy.ledger import build_nym_request
 
 from plenum.common.constants import NYM, STEWARD, ROLE, VERKEY
@@ -45,7 +45,7 @@ def nym_txn_data(looper, sdk_wallet_client):
 
     wh, _ = sdk_wallet_client
     sender_did, sender_verkey = \
-        looper.loop.run_until_complete(create_and_store_my_did(wh, json.dumps({'seed': seed})))
+        looper.loop.run_until_complete(create_and_store_did(wh, seed))
     return wh, randomString(5), sender_did, sender_verkey
 
 
