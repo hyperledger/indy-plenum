@@ -1,6 +1,6 @@
 import json
 
-from indy.did import create_and_store_my_did
+from plenum.test.wallet_helper import create_and_store_did
 from indy.ledger import build_node_request, build_nym_request, \
     build_get_txn_request
 from indy.pool import refresh_pool_ledger
@@ -34,7 +34,7 @@ def new_client_request(role, name, looper, sdk_wallet):
     wh, did = sdk_wallet
     seed = randomString(32)
     (named_did, named_verkey) = looper.loop.run_until_complete(
-        create_and_store_my_did(wh, json.dumps({'seed': seed})))
+        create_and_store_did(wh, seed))
     nym_request = looper.loop.run_until_complete(
         build_nym_request(did, named_did, named_verkey,
                           name, role))
@@ -263,7 +263,7 @@ async def prepare_nym_request(wallet, named_seed, alias,
                               role, dest=None, verkey=None, skipverkey=False):
     wh, submitter_did = wallet
     (named_did, named_verkey) = \
-        await create_and_store_my_did(wh, json.dumps({'seed': named_seed}))
+        await create_and_store_did(wh,  named_seed)
     named_did = dest or named_did
     named_verkey = verkey or named_verkey
     named_verkey = None if skipverkey else named_verkey

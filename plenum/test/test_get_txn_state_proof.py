@@ -6,12 +6,13 @@ import random
 from plenum.common.constants import TXN_METADATA, TXN_METADATA_SEQ_NO, OP_FIELD_NAME
 from plenum.test.delayers import req_delay
 from plenum.test.stasher import delay_rules
-from indy.did import create_and_store_my_did
+
+from plenum.test.wallet_helper import create_and_store_did
 from indy.ledger import build_nym_request, build_get_txn_request, sign_and_submit_request, submit_request, build_attrib_request, build_acceptance_mechanisms_request
 
 
 def nym_on_ledger(looper, sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward, seed=None):
-    did_future = create_and_store_my_did(sdk_wallet_client[0], json.dumps({"seed": seed}) if seed else "{}")
+    did_future = create_and_store_did(sdk_wallet_client[0], seed)
     did, vk = looper.loop.run_until_complete(did_future)
     nym_req_future = build_nym_request(sdk_wallet_steward[1], did, vk, None, None)
     nym_req = looper.loop.run_until_complete(nym_req_future)

@@ -8,6 +8,7 @@ import time
 from contextlib import ExitStack
 from typing import Sequence
 
+from plenum.test.wallet_helper import create_and_store_did
 from indy import did, wallet
 from indy.ledger import sign_request
 
@@ -33,10 +34,11 @@ async def get_wallet_and_pool():
     await wallet.create_wallet(pool_name, their_wallet_name, None, None, None)
     their_wallet_handle = await wallet.open_wallet(their_wallet_name, None, None)
 
-    await did.create_and_store_my_did(my_wallet_handle, "{}")
+    await create_and_store_did(my_wallet_handle)
 
-    (their_did, their_verkey) = await did.create_and_store_my_did(their_wallet_handle,
-                                                                  json.dumps({"seed": seed_trustee1}))
+    (their_did, their_verkey) = await create_and_store_did(
+        their_wallet_handle, seed_trustee1
+    )
 
     await did.store_their_did(my_wallet_handle, json.dumps({'did': their_did, 'verkey': their_verkey}))
 
