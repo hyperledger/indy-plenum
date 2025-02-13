@@ -1,3 +1,4 @@
+# Test workflow permissions fix - Adding comment to verify test report publishing
 import os
 import re
 import sys
