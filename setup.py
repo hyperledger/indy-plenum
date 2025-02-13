@@ -28,7 +28,7 @@ with open(metadata['__file__'], 'r') as f:
     exec(f.read(), metadata)
 
 tests_require = ['attrs==20.3.0', 'pytest==6.2.5', 'pytest-xdist==2.2.1', 'pytest-forked==1.3.0',
-                 'python3-indy==1.16.0.post236', 'pytest-asyncio==0.14.0']
+                'pytest-asyncio==0.14.0', 'indy_vdr==0.4.0.dev5', 'aries-askar==0.2.7', 'indy-credx==0.3.1']
 
 
 class PyZMQCommand(distutils.cmd.Command):
