@@ -2,6 +2,9 @@
 
 [![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/hyperledger/indy-plenum/tree/main)
 
+<p float="left">
+  <a href="https://scorecard.dev/viewer/?uri=github.com/hyperledger/indy-plenum"><img src="https://api.scorecard.dev/projects/github.com/hyperledger/indy-plenum/badge" />
+</p>
 
 - [Announcements](#announcements)
   - [April 12 2023](#april-12-2023)
@@ -114,7 +117,7 @@ or if you want to work with your fork, prefix the entire URL of your branch with
 
 **Note**: Be aware that the config files for Gitpod and VSCode are currently only used in the `main` branch!
 
-Please have a look at [Dev Setup](https://github.com/hyperledger/indy-node/blob/master/docs/setup-dev.md) in indy-node repo.
+Please have a look at [Dev Setup](https://github.com/hyperledger/indy-node/blob/main/docs/source/setup-dev.md) in indy-node repo.
 It contains common setup for both indy-plenum and indy-node.
 
 

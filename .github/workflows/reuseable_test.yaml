@@ -10,6 +10,10 @@ on:
         required: true
         type: string
 
+permissions:
+  checks: write
+  contents: read
+
 jobs:
   indy_plenum_tests:
     name: Sliced Module Tests

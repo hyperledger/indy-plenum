@@ -101,8 +101,7 @@ setup(
                         'importlib_metadata==3.10.1',
                         # 'ioflo==2.0.2',
                         'ioflo',
-                        # 'jsonpickle==2.0.0',
-                        'jsonpickle',
+                        'jsonpickle==3.0.3',
                         # 'leveldb==0.201',
                         'leveldb',
                         # Pinned because of changing size of `crypto_sign_SECRETKEYBYTES` from 32 to 64
@@ -128,8 +127,6 @@ setup(
                         ### Tests fail without version pin (GHA run: https://github.com/udosson/indy-plenum/actions/runs/1078745445)
                         'rlp==2.0.0',
                         'semver==2.13.0',
-                        # 'sha3==0.2.1',
-                        'sha3',
                         # 'six==1.15.0',
                         'six',
                         ### Tests fail without version pin (GHA run: https://github.com/udosson/indy-plenum/actions/runs/1078741118)
