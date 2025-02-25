@@ -7,6 +7,7 @@ import shutil
 import re
 import warnings
 import json
+import asyncio
 from contextlib import ExitStack
 from functools import partial
 import time
@@ -92,6 +93,11 @@ def get_data_for_role(pool_txn_data, role):
 def pytest_xdist_make_scheduler(config, log):
     return GroupedLoadScheduling(config, log)
 
+@pytest.fixture(scope="module")
+def event_loop():
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
 @pytest.fixture(scope="session")
 def warnfilters():
@@ -885,7 +891,8 @@ def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_data):
     # TODO think about moving protocol version setting to separate
     # fixture like 'sdk_init' since some sdk request builders don't
     # requires pool handle but use protocol version
-    sdk_set_protocol_version(looper)
+    
+    #sdk_set_protocol_version(looper)
     pool_name, open_config = sdk_pool_data
     pool_handle = looper.loop.run_until_complete(
         _gen_pool_handler(tdirWithPoolTxns, pool_name, open_config))
