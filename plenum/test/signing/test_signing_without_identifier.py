@@ -1,8 +1,8 @@
 import json
 
 from plenum.common.constants import TXN_PAYLOAD, TXN_PAYLOAD_DATA
-from indy.ledger import multi_sign_request, build_nym_request, sign_and_submit_request
-from plenum.test.wallet_helper import create_and_store_did
+from indy_vdr.ledger import build_nym_request
+from plenum.test.wallet_helper import create_and_store_did, sign_and_submit_request, multi_sign_request
 
 
 def test_sigining_without_identifier(looper, txnPoolNodeSet, sdk_pool_handle, sdk_steward_seed, sdk_wallet_handle):

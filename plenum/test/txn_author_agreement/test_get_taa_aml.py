@@ -3,7 +3,7 @@ from random import randint
 from typing import Optional
 
 import pytest
-from indy.ledger import build_acceptance_mechanisms_request
+from indy_vdr.ledger import build_acceptance_mechanisms_request
 from plenum.common.exceptions import RequestNackedException
 
 from plenum.common.types import OPERATION, f

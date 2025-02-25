@@ -1,7 +1,7 @@
 import pytest
 import json
 
-from indy.ledger import build_txn_author_agreement_request
+from indy_vdr.ledger import build_txn_author_agreement_request
 
 from plenum.common.constants import REPLY, OP_FIELD_NAME, DATA, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, \
     TXN_AUTHOR_AGREEMENT_RATIFICATION_TS, TXN_AUTHOR_AGREEMENT_VERSION, TXN_AUTHOR_AGREEMENT_TEXT

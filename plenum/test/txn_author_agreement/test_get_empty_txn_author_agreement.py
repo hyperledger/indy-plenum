@@ -1,5 +1,5 @@
 import pytest
-from indy.error import CommonInvalidParam3
+from indy_vdr.error import VdrErrorCode, VdrError
 
 from plenum.common.constants import REPLY, CONFIG_LEDGER_ID
 from plenum.common.exceptions import RequestNackedException, CommonSdkIOException
@@ -60,5 +60,5 @@ def test_get_txn_author_agreement_works_on_clear_state(params, state_key, looper
 ])
 def test_get_txn_author_agreement_cannot_have_more_than_one_parameter(params, looper, nodeSetWithoutTaa,
                                                                       sdk_pool_handle, sdk_wallet_client):
-    with pytest.raises(CommonInvalidParam3) as e:
+    with pytest.raises(VdrError(code=VdrErrorCode.UNEXPECTED)) as e:
         sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client, **params)

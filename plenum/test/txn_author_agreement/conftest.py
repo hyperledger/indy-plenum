@@ -2,7 +2,7 @@ import json
 from copy import deepcopy
 
 import pytest
-from indy.ledger import build_acceptance_mechanisms_request
+from indy_vdr.ledger import build_acceptance_mechanisms_request
 
 from common.serializers.serialization import config_state_serializer
 from plenum.server.database_manager import DatabaseManager

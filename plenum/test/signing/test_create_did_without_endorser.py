@@ -3,7 +3,7 @@ import types
 
 import pytest
 from plenum.test.wallet_helper import create_and_store_did
-from indy.ledger import build_nym_request
+from indy_vdr.ledger import build_nym_request
 
 from plenum.common.constants import NYM, STEWARD, ROLE, VERKEY
 from plenum.common.exceptions import UnauthorizedClientRequest, RequestNackedException, CouldNotAuthenticate

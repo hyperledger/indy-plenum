@@ -14,7 +14,6 @@ from typing import Tuple, Iterable, Dict, Optional, List, Any, Sequence, Union, 
 
 import base58
 import pytest
-from indy.pool import set_protocol_version
 
 from common.serializers.serialization import invalid_index_serializer
 from crypto.bls.bls_factory import BlsFactoryCrypto
@@ -29,9 +28,10 @@ from psutil import Popen
 import json
 import asyncio
 
-from indy.ledger import sign_and_submit_request, sign_request, submit_request, build_node_request, \
-    multi_sign_request
-from indy.error import ErrorCode, IndyError
+from indy_vdr import ledger
+from indy_vdr import VdrError, VdrErrorCode
+from plenum.test.wallet_helper import sign_and_submit_request, sign_request, multi_sign_request
+from indy_vdr import set_protocol_version
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQNACK, REJECT, \
@@ -804,7 +804,7 @@ def sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did):
     }
 
     req = looper.loop.run_until_complete(
-        build_node_request(new_steward_did, node_did, json.dumps(data)))
+        ledger.build_node_request(new_steward_did, node_did, json.dumps(data)))
 
     return Request(**json.loads(req))
 
@@ -867,7 +867,7 @@ def sdk_signed_random_requests(looper, sdk_wallet, count):
 
 def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
     return [(json.loads(req),
-             asyncio.ensure_future(submit_request(pool_h, req)))
+             asyncio.ensure_future(pool_h.submit_request(req)))
             for req in signed_reqs]
 
 
@@ -933,10 +933,10 @@ def sdk_get_reply(looper, sdk_req_resp, timeout=None):
     try:
         resp = looper.run(asyncio.wait_for(resp_task, timeout=timeout))
         resp = json.loads(resp)
-    except IndyError as e:
+    except VdrError as e:
         resp = e.error_code
     except TimeoutError as e:
-        resp = ErrorCode.PoolLedgerTimeout
+        resp = VdrErrorCode.POOL_TIMEOUT
 
     return req_json, resp
 
@@ -957,7 +957,7 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
             except IndyError as e:
                 resp = e.error_code
         else:
-            resp = ErrorCode.PoolLedgerTimeout
+            resp = VdrErrorCode.POOL_TIMEOUT
         return resp
 
     done, pending = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
@@ -970,8 +970,8 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
 
 def sdk_check_reply(req_res):
     req, res = req_res
-    if isinstance(res, ErrorCode):
-        if res == ErrorCode.PoolLedgerTimeout:
+    if isinstance(res, VdrErrorCode):
+        if res == VdrErrorCode.POOL_TIMEOUT:
             raise PoolLedgerTimeoutException('Got PoolLedgerTimeout for request {}'
                                              .format(req))
         else:

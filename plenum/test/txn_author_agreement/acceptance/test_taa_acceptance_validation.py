@@ -4,7 +4,7 @@ import pytest
 import json
 from random import randint
 
-from indy.ledger import build_txn_author_agreement_request
+from indy_vdr.ledger import build_txn_author_agreement_request
 
 from plenum.common.util import get_utc_epoch
 from plenum.test.delayers import cDelay

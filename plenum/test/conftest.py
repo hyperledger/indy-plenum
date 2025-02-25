@@ -12,9 +12,8 @@ from functools import partial
 import time
 from typing import Dict, Any, List
 
-from indy.pool import create_pool_ledger_config, open_pool_ledger, close_pool_ledger
-from indy.wallet import create_wallet, open_wallet, close_wallet
-from plenum.test.wallet_helper import create_and_store_did, wallet_helper
+
+from plenum.test.wallet_helper import create_and_store_did, wallet_helper, pool_helper
 from indy_vdr import set_protocol_version
 
 from ledger.genesis_txn.genesis_txn_file_util import create_genesis_txn_init_ledger
@@ -877,9 +876,7 @@ def sdk_wallet_data():
 
 async def _gen_pool_handler(work_dir, name, open_config):
     txn_file_name = os.path.join(work_dir, "pool_transactions_genesis")
-    pool_config = json.dumps({"genesis_txn": str(txn_file_name)})
-    await create_pool_ledger_config(name, pool_config)
-    pool_handle = await open_pool_ledger(name, open_config)
+    pool_handle, _ = await pool_helper(txn_file_name)
     return pool_handle
 
 
@@ -893,10 +890,6 @@ def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_data):
     pool_handle = looper.loop.run_until_complete(
         _gen_pool_handler(tdirWithPoolTxns, pool_name, open_config))
     yield pool_handle
-    try:
-        looper.loop.run_until_complete(close_pool_ledger(pool_handle))
-    except Exception as e:
-        logger.debug("Unhandled exception: {}".format(e))
 
 
 @pytest.fixture(scope="session", autouse=True)

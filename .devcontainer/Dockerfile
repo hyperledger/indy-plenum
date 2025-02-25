@@ -79,9 +79,13 @@ RUN apt-get update -y && apt-get install -y \
     #  - This deb is a special build using the code here:
     #  - https://github.com/ioflo/ioflo/commit/45bcddbf680d22af84469406a04286ff1c79043a
     #  - This line can be removed once the release containing these changes is available on PyPi
-    python3-ioflo \
+    #python3-ioflo \
     # Need to move libursa.so to parent dir
     && mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
+
+RUN pip3 uninstall -y ioflo || true
+
+RUN pip3 install --no-cache-dir git+https://github.com/ioflo/ioflo.git
 
 RUN pip3 install -U \
     # Required by setup.py

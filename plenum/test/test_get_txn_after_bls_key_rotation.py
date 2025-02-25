@@ -1,6 +1,6 @@
 from plenum.test.bls.helper import check_update_bls_key
-from indy import ledger
-from plenum.test.wallet_helper import create_and_store_did
+from indy_vdr import ledger
+from plenum.test.wallet_helper import create_and_store_did, sign_and_submit_request
 
 from plenum.test.delayers import cDelay
 from plenum.test.stasher import delay_rules, delay_rules_without_processing
@@ -47,10 +47,10 @@ def test_get_txn_after_bls_key_rotation(looper, txnPoolNodeSet,
                     did, verkey = looper.loop.run_until_complete(did_future)
                     nym_request_future = ledger.build_nym_request(sdk_wallet_trustee[1], did, verkey, None, None)
                     nym_request = looper.loop.run_until_complete(nym_request_future)
-                    nym_response_future = ledger.sign_and_submit_request(sdk_pool_handle, sdk_wallet_trustee[0], sdk_wallet_trustee[1], nym_request)
+                    nym_response_future = sign_and_submit_request(sdk_pool_handle, sdk_wallet_trustee[0], sdk_wallet_trustee[1], nym_request)
                     looper.loop.run_until_complete(nym_response_future)
 
                     get_txn_request_future = ledger.build_get_txn_request(sdk_wallet_client[1], "DOMAIN", 1)
                     get_txn_request = looper.loop.run_until_complete(get_txn_request_future)
-                    get_txn_response_future = ledger.submit_request(sdk_pool_handle, get_txn_request)
+                    get_txn_response_future = sdk_pool_handle.submit_request(get_txn_request)
                     looper.loop.run_until_complete(get_txn_response_future)

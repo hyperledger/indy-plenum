@@ -1,7 +1,7 @@
 import json
-from indy.ledger import (
-    append_txn_author_agreement_acceptance_to_request, sign_request
-)
+from plenum.test.wallet_helper import sign_request
+from indy_vdr import ledger
+# Look at prepare_txn_author_agreement_acceptance in ledger from vrd. Says to use `Request.set_txn_author_agreement_acceptance` to append to the request
 
 from plenum.common.util import randomString
 
@@ -51,15 +51,13 @@ def add_taa_acceptance(
     taa_acceptance_mech,
     taa_acceptance_time
 ):
-    return looper.loop.run_until_complete(
-        append_txn_author_agreement_acceptance_to_request(
-            request_json,
-            text=taa_text,
+    req = ledger.prepare_txn_author_agreement_acceptance(text=taa_text,
             version=taa_version,
             taa_digest=None,
             mechanism=taa_acceptance_mech,
-            time=taa_acceptance_time
-        )
+            accepted_time=taa_acceptance_time)
+    return looper.loop.run_until_complete(req.set_txn_author_agreement_acceptance(
+        request_json)
     )
 
 

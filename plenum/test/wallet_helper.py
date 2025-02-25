@@ -1,13 +1,17 @@
 import base58
 import json
+import os
 
-from indy_vdr import ledger, open_pool
+from indy_vdr import ledger, open_pool, set_protocol_version
 from aries_askar import Store, Key, KeyAlg, AskarError, AskarErrorCode
 from indy_credx import Schema, CredentialDefinition, RevocationRegistryDefinition
 from indy_vdr.error import VdrError
 
 # TODO: This code is copied from indy-test-automation, we should move it to a common place
 # and use it from there in both places
+
+MODULE_PATH = os.path.abspath(os.path.dirname(__file__))
+POOL_GENESIS_PATH = os.path.join(MODULE_PATH, 'docker_genesis')
 
 
 def key_helper(seed=None):
@@ -78,3 +82,34 @@ async def wallet_helper(wallet_key='', wallet_key_derivation_method='kdf:argon2i
     wallet_credentials = json.dumps({"key": wallet_key, "key_derivation_method": wallet_key_derivation_method})
 
     return session_handle, wallet_config, wallet_credentials
+
+async def pool_helper(path_to_genesis=POOL_GENESIS_PATH):
+    set_protocol_version(2)
+    pool_handle = await open_pool(transactions_path=path_to_genesis)
+    return pool_handle, "default_pool_name"
+
+async def get_did_signing_key(wallet_handle, did):
+    item = await wallet_handle.fetch("did", did, for_update=False)
+    if item:
+        kp = await wallet_handle.fetch_key(item.value_json.get("verkey"))
+        return kp.key
+    return None
+
+async def sign_request(wallet_handle, submitter_did, req):
+    key = await get_did_signing_key(wallet_handle, submitter_did)
+    if not key:
+        raise Exception(f"Key for DID {submitter_did} is empty")
+    req.set_signature(key.sign_message(req.signature_input))
+    return req
+
+async def sign_and_submit_request(pool_handle, wallet_handle, submitter_did, req):
+    sreq = await sign_request(wallet_handle, submitter_did, req)
+    request_result = await pool_handle.submit_request(sreq)
+    return request_result
+
+async def multi_sign_request(wallet_handle, submitter_did, req):
+    key = await get_did_signing_key(wallet_handle, submitter_did)
+    if not key:
+        raise Exception(f"Key for DID {submitter_did} is empty")
+    req.set_multi_signature(submitter_did, key.sign_message(req.signature_input))
+    return req

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from indy.did import key_for_did
+from plenum.test.wallet_helper import get_did_signing_key
 from plenum.common.constants import TXN_TYPE, DATA, GET_TXN, DOMAIN_LEDGER_ID, NYM
 from plenum.common.exceptions import NoAuthenticatorFound
 from plenum.common.types import f
@@ -79,7 +79,7 @@ def test_authentication(looper, pre_reqs, registration,
     wh, did = sdk_wallet_client
     req = new_client_request(None, randomString(), looper, sdk_wallet_client)
     core_authnr.addIdr(did,
-                       looper.loop.run_until_complete(key_for_did(sdk_pool_handle, wh, did)))
+                       looper.loop.run_until_complete(get_did_signing_key(wh, did)))
     assert req_authnr.authenticate(json.loads(req)) == {did, }
 
 

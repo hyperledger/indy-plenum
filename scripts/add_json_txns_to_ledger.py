@@ -6,9 +6,9 @@ import json
 import argparse
 
 from stp_core.types import HA
-from indy_common.config_util import getConfig
+from plenum.common.config_util import getConfig
 from plenum.server.node import Node
-from indy_common.config_helper import NodeConfigHelper
+from plenum.common.config_helper import NodeConfigHelper
 
 config = getConfig()
 

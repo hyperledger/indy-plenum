@@ -3,7 +3,7 @@ import json
 from _sha256 import sha256
 
 import base58
-from indy.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request, \
+from indy_vdr.ledger import build_txn_author_agreement_request, build_get_txn_author_agreement_request, \
     build_get_acceptance_mechanisms_request, build_disable_all_txn_author_agreements_request
 
 from typing import NamedTuple, Dict, Optional

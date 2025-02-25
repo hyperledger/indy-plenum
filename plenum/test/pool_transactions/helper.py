@@ -1,9 +1,8 @@
 import json
 
 from plenum.test.wallet_helper import create_and_store_did
-from indy.ledger import build_node_request, build_nym_request, \
+from indy_vdr.ledger import build_node_request, build_nym_request, \
     build_get_txn_request
-from indy.pool import refresh_pool_ledger
 
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from stp_core.loop.looper import Looper
@@ -349,8 +348,7 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
 
 
 def sdk_pool_refresh(looper, sdk_pool_handle):
-    looper.loop.run_until_complete(
-        refresh_pool_ledger(sdk_pool_handle))
+    looper.loop.run_until_complete(sdk_pool_handle.refresh())
 
 
 def sdk_build_get_txn_request(looper, steward_did, seq_no, ledger_type=None):
