@@ -781,9 +781,11 @@ def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
                     identifier=None, **kwargs):
     # Question: Why this method is called sdk_gen_request? It does not use
     # the indy-sdk
-    return Request(operation=operation, reqId=random.randint(10, 1000000000),
+    json_req = Request(operation=operation, reqId=random.randint(10, 1000000000),
                    protocolVersion=protocol_version, identifier=identifier,
                    **kwargs)
+    req = ledger.build_custom_request(json_req.as_dict)
+    return req
 
 
 def sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did):
@@ -818,9 +820,9 @@ def sdk_random_request_objects(count, protocol_version, identifier=None,
 
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
-    reqs_str = [json.dumps(req.as_dict) for req in reqs]
+    #reqs_str = [json.dumps(req.as_dict) for req in reqs]
     reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
-            for req in reqs_str]
+            for req in reqs]
     return reqs
 
 
@@ -866,7 +868,7 @@ def sdk_signed_random_requests(looper, sdk_wallet, count):
 
 
 def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
-    return [(json.loads(req),
+    return [(json.loads(req.body),
              asyncio.ensure_future(pool_h.submit_request(req)))
             for req in signed_reqs]
 
@@ -954,7 +956,7 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
         if task in done_list:
             try:
                 resp = json.loads(task.result())
-            except IndyError as e:
+            except VdrError as e:
                 resp = e.error_code
         else:
             resp = VdrErrorCode.POOL_TIMEOUT

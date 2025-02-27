@@ -73,7 +73,7 @@ RUN apt-get update -y && apt-get install -y \
     libssl1.0.0 \
     ursa=0.3.2-1 \
     # Indy SDK
-    libindy=1.15.0~1625-bionic \
+    #libindy=1.15.0~1625-bionic \
     # ToDo:
     #  - Necessary updates to this package have not been published yet.
     #  - This deb is a special build using the code here:
@@ -84,7 +84,6 @@ RUN apt-get update -y && apt-get install -y \
     && mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
 
 RUN pip3 uninstall -y ioflo || true
-
 RUN pip3 install --no-cache-dir git+https://github.com/ioflo/ioflo.git
 
 RUN pip3 install -U \

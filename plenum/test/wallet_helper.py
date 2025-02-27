@@ -3,6 +3,7 @@ import json
 import os
 
 from indy_vdr import ledger, open_pool, set_protocol_version
+from indy_vdr.bindings import do_call_async
 from aries_askar import Store, Key, KeyAlg, AskarError, AskarErrorCode
 from indy_credx import Schema, CredentialDefinition, RevocationRegistryDefinition
 from indy_vdr.error import VdrError
