@@ -21,7 +21,9 @@
 				"eamodio.gitlens",
 				"ms-python.python"
 			],
-			"settings": {}
+			"settings": {
+				"python.analysis.extraPaths": ["/home/vscode/.local/lib/python3.10/site-packages"]
+			}
 		}
 	},
 
