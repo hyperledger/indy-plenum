@@ -185,4 +185,8 @@ build_from_pypi_wheel six
 build_from_pypi_wheel sortedcontainers 2.1.0
 build_from_pypi_wheel ujson 1.33
 
+build_from_pypi_wheel indy-vdr 0.4.2
+build_from_pypi_wheel aries-askar 0.4.3
+build_from_pypi_wheel indy-credx 1.1.1
+
 rm -vf ${OUTPUT_PATH}/python3-setuptools*.deb
