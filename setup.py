@@ -28,7 +28,7 @@ with open(metadata['__file__'], 'r') as f:
     exec(f.read(), metadata)
 
 tests_require = ['attrs==20.3.0', 'pytest==6.2.5', 'pytest-xdist==2.2.0', 'pytest-forked==1.4.0',
-                'pytest-asyncio==0.14.0', 'indy_vdr==0.4.2', 'aries-askar==0.4.3', 'indy-credx==1.1.1']
+                'pytest-asyncio==0.14.0', 'indy_vdr==0.4.2', 'aries-askar==0.4.3', 'indy-credx==1.1.1', 'ioflo==2.0.3']
 
 
 class PyZMQCommand(distutils.cmd.Command):
@@ -137,7 +137,8 @@ setup(
                         'ujson==1.33',
                         'indy_vdr==0.4.2', 
                         'aries-askar==0.4.3', 
-                        'indy-credx==1.1.1'
+                        'indy-credx==1.1.1',
+                        'ioflo==2.0.3'
                         ],
 
     setup_requires=['pytest-runner==5.3.0'],
