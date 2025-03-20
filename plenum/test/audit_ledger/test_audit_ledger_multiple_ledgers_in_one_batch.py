@@ -1,12 +1,16 @@
+import base58
+
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD, \
-    TXN_PAYLOAD_DATA, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, ROLE, DATA, ALIAS
+    TXN_PAYLOAD_DATA, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, ROLE, DATA, ALIAS, CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
 from plenum.common.transactions import PlenumTransactions
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.test.helper import sdk_gen_request
+from plenum.test.wallet_helper import create_and_store_did
+from indy_vdr.ledger import build_nym_request, build_pool_config_request
 
 
-def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
+def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet, looper, sdk_wallet_handle, sdk_pool_handle):
     # Checking first case -- first audit txn
     node = txnPoolNodeSet[0]
     audit_batch_handler = node.write_manager.audit_b_handler
@@ -14,7 +18,10 @@ def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
         TXN_TYPE: PlenumTransactions.NYM.value,
         TARGET_NYM: "000000000000000000000000Trustee4"
     }
-    nym_req = sdk_gen_request(op, signatures={"sig1": "111"})
+    did, verkey = looper.loop.run_until_complete(create_and_store_did(sdk_wallet_handle))
+    b58_target_did = base58.b58encode(op[TARGET_NYM].encode('utf-8')).decode('utf-8') # Converts the 
+    nym_req = build_nym_request(did, b58_target_did, verkey, role="TRUSTEE", version=CURRENT_PROTOCOL_VERSION)
+    #nym_req = sdk_gen_request(op, signatures={"sig1": "111"})
     node.write_manager.apply_request(nym_req, 10000)
     op2 = {TXN_TYPE: TXN_AUTHOR_AGREEMENT_AML,
            AML_VERSION: "version1"}

@@ -14,7 +14,7 @@ def test_repeated_request_not_processed_if_already_ordered(
     one_req = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
     sdk_send_and_check(one_req, looper, txnPoolNodeSet, sdk_pool_handle)
 
-    sdk_send_signed_requests(sdk_pool_handle, one_req)
+    sdk_send_signed_requests(sdk_pool_handle, one_req, looper)
     looper.runFor(waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)))
 
     for node in txnPoolNodeSet:
@@ -61,13 +61,13 @@ def test_repeated_request_not_processed_if_already_in_3pc_process(
         node.nodeIbStasher.delay(cDelay(300))
 
     one_req = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
-    sdk_send_signed_requests(sdk_pool_handle, one_req)
+    sdk_send_signed_requests(sdk_pool_handle, one_req, looper)
     looper.runFor(waits.expectedPropagateTime(len(txnPoolNodeSet)) +
                   waits.expectedPrePrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedPrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedCommittedTime(len(txnPoolNodeSet)))
 
-    sdk_send_signed_requests(sdk_pool_handle, one_req)
+    sdk_send_signed_requests(sdk_pool_handle, one_req, looper)
     looper.runFor(waits.expectedPropagateTime(len(txnPoolNodeSet)) +
                   waits.expectedPrePrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedPrepareTime(len(txnPoolNodeSet)) +
@@ -90,7 +90,7 @@ def test_belated_request_not_processed_if_already_in_3pc_process(
         node.nodeIbStasher.delay(cDelay(300))
 
     one_req = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
-    sdk_send_signed_requests(sdk_pool_handle, one_req)
+    sdk_send_signed_requests(sdk_pool_handle, one_req, looper)
     looper.runFor(waits.expectedPropagateTime(len(txnPoolNodeSet)) +
                   waits.expectedPrePrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedPrepareTime(len(txnPoolNodeSet)) +
@@ -119,7 +119,7 @@ def test_belated_propagate_not_processed_if_already_in_3pc_process(
         node.nodeIbStasher.delay(cDelay(300))
 
     one_req = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
-    sdk_send_signed_requests(sdk_pool_handle, one_req)
+    sdk_send_signed_requests(sdk_pool_handle, one_req, looper)
     looper.runFor(waits.expectedPropagateTime(len(txnPoolNodeSet)) +
                   waits.expectedPrePrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedPrepareTime(len(txnPoolNodeSet)) +
@@ -150,7 +150,7 @@ def test_repeated_request_not_processed_after_view_change(
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
 
-    sdk_send_signed_requests(sdk_pool_handle, one_req)
+    sdk_send_signed_requests(sdk_pool_handle, one_req, looper)
     looper.runFor(waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)))
 
     for node in txnPoolNodeSet:

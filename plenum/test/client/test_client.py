@@ -34,7 +34,7 @@ def testSendRequestWithoutSignatureFails(looper, txnPoolNodeSet,
     json_req = json.loads(requests[0])
     json_req['signature'] = None
     request = json.dumps(json_req)
-    res = sdk_send_signed_requests(sdk_pool_handle, [request])
+    res = sdk_send_signed_requests(sdk_pool_handle, [request], looper)
     obj_req = sdk_json_to_request_object(res[0][0])
 
     timeout = waits.expectedClientRequestPropagationTime(nodeCount)

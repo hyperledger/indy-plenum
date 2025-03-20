@@ -69,10 +69,10 @@ def test_send_same_txn_with_different_plugins(
         looper, txn_pool_node_set_post_creation, sdk_pool_handle, two_requests):
     req1, req2 = two_requests
 
-    rep1 = sdk_send_signed_requests(sdk_pool_handle, [req1])
+    rep1 = sdk_send_signed_requests(sdk_pool_handle, [req1], looper)
     sdk_get_and_check_replies(looper, rep1)
 
-    rep2 = sdk_send_signed_requests(sdk_pool_handle, [req2])
+    rep2 = sdk_send_signed_requests(sdk_pool_handle, [req2], looper)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, rep2)
     e.match('Same txn was already ordered with different signatures or pluggable fields')

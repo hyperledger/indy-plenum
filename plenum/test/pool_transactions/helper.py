@@ -271,7 +271,7 @@ async def prepare_nym_request(wallet, named_seed, alias,
     return nym_request, named_did
 
 
-async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
+def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
                                clientPort=None, nodeIp=None, nodePort=None, bls_key=None,
                                sigseed=None, destination=None, services=[VALIDATOR],
                                key_proof=None):
@@ -301,15 +301,13 @@ async def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
     if services is not None:
         data['services'] = services
 
-    node_request = await build_node_request(steward_did, destination, json.dumps(data))
+    node_request = build_node_request(steward_did, destination, data)
     return node_request
 
 
-def sdk_sign_and_send_prepared_request(looper, sdk_wallet, sdk_pool_handle, string_req):
-    signed_reqs = sdk_sign_request_objects(looper, sdk_wallet,
-                                           [sdk_json_to_request_object(
-                                               json.loads(string_req))])
-    request_couple = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)[0]
+def sdk_sign_and_send_prepared_request(looper, sdk_wallet, sdk_pool_handle, req_obj):
+    signed_reqs = sdk_sign_request_objects(looper, sdk_wallet,[req_obj])
+    request_couple = sdk_send_signed_requests(sdk_pool_handle, signed_reqs, looper)[0]
     return request_couple
 
 
@@ -324,8 +322,7 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                          pool_refresh=True):
     _, submitter_did = sdk_submitter_wallet
     # filling node request
-    node_request = looper.loop.run_until_complete(
-        prepare_node_request(submitter_did,
+    node_request = prepare_node_request(submitter_did,
                              new_node_name=alias,
                              clientIp=client_ip,
                              clientPort=client_port,
@@ -334,7 +331,7 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                              bls_key=bls_key,
                              destination=destination,
                              services=services,
-                             key_proof=key_proof))
+                             key_proof=key_proof)
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_submitter_wallet,

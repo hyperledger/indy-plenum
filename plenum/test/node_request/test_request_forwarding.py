@@ -38,7 +38,7 @@ def test_all_replicas_hold_request_keys(
     reqs = sdk_signed_random_requests(looper,
                                       sdk_wallet_client,
                                       tconf.Max3PCBatchSize - 1)
-    req_resps = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    req_resps = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
     # Only non primary replicas should have all request keys with them
     looper.run(eventually(chk, tconf.Max3PCBatchSize - 1))
     sdk_get_replies(looper, req_resps, timeout=sdk_eval_timeout(

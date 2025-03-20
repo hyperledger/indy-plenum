@@ -83,8 +83,6 @@ RUN apt-get update -y && apt-get install -y \
     # Need to move libursa.so to parent dir
     && mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
 
-RUN pip3 uninstall -y ioflo || true
-RUN pip3 install --no-cache-dir git+https://github.com/ioflo/ioflo.git
 
 RUN pip3 install -U \
     # Required by setup.py
@@ -94,6 +92,7 @@ RUN pip3 install -U \
     pep8==1.7.1 \
     pep8-naming==0.6.1 \
     flake8==3.8.4 \
+    ioflo==2.0.3 \
     Cython==0.29.36
 
 # install fpm

@@ -82,7 +82,7 @@ def test_request_none_protocol_version(looper, txnPoolNodeSet,
         assert req_obj.protocolVersion == None
 
     signed_reqs = sdk_sign_request_objects(looper, sdk_wallet_client, req_objs)
-    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs, looper)
     sdk_get_bad_response(looper, reqs, RequestNackedException,
                          'missed fields - protocolVersion. ' + error_msg)
 
@@ -99,7 +99,7 @@ def test_request_with_outdated_version(looper,
         assert req_obj.protocolVersion == CURRENT_PROTOCOL_VERSION - 1
 
     signed_reqs = sdk_sign_request_objects(looper, sdk_wallet_client, reqs_obj)
-    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs, looper)
     sdk_get_bad_response(looper, reqs, RequestNackedException,
                          'differs from current protocol version. '
                          .format(CURRENT_PROTOCOL_VERSION) + error_msg)
@@ -117,7 +117,7 @@ def test_request_with_invalid_version(looper,
         assert req_obj.protocolVersion == -1
 
     signed_reqs = sdk_sign_request_objects(looper, sdk_wallet_client, reqs_obj)
-    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs, looper)
     sdk_get_bad_response(looper, reqs, CommonSdkIOException,
                          'Got an error with code 113')
 
@@ -134,5 +134,5 @@ def test_request_with_correct_version(looper,
         assert req_obj.protocolVersion == CURRENT_PROTOCOL_VERSION
 
     signed_reqs = sdk_sign_request_objects(looper, sdk_wallet_client, reqs_obj)
-    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs, looper)
     sdk_get_and_check_replies(looper, reqs)

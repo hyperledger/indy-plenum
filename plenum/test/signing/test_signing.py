@@ -90,7 +90,7 @@ def test_request_with_incorrect_multisig_signatures(looper, sdk_pool_handle, sdk
 
     multisig_req = sdk_multisign_request_object(looper, sdk_wallet_client2, json.dumps(req.as_dict))
 
-    rep1 = sdk_send_signed_requests(sdk_pool_handle, [multisig_req])
+    rep1 = sdk_send_signed_requests(sdk_pool_handle, [multisig_req], looper)
 
     invalid_signatures = 'did={}, signature={}'.format(req.identifier, req.signatures[req.identifier])
     expected_error_message = 'Reason: client request invalid: {}'.\

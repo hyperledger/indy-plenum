@@ -26,7 +26,7 @@ def write(key, val, looper, sdk_pool_handle, sdk_wallet):
     reqs_obj = [sdk_gen_request(op, identifier=idr)
                 for op in [write_conf_op(key, val)]]
     reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
-    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
     sdk_get_and_check_replies(looper, sent_reqs, timeout=10)
 
 
@@ -35,7 +35,7 @@ def read(key, looper, sdk_pool_handle, sdk_wallet):
     reqs_obj = [sdk_gen_request(op, identifier=idr)
                 for op in [read_conf_op(key)]]
     reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
-    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
     (req, resp), = sdk_get_and_check_replies(looper, sent_reqs, timeout=10)
     return json.loads(resp['result'][DATA])[key]
 

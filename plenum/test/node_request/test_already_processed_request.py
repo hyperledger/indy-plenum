@@ -43,7 +43,7 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
 
     # Send, check and getting reply from first request
-    sdk_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    sdk_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
     total_timeout = sdk_eval_timeout(len(sdk_reqs), len(txnPoolNodeSet))
     request1 = sdk_get_replies(looper, sdk_reqs, timeout=total_timeout)
     for req_res in request1:
@@ -73,7 +73,7 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     rep1 = request1[0][1]['result']
 
     # Client re-sending first request
-    request3 = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    request3 = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
     total_timeout = sdk_eval_timeout(len(request3), len(txnPoolNodeSet))
     request3 = sdk_get_replies(looper, request3, timeout=total_timeout)
     third_req_id = request3[0][0]['reqId']

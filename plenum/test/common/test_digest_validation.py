@@ -73,7 +73,7 @@ def test_second_digest_is_written(
     req = json.dumps(sdk_random_request_objects(1, CURRENT_PROTOCOL_VERSION, sdk_wallet_stewards[0][1])[0].as_dict)
     req = sdk_multisign_request_object(looper, sdk_wallet_stewards[0], req)
     req = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], req)
-    sdk_get_and_check_replies(looper, sdk_send_signed_requests(sdk_pool_handle, [req]))
+    sdk_get_and_check_replies(looper, sdk_send_signed_requests(sdk_pool_handle, [req], looper))
 
     req = Request(**json.loads(req))
 
@@ -91,10 +91,10 @@ def test_send_same_txn_with_different_signatures_in_separate_batches(
 
     req1, req2 = two_requests
 
-    rep1 = sdk_send_signed_requests(sdk_pool_handle, [req1])
+    rep1 = sdk_send_signed_requests(sdk_pool_handle, [req1], looper)
     sdk_get_and_check_replies(looper, rep1)
 
-    rep2 = sdk_send_signed_requests(sdk_pool_handle, [req2])
+    rep2 = sdk_send_signed_requests(sdk_pool_handle, [req2], looper)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, rep2)
     e.match('Same txn was already ordered with different signatures or pluggable fields')
@@ -109,8 +109,8 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
 
     old_reqs = len(txnPoolNodeSet[0].requests)
     with max_3pc_batch_limits(tconf, size=2):
-        sdk_send_signed_requests(sdk_pool_handle, [req1])
-        sdk_send_signed_requests(sdk_pool_handle, [req2])
+        sdk_send_signed_requests(sdk_pool_handle, [req1], looper)
+        sdk_send_signed_requests(sdk_pool_handle, [req2], looper)
 
         # We need to check for ordering this way, cause sdk do not allow
         # track two requests with same reqId at the same time
@@ -159,10 +159,10 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
         assert node.spylog.count(node.request_propagates) >= 1
         node.spylog.getAll(node.request_propagates)
 
-    req1s = sdk_send_signed_requests(sdk_pool_handle, [req1s])
+    req1s = sdk_send_signed_requests(sdk_pool_handle, [req1s], looper)
     sdk_get_and_check_replies(looper, req1s)
 
-    req2s = sdk_send_signed_requests(sdk_pool_handle, [req2s])
+    req2s = sdk_send_signed_requests(sdk_pool_handle, [req2s], looper)
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, req2s)
     e.match('Same txn was already ordered with different signatures or pluggable fields')
@@ -180,8 +180,8 @@ def test_suspicious_primary_send_same_request_with_different_signatures(
     req1, req2 = two_requests
 
     old_view = txnPoolNodeSet[0].viewNo
-    sdk_send_signed_requests(sdk_pool_handle, [req1])
-    sdk_send_signed_requests(sdk_pool_handle, [req2])
+    sdk_send_signed_requests(sdk_pool_handle, [req1], looper)
+    sdk_send_signed_requests(sdk_pool_handle, [req2], looper)
 
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=old_view + 1)
     all(cll.params['msg'][1] == Suspicions.PPR_WITH_ORDERED_REQUEST.code for cll in

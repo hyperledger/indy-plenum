@@ -27,7 +27,7 @@ metadata = {'__file__': os.path.join(here, 'plenum', '__metadata__.py')}
 with open(metadata['__file__'], 'r') as f:
     exec(f.read(), metadata)
 
-tests_require = ['attrs==20.3.0', 'pytest==6.2.5', 'pytest-xdist==2.2.1', 'pytest-forked==1.3.0',
+tests_require = ['attrs==20.3.0', 'pytest==6.2.5', 'pytest-xdist==2.2.0', 'pytest-forked==1.4.0',
                 'pytest-asyncio==0.14.0', 'indy_vdr==0.4.2', 'aries-askar==0.4.3', 'indy-credx==1.1.1']
 
 

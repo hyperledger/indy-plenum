@@ -21,7 +21,7 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
         TXN_TYPE: AUCTION_START
     }
     reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
-    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
     with pytest.raises(CommonSdkIOException) as exc_info:
         sdk_get_and_check_replies(looper, reqs)
     exc_info.match('Got an error with code 113')
@@ -31,7 +31,7 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
         DATA: 'should be a dict but giving a string'
     }
     reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
-    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
     with pytest.raises(CommonSdkIOException) as exc_info:
         sdk_get_and_check_replies(looper, reqs)
     exc_info.match('Got an error with code 113')
@@ -48,7 +48,7 @@ def test_plugin_static_validation(txn_pool_node_set_post_creation, looper,
         DATA: {'id': 'abc', AMOUNT: -3}
     }
     reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
-    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
     with pytest.raises(CommonSdkIOException) as exc_info:
         sdk_get_and_check_replies(looper, reqs)
     exc_info.match('Got an error with code 113')
@@ -70,7 +70,7 @@ def test_plugin_dynamic_validation(txn_pool_node_set_post_creation, looper,
         DATA: {'id': 'abcdef'}
     }
     reqs = sdk_sign_request_strings(looper, sdk_wallet_steward, [op, ])
-    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
     with pytest.raises(CommonSdkIOException) as exc_info:
         sdk_get_and_check_replies(looper, reqs)
     exc_info.match('Got an error with code 113')

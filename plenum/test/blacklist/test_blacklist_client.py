@@ -23,7 +23,7 @@ def testDoNotBlacklistClient(looper, txnPoolNodeSet,
     req_obj = sdk_random_request_objects(1, identifier=did,
                                          protocol_version=CURRENT_PROTOCOL_VERSION)[0]
 
-    reqs = sdk_send_signed_requests(sdk_pool_handle, [json.dumps(req_obj.as_dict)])
+    reqs = sdk_send_signed_requests(sdk_pool_handle, [req_obj], looper)
 
     with pytest.raises(RequestNackedException, match='MissingSignature'):
         sdk_get_and_check_replies(looper, reqs)

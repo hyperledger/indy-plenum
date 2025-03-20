@@ -43,7 +43,7 @@ def test_plugin_client_req_fields(txn_pool_node_set_post_creation, looper,
     _, did = sdk_wallet_steward
     req = sdk_gen_request(op, identifier=did, fix_length_dummy=randomString(dummy_field_length + 1))
     reqs = sdk_sign_request_objects(looper, sdk_wallet_steward, [req])
-    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
+    reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
 
     with pytest.raises(RequestNackedException) as e:
         sdk_get_and_check_replies(looper, reqs)
