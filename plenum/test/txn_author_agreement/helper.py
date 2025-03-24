@@ -47,13 +47,13 @@ def sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet, version: 
                                   retired: Optional[int] = None):
     req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet[1], text, version,
                                                                             ratified, retired))
-    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    rep = sdk_sign_and_submit_req(looper, sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])[0]
 
 
 def sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet):
     req = looper.loop.run_until_complete(build_disable_all_txn_author_agreements_request(sdk_wallet[1]))
-    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    rep = sdk_sign_and_submit_req(looper, sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])[0]
 
 
@@ -87,7 +87,7 @@ def sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet,
     if timestamp is not None:
         params['timestamp'] = timestamp
     req = looper.loop.run_until_complete(build_get_txn_author_agreement_request(sdk_wallet[1], json.dumps(params)))
-    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    rep = sdk_sign_and_submit_req(looper, sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])[0]
 
 
@@ -95,7 +95,7 @@ def sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet,
                     version: Optional[str] = None,
                     timestamp: Optional[int] = None):
     req = looper.loop.run_until_complete(build_get_acceptance_mechanisms_request(sdk_wallet[1], timestamp, version))
-    rep = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet, req)
+    rep = sdk_sign_and_submit_req(looper, sdk_pool_handle, sdk_wallet, req)
     return sdk_get_and_check_replies(looper, [rep])[0]
 
 

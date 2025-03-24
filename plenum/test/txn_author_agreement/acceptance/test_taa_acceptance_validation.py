@@ -277,7 +277,7 @@ def test_taa_acceptance_valid_on_uncommitted(
         req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet_trustee[1],
                                                                                 text, version,
                                                                                 ratification_ts=get_utc_epoch() - 600))
-        req = sdk_sign_and_submit_req(sdk_pool_handle, sdk_wallet_trustee, req)
+        req = sdk_sign_and_submit_req(looper, sdk_pool_handle, sdk_wallet_trustee, req)
 
         def check():
             assert old_pp_seq_no + 1 == txnPoolNodeSet[0].master_replica._consensus_data.preprepared[-1].pp_seq_no

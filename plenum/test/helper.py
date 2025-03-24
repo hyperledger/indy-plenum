@@ -787,6 +787,14 @@ def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
     req = ledger.build_custom_request(json_req.as_dict)
     return req
 
+def sdk_gen_request_plenum(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
+                    identifier=None, **kwargs):
+    # Question: Why this method is called sdk_gen_request? It does not use
+    # the indy-sdk
+    json_req = Request(operation=operation, reqId=random.randint(10, 1000000000),
+                   protocolVersion=protocol_version, identifier=identifier,
+                   **kwargs)
+    return json_req
 
 def sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did):
     _, new_steward_did = sdk_wallet_new_steward
@@ -871,7 +879,7 @@ def sdk_send_signed_requests(pool_h, signed_reqs: Sequence, looper):
     res = []
     for req in signed_reqs:
         req_body = json.loads(req.body)
-        fut = asyncio.ensure_future(pool_h.submit_request(req), loop=looper.loop)
+        fut = asyncio.ensure_future(pool_h.submit_action(req), loop=looper.loop)
         res.append((req_body, fut))
     return res
 
@@ -911,10 +919,10 @@ def sdk_send_random_pool_and_domain_requests(looper, pool_h, sdk_wallet_new_stew
     return res
 
 
-def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
+def sdk_sign_and_submit_req(looper, pool_handle, sdk_wallet, req):
     wallet_handle, sender_did = sdk_wallet
     return json.loads(req), asyncio.ensure_future(
-        sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
+        sign_and_submit_request(pool_handle, wallet_handle, sender_did, req), loop=looper.loop)
 
 
 def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
@@ -968,7 +976,7 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
         else:
             resp = VdrErrorCode.POOL_TIMEOUT
         return resp
-
+    timeout = 120 # temporary fix need to find out if the issue is my machine or since its a delay test it has to crash???
     done, pending = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
     if pending:
         for task in pending:
@@ -991,30 +999,17 @@ def sdk_check_reply(req_res):
         raise CommonSdkIOException("Unexpected response format {}".format(res))
 
     def _parse_op(res_dict):
-        # First check if res_dict is a dictionary
         if not isinstance(res_dict, dict):
-            # If it's not a dictionary, just return without error
-            # This could be an integer (like 1) indicating success
             return
-
-        # Check if this is an error response from indy-vdr
-        if 'op' in res_dict:
-            if res_dict['op'] == REQNACK:
-                raise RequestNackedException('ReqNack of id {}. Reason: {}'
-                                            .format(req['reqId'], res_dict.get('reason', 'No reason given')))
-            if res_dict['op'] == REJECT:
-                raise RequestRejectedException('Reject of id {}. Reason: {}'
-                                            .format(req['reqId'], res_dict.get('reason', 'No reason given')))
-        # If no 'op' key, assume it's a successful response from indy-vdr
-        # with a different format
-
+        if res_dict['op'] == REQNACK:
+            raise RequestNackedException('ReqNack of id {}. Reason: {}'
+                                        .format(req['reqId'], res_dict.get('reason', 'No reason given')))
+        if res_dict['op'] == REJECT:
+            raise RequestRejectedException('Reject of id {}. Reason: {}'
+                                        .format(req['reqId'], res_dict.get('reason', 'No reason given')))
     try:
         if 'op' in res:
             _parse_op(res)
-        elif 'type' in res:
-            # This is likely a successful response from indy-vdr
-            # No need to parse for errors
-            pass
         else:
             # Check for errors in nested responses
             for resps in res.values():
@@ -1027,10 +1022,7 @@ def sdk_check_reply(req_res):
                         pass
                 elif isinstance(resps, dict):
                     _parse_op(resps)
-                else:
-                    # Don't raise an exception for unexpected formats,
-                    # just process what we can and ignore the rest
-                    pass
+
     except (AttributeError, TypeError, KeyError) as e:
         # If we get unexpected format or structure, log it but don't crash
         # This is to ensure tests continue to run even if responses are in unexpected formats
@@ -1040,7 +1032,8 @@ def sdk_check_reply(req_res):
 
 def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
     rets = []
-    for req_res in sdk_get_replies(looper, sdk_req_resp, timeout):
+    reqs_res = sdk_get_replies(looper, sdk_req_resp, timeout)
+    for req_res in reqs_res:
         sdk_check_reply(req_res)
         rets.append(req_res)
     return rets
@@ -1135,9 +1128,9 @@ def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptanc
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did,
                       taaAcceptance=taa_acceptance,
                       endorser=endorser)
-    req_str = json.dumps(request.as_dict)
-    resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
-    return json.loads(resp)
+    req = ledger.build_custom_request(request.as_dict)
+    resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+    return resp
 
 
 def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
