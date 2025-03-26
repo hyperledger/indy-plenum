@@ -4,7 +4,7 @@ from plenum.common.exceptions import UnauthorizedClientRequest, RequestRejectedE
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.helper import sdk_send_random_requests, sdk_get_and_check_replies
 from plenum.common.exceptions import InvalidClientRequest
-from plenum.test.helper import sdk_sign_request_from_dict, sdk_send_random_and_check
+from plenum.test.helper import generate_invalid_unsigned_plenum_request, sdk_send_random_and_check
 from plenum.common.request import Request
 
 
@@ -15,8 +15,7 @@ def testRequestStaticValidation(tconf, looper, txnPoolNodeSet,
     :return:
     """
     node = txnPoolNodeSet[0]
-    req = sdk_sign_request_from_dict(looper, sdk_wallet_client, {'something': 'nothing'})
-    req = Request(**req)
+    req = generate_invalid_unsigned_plenum_request(sdk_wallet_client, {'something': 'nothing'})
     with pytest.raises(InvalidClientRequest):
         node.doStaticValidation(req)
 

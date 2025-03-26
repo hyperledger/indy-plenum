@@ -1,3 +1,4 @@
+import json
 from plenum.common.constants import ROOT_HASH, MULTI_SIGNATURE, PROOF_NODES, TXN_TYPE, DATA, TXN_TIME, STATE_PROOF, \
     MULTI_SIGNATURE_VALUE, MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, \
     MULTI_SIGNATURE_VALUE_LEDGER_ID, \
@@ -13,7 +14,7 @@ from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import GET_BUY
 from plenum.test.helper import wait_for_requests_ordered, \
     randomOperation, sdk_send_random_requests, sdk_json_couples_to_request_list, sdk_send_random_and_check, \
-    sdk_json_to_request_object
+    sdk_json_to_request_object, sdk_json_to_plenum_request_object 
 
 nodeCount = 4
 nodes_wth_bls = 4
@@ -87,7 +88,7 @@ def test_make_proof_bls_enabled(looper, txnPoolNodeSet,
 def test_make_result_bls_enabled(looper, txnPoolNodeSet,
                                  sdk_pool_handle, sdk_wallet_client):
     req_dict, _ = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)[0]
-    req = sdk_json_to_request_object(req_dict)
+    req = sdk_json_to_plenum_request_object(req_dict)
     wait_for_requests_ordered(looper, txnPoolNodeSet, [req])
 
     assert req.protocolVersion
@@ -122,7 +123,7 @@ def test_proof_in_write_reply(looper, txnPoolNodeSet,
                                      sdk_pool_handle, sdk_wallet_client, 1)
 
     req = resp[0][0]
-    result = resp[0][1]['result']
+    result = json.loads(resp[0][1]["Alpha"])['result'] # All nodes now return a reply from the request. All same info select alpha for test purposes
 
     assert result
     assert get_type(result) == "buy"
@@ -156,7 +157,7 @@ def test_proof_in_write_reply(looper, txnPoolNodeSet,
 def test_make_proof_committed_head_used(looper, txnPoolNodeSet,
                                         sdk_pool_handle, sdk_wallet_client):
     req_dict, _ = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)[0]
-    req = sdk_json_to_request_object(req_dict)
+    req = sdk_json_to_plenum_request_object(req_dict)
     wait_for_requests_ordered(looper, txnPoolNodeSet, [req])
     key = BuyHandler.prepare_buy_key(req.identifier, req.reqId)
 

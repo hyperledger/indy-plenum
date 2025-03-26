@@ -12,7 +12,7 @@ from plenum.test import waits
 from plenum.test.helper import \
     checkLastClientReqForNode, sdk_signed_random_requests, \
     sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies, sdk_send_random_request
+    sdk_get_and_check_replies, sdk_send_random_request, random_plenum_request_objects
 
 nodeCount = 7
 

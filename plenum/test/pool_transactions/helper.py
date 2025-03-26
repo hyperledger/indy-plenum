@@ -225,8 +225,7 @@ def sdk_add_new_node(looper,
 
     # filling node request
     _, steward_did = steward_wallet_handle
-    node_request = looper.loop.run_until_complete(
-        prepare_node_request(steward_did,
+    node_request = prepare_node_request(steward_did,
                              new_node_name=new_node_name,
                              clientIp=clientIp,
                              clientPort=clientPort,
@@ -235,7 +234,7 @@ def sdk_add_new_node(looper,
                              bls_key=bls_key,
                              sigseed=sigseed,
                              services=services,
-                             key_proof=key_proof))
+                             key_proof=key_proof)
 
     # sending request using 'sdk_' functions
     request_couple = sdk_sign_and_send_prepared_request(looper, steward_wallet_handle,

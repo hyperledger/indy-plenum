@@ -753,6 +753,7 @@ def check_request_ordered(node, request: Request):
 def wait_for_requests_ordered(looper, nodes, requests):
     node_count = len(nodes)
     timeout_per_request = waits.expectedTransactionExecutionTime(node_count)
+    timeout_per_request = timeout_per_request * 4
     total_timeout = (1 + len(requests) / 10) * timeout_per_request
     coros = [partial(check_request_ordered,
                      node,
@@ -779,8 +780,6 @@ def create_new_test_node(test_node_class, node_config_helper_class, name, conf,
 
 def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
                     identifier=None, **kwargs):
-    # Question: Why this method is called sdk_gen_request? It does not use
-    # the indy-sdk
     json_req = Request(operation=operation, reqId=random.randint(10, 1000000000),
                    protocolVersion=protocol_version, identifier=identifier,
                    **kwargs)
@@ -822,13 +821,12 @@ def sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did):
 def sdk_random_request_objects(count, protocol_version, identifier=None,
                                **kwargs):
     ops = random_requests(count)
-    return [sdk_gen_request(op, protocol_version=protocol_version,
+    reqs = [sdk_gen_request(op, protocol_version=protocol_version,
                             identifier=identifier, **kwargs) for op in ops]
-
+    return reqs
 
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
-    #reqs_str = [json.dumps(req.as_dict) for req in reqs]
     reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
             for req in reqs]
     return reqs
@@ -868,10 +866,10 @@ def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acce
     return json.loads(resp)
 
 
-def sdk_signed_random_requests(looper, sdk_wallet, count):
+def sdk_signed_random_requests(looper, sdk_wallet, count, protocol_version=CURRENT_PROTOCOL_VERSION):
     _, did = sdk_wallet
     reqs_obj = sdk_random_request_objects(count, identifier=did,
-                                          protocol_version=CURRENT_PROTOCOL_VERSION)
+                                          protocol_version=protocol_version)
     return sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
 
 
@@ -976,7 +974,7 @@ def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
         else:
             resp = VdrErrorCode.POOL_TIMEOUT
         return resp
-    timeout = 120 # temporary fix need to find out if the issue is my machine or since its a delay test it has to crash???
+    timeout = timeout * 4 # temporary fix need to find out if the issue is my machine or since its a delay test it has to crash???
     done, pending = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
     if pending:
         for task in pending:
@@ -1124,14 +1122,21 @@ def sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
 def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
     wallet_h, did = sdk_wallet
     reqId = reqId or random.randint(10, 100000)
-    request = Request(operation=op, reqId=reqId,
-                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did,
-                      taaAcceptance=taa_acceptance,
-                      endorser=endorser)
+    request = Request(operation=op, reqId=random.randint(10, 1000000000),
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
     req = ledger.build_custom_request(request.as_dict)
     resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req))
     return resp
 
+def generate_invalid_unsigned_plenum_request(sdk_wallet, op, reqID=None, taa_acceptance=None, endorser=None):
+    _, did = sdk_wallet
+    reqId = reqID or random.randint(10, 100000)
+    request = Request(operation=op, reqId=reqId,
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did,
+                      taaAcceptance=taa_acceptance,
+                      endorser=endorser)
+    return request
+    
 
 def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
     instances = range(getNoInstances(len(nodeSet)))
@@ -1157,11 +1162,19 @@ def sdk_json_to_request_object(json_req):
                    taaAcceptance=json_req.get('taaAcceptance', None))
     return ledger.build_custom_request(json_req.as_dict)
 
+def sdk_json_to_plenum_request_object(json_req):
+    json_req = Request(identifier=json_req.get('identifier', None),
+                   reqId=json_req['reqId'],
+                   operation=json_req['operation'],
+                   signature=json_req['signature'] if 'signature' in json_req else None,
+                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None,
+                   taaAcceptance=json_req.get('taaAcceptance', None))
+    return json_req
 
 def sdk_json_couples_to_request_list(json_couples):
     req_list = []
     for json_couple in json_couples:
-        req_list.append(sdk_json_to_request_object(json_couple[0]))
+        req_list.append(sdk_json_to_plenum_request_object(json_couple[0]))
     return req_list
 
 

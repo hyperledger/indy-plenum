@@ -60,8 +60,7 @@ def test_commit_signature_validation_integration(looper,
 
     # create node request to add new demote node
     _, steward_did = new_steward_wallet_handle
-    node_request = looper.loop.run_until_complete(
-        prepare_node_request(steward_did,
+    node_request = prepare_node_request(steward_did,
                              new_node_name="new_node",
                              clientIp=clientIp,
                              clientPort=clientPort,
@@ -70,7 +69,7 @@ def test_commit_signature_validation_integration(looper,
                              bls_key=bls_key,
                              sigseed=sigseed,
                              services=[],
-                             key_proof=key_proof))
+                             key_proof=key_proof)
 
     first_ordered = txnPoolNodeSet[0].master_last_ordered_3PC
     with ord_delay(slow_nodes):

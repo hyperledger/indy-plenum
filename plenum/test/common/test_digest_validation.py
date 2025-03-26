@@ -70,18 +70,19 @@ def two_requests(looper, op, sdk_wallet_stewards):
 
 def test_second_digest_is_written(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards):
-    req = json.dumps(sdk_random_request_objects(1, CURRENT_PROTOCOL_VERSION, sdk_wallet_stewards[0][1])[0].as_dict)
-    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[0], req)
-    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], req)
-    sdk_get_and_check_replies(looper, sdk_send_signed_requests(sdk_pool_handle, [req], looper))
+    reqs = sdk_random_request_objects(1, CURRENT_PROTOCOL_VERSION, sdk_wallet_stewards[0][1])
+    #req = json.dumps(reqs.as_dict)
+    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[0], reqs[0])
+    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], reqs[0])
+    res = sdk_get_and_check_replies(looper, sdk_send_signed_requests(sdk_pool_handle, [req], looper))
 
-    req = Request(**json.loads(req))
+    req_metadata = json.loads(res[0][1]["Alpha"])["result"]["txn"]["metadata"]
 
-    ledger_id, _ = txnPoolNodeSet[0].seqNoDB.get_by_payload_digest(req.payload_digest)
+    ledger_id, _ = txnPoolNodeSet[0].seqNoDB.get_by_payload_digest(req_metadata["payloadDigest"])
     assert ledger_id == DOMAIN_LEDGER_ID
 
-    payload_digest = txnPoolNodeSet[0].seqNoDB.get_by_full_digest(req.digest)
-    assert payload_digest == req.payload_digest
+    payload_digest = txnPoolNodeSet[0].seqNoDB.get_by_full_digest(req_metadata["digest"])
+    assert payload_digest == req_metadata["payloadDigest"]
 
 
 def test_send_same_txn_with_different_signatures_in_separate_batches(
