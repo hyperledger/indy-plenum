@@ -774,7 +774,374 @@ def create_new_test_node(test_node_class, node_config_helper_class, name, conf,
                            cliha=client_ha,
                            bootstrap_cls=bootstrap_cls)
 
+# ####### SDK
 
+
+def sdk_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
+                    identifier=None, **kwargs):
+    # Question: Why this method is called sdk_gen_request? It does not use
+    # the indy-sdk
+    return Request(operation=operation, reqId=random.randint(10, 1000000000),
+                   protocolVersion=protocol_version, identifier=identifier,
+                   **kwargs)
+
+
+def sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did):
+    _, new_steward_did = sdk_wallet_new_steward
+
+    node_ip = '{}.{}.{}.{}'.format(
+        random.randint(1, 240),
+        random.randint(1, 240),
+        random.randint(1, 240),
+        random.randint(1, 240))
+    data = {
+        'alias': node_alias,
+        'client_port': 50001,
+        'node_port': 50002,
+        'node_ip': node_ip,
+        'client_ip': node_ip,
+        'services': []
+    }
+
+    req = looper.loop.run_until_complete(
+        build_node_request(new_steward_did, node_did, json.dumps(data)))
+
+    return Request(**json.loads(req))
+
+
+def sdk_random_request_objects(count, protocol_version, identifier=None,
+                               **kwargs):
+    ops = random_requests(count)
+    return [sdk_gen_request(op, protocol_version=protocol_version,
+                            identifier=identifier, **kwargs) for op in ops]
+
+
+def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
+    wallet_h, did = sdk_wallet
+    reqs_str = [json.dumps(req.as_dict) for req in reqs]
+    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+            for req in reqs_str]
+    return reqs
+
+
+def sdk_multi_sign_request_objects(looper, sdk_wallets, reqs: Sequence):
+    reqs_str = [json.dumps(req.as_dict) for req in reqs]
+    for sdk_wallet in sdk_wallets:
+        wallet_h, did = sdk_wallet
+        reqs_str = [looper.loop.run_until_complete(multi_sign_request(wallet_h, did, req))
+                    for req in reqs_str]
+    return reqs_str
+
+
+def sdk_sign_request_strings(looper, sdk_wallet, reqs: Sequence):
+    wallet_h, did = sdk_wallet
+    reqs_str = [json.dumps(req) for req in reqs]
+    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+            for req in reqs_str]
+    return reqs
+
+
+def sdk_multisign_request_object(looper, sdk_wallet, req):
+    wh, did = sdk_wallet
+    return looper.loop.run_until_complete(multi_sign_request(wh, did, req))
+
+
+def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
+    wh, did = sdk_wallet
+    reqId = reqId or random.randint(10, 100000)
+    request = Request(operation=op, reqId=reqId,
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did,
+                      taaAcceptance=taa_acceptance,
+                      endorser=endorser)
+    req_str = json.dumps(request.as_dict)
+    resp = looper.loop.run_until_complete(multi_sign_request(wh, did, req_str))
+    return json.loads(resp)
+
+
+def sdk_signed_random_requests(looper, sdk_wallet, count):
+    _, did = sdk_wallet
+    reqs_obj = sdk_random_request_objects(count, identifier=did,
+                                          protocol_version=CURRENT_PROTOCOL_VERSION)
+    return sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
+
+
+def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
+    return [(json.loads(req),
+             asyncio.ensure_future(submit_request(pool_h, req)))
+            for req in signed_reqs]
+
+
+def sdk_send_random_requests(looper, pool_h, sdk_wallet, count: int):
+    reqs = sdk_signed_random_requests(looper, sdk_wallet, count)
+    return sdk_send_signed_requests(pool_h, reqs)
+
+
+def sdk_send_random_request(looper, pool_h, sdk_wallet):
+    rets = sdk_send_random_requests(looper, pool_h, sdk_wallet, 1)
+    return rets[0]
+
+
+def sdk_send_random_pool_requests(looper, pool_h, sdk_wallet_new_steward, count: int):
+    node_alias = random_string(7)
+    node_did = SimpleSigner(seed=random_string(32).encode()).identifier
+
+    reqs = [sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did) for _ in range(count)]
+    return [sdk_sign_and_submit_req_obj(looper, pool_h, sdk_wallet_new_steward, req) for req in reqs]
+
+
+def sdk_send_random_pool_and_domain_requests(looper, pool_h, sdk_wallet_new_steward, count: int):
+    node_alias = random_string(7)
+    node_did = SimpleSigner(seed=random_string(32).encode()).identifier
+
+    req_gens = [
+        lambda: sdk_gen_request(random_requests(1)[0], identifier=sdk_wallet_new_steward[1]),
+        lambda: sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did),
+    ]
+
+    res = []
+    for i in range(count):
+        req = req_gens[i % len(req_gens)]()
+        res.append(sdk_sign_and_submit_req_obj(looper, pool_h, sdk_wallet_new_steward, req))
+        looper.runFor(0.1)  # Give nodes some time to start ordering, so that requests are really alternating
+    return res
+
+
+def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
+    wallet_handle, sender_did = sdk_wallet
+    return json.loads(req), asyncio.ensure_future(
+        sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
+
+
+def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
+    s_req = sdk_sign_request_objects(looper, sdk_wallet, [req_obj])[0]
+    return sdk_send_signed_requests(pool_handle, [s_req])[0]
+
+
+def sdk_sign_and_submit_op(looper, pool_handle, sdk_wallet, op):
+    _, did = sdk_wallet
+    req_obj = sdk_gen_request(op, protocol_version=CURRENT_PROTOCOL_VERSION,
+                              identifier=did)
+    s_req = sdk_sign_request_objects(looper, sdk_wallet, [req_obj])[0]
+    return sdk_send_signed_requests(pool_handle, [s_req])[0]
+
+
+def sdk_get_reply(looper, sdk_req_resp, timeout=None):
+    req_json, resp_task = sdk_req_resp
+    # TODO: change timeout evaluating logic, when sdk will can tuning timeout from outside
+    if timeout is None:
+        timeout = waits.expectedTransactionExecutionTime(7)
+    try:
+        resp = looper.run(asyncio.wait_for(resp_task, timeout=timeout))
+        resp = json.loads(resp)
+    except IndyError as e:
+        resp = e.error_code
+    except TimeoutError as e:
+        resp = ErrorCode.PoolLedgerTimeout
+
+    return req_json, resp
+
+
+# TODO: Check places where sdk_get_replies used without sdk_check_reply
+# We need to be sure that test behaviour don't need to check response
+# validity
+def sdk_get_replies(looper, sdk_req_resp: Sequence, timeout=None):
+    resp_tasks = [resp for _, resp in sdk_req_resp]
+    # TODO: change timeout evaluating logic, when sdk will can tuning timeout from outside
+    if timeout is None:
+        timeout = waits.expectedTransactionExecutionTime(7)
+
+    def get_res(task, done_list):
+        if task in done_list:
+            try:
+                resp = json.loads(task.result())
+            except IndyError as e:
+                resp = e.error_code
+        else:
+            resp = ErrorCode.PoolLedgerTimeout
+        return resp
+
+    done, pending = looper.run(asyncio.wait(resp_tasks, timeout=timeout))
+    if pending:
+        for task in pending:
+            task.cancel()
+    ret = [(req, get_res(resp, done)) for req, resp in sdk_req_resp]
+    return ret
+
+
+def sdk_check_reply(req_res):
+    req, res = req_res
+    if isinstance(res, ErrorCode):
+        if res == ErrorCode.PoolLedgerTimeout:
+            raise PoolLedgerTimeoutException('Got PoolLedgerTimeout for request {}'
+                                             .format(req))
+        else:
+            raise CommonSdkIOException('Got an error with code {} for request {}'
+                                       .format(res, req))
+    if not isinstance(res, dict):
+        raise CommonSdkIOException("Unexpected response format {}".format(res))
+
+    def _parse_op(res_dict):
+        if res_dict['op'] == REQNACK:
+            raise RequestNackedException('ReqNack of id {}. Reason: {}'
+                                         .format(req['reqId'], res_dict['reason']))
+        if res_dict['op'] == REJECT:
+            raise RequestRejectedException('Reject of id {}. Reason: {}'
+                                           .format(req['reqId'], res_dict['reason']))
+
+    if 'op' in res:
+        _parse_op(res)
+    else:
+        for resps in res.values():
+            if isinstance(resps, str):
+                _parse_op(json.loads(resps))
+            elif isinstance(resps, dict):
+                _parse_op(resps)
+            else:
+                raise CommonSdkIOException("Unexpected response format {}".format(res))
+
+
+def sdk_get_and_check_replies(looper, sdk_req_resp: Sequence, timeout=None):
+    rets = []
+    reqs_res = sdk_get_replies(looper, sdk_req_resp, timeout)
+    for req_res in reqs_res:
+        sdk_check_reply(req_res)
+        rets.append(req_res)
+    return rets
+
+
+def sdk_eval_timeout(req_count: int, node_count: int,
+                     customTimeoutPerReq: float = None, add_delay_to_timeout: float = 0):
+    timeout_per_request = customTimeoutPerReq or waits.expectedTransactionExecutionTime(node_count)
+    timeout_per_request += add_delay_to_timeout
+    # here we try to take into account what timeout for execution
+    # N request - total_timeout should be in
+    # timeout_per_request < total_timeout < timeout_per_request * N
+    # we cannot just take (timeout_per_request * N) because it is so huge.
+    # (for timeout_per_request=5 and N=10, total_timeout=50sec)
+    # lets start with some simple formula:
+    return (1 + req_count / 10) * timeout_per_request
+
+
+def sdk_send_and_check(signed_reqs, looper, txnPoolNodeSet, pool_h, timeout=None):
+    if not timeout:
+        timeout = sdk_eval_timeout(len(signed_reqs), len(txnPoolNodeSet))
+    results = sdk_send_signed_requests(pool_h, signed_reqs)
+    sdk_replies = sdk_get_replies(looper, results, timeout=timeout)
+    for req_res in sdk_replies:
+        sdk_check_reply(req_res)
+    return sdk_replies
+
+
+def sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, count,
+                              customTimeoutPerReq: float = None, add_delay_to_timeout: float = 0,
+                              override_timeout_limit=False, total_timeout=None):
+    sdk_reqs = sdk_send_random_requests(looper, sdk_pool, sdk_wallet, count)
+    if not total_timeout:
+        total_timeout = sdk_eval_timeout(len(sdk_reqs), len(txnPoolNodeSet),
+                                         customTimeoutPerReq=customTimeoutPerReq,
+                                         add_delay_to_timeout=add_delay_to_timeout)
+    sdk_replies = sdk_get_replies(looper, sdk_reqs, timeout=total_timeout)
+    for req_res in sdk_replies:
+        sdk_check_reply(req_res)
+    return sdk_replies
+
+
+def sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
+                                         num_reqs, num_batches=1, **kwargs):
+    # This method assumes that `num_reqs` <= num_batches*MaxbatchSize
+    if num_reqs < num_batches:
+        raise BaseException(
+            'sdk_send_batches_of_random_and_check method assumes that `num_reqs` <= num_batches*MaxbatchSize')
+    if num_batches == 1:
+        return sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool, sdk_wallet, num_reqs, **kwargs)
+
+    reqs_in_batch = num_reqs // num_batches
+    reqs_in_last_batch = reqs_in_batch + num_reqs % num_batches
+
+    sdk_replies = []
+    for _ in range(num_batches - 1):
+        sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                                     sdk_pool, sdk_wallet,
+                                                     reqs_in_batch, **kwargs))
+    sdk_replies.extend(sdk_send_random_and_check(looper, txnPoolNodeSet,
+                                                 sdk_pool, sdk_wallet,
+                                                 reqs_in_last_batch, **kwargs))
+    return sdk_replies
+
+
+def sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool, sdk_wallet,
+                               num_reqs, num_batches=1, timeout=Max3PCBatchWait):
+    if num_reqs < num_batches:
+        raise BaseException(
+            'sdk_send_batches_of_random_and_check method assumes that `num_reqs` <= num_batches*MaxbatchSize')
+    if num_batches == 1:
+        sdk_reqs = sdk_send_random_requests(looper, sdk_pool, sdk_wallet, num_reqs)
+        looper.runFor(timeout)
+        return sdk_reqs
+
+    reqs_in_batch = num_reqs // num_batches
+    reqs_in_last_batch = reqs_in_batch + num_reqs % num_batches
+
+    sdk_reqs = []
+    for _ in range(num_batches - 1):
+        sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet, reqs_in_batch))
+        looper.runFor(timeout)
+    sdk_reqs.extend(sdk_send_random_requests(looper, sdk_pool, sdk_wallet, reqs_in_last_batch))
+    looper.runFor(timeout)
+    return sdk_reqs
+
+
+def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
+    wallet_h, did = sdk_wallet
+    reqId = reqId or random.randint(10, 100000)
+    request = Request(operation=op, reqId=reqId,
+                      protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did,
+                      taaAcceptance=taa_acceptance,
+                      endorser=endorser)
+    req_str = json.dumps(request.as_dict)
+    resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
+    return json.loads(resp)
+
+
+def sdk_check_request_is_not_returned_to_nodes(looper, nodeSet, request):
+    instances = range(getNoInstances(len(nodeSet)))
+    coros = []
+    for node, inst_id in itertools.product(nodeSet, instances):
+        c = partial(checkRequestNotReturnedToNode,
+                    node=node,
+                    identifier=request['identifier'],
+                    reqId=request['reqId'],
+                    instId=inst_id
+                    )
+        coros.append(c)
+    timeout = waits.expectedTransactionExecutionTime(len(nodeSet))
+    looper.run(eventuallyAll(*coros, retryWait=1, totalTimeout=timeout))
+
+
+def sdk_json_to_request_object(json_req):
+    return Request(identifier=json_req.get('identifier', None),
+                   reqId=json_req['reqId'],
+                   operation=json_req['operation'],
+                   signature=json_req['signature'] if 'signature' in json_req else None,
+                   protocolVersion=json_req['protocolVersion'] if 'protocolVersion' in json_req else None,
+                   taaAcceptance=json_req.get('taaAcceptance', None))
+
+
+def sdk_json_couples_to_request_list(json_couples):
+    req_list = []
+    for json_couple in json_couples:
+        req_list.append(sdk_json_to_request_object(json_couple[0]))
+    return req_list
+
+
+def sdk_get_bad_response(looper, reqs, exception, message):
+    with pytest.raises(exception) as e:
+        sdk_get_and_check_replies(looper, reqs)
+    assert message in e._excinfo[1].args[0]
+
+
+def sdk_set_protocol_version(looper, version=CURRENT_PROTOCOL_VERSION):
+    looper.loop.run_until_complete(set_protocol_version(version))
 
 
 # ####### VDR
