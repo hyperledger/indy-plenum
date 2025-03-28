@@ -6,7 +6,7 @@ from plenum.common.constants import COMMIT, LEDGER_STATUS, MESSAGE_RESPONSE, CAT
 from plenum.common.messages.node_messages import Commit
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.delayers import cDelay, msg_rep_delay, lsDelay, cr_delay
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
@@ -43,7 +43,7 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     fast_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     slow_node.nodeIbStasher.delay(cDelay(120, 0))
     sent_batches = 5
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_client, 2 * sent_batches, sent_batches)
 
     # Fast nodes have same last ordered and same data
@@ -87,6 +87,6 @@ def test_reverted_unordered(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_
     looper.run(eventually(chk2, retryWait=1))
 
     # Ensure pool is functional
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_client, 10, 2)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

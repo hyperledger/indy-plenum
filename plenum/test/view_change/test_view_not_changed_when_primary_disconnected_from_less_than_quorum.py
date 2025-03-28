@@ -6,7 +6,7 @@ from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas, get_master_primary_node
 from plenum.test.view_change.helper import node_received_instance_changes_count
 from stp_core.loop.eventually import eventually
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check
 
 
 def node_primary_disconnected_calls(node):
@@ -62,7 +62,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
 
     looper.run(eventually(chk2, retryWait=1, timeout=10))
     # Send some requests and make sure the request execute
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
 
     # Partitioned node should have the same ledger and state as others as it gets reqs from all nodes
     waitNodeDataEquality(looper, partitioned_node,

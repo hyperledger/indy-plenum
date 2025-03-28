@@ -1,6 +1,6 @@
 from plenum.common.constants import AUDIT_TXN_NODE_REG
 from plenum.common.txn_util import get_payload_data
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 
 def patch_node_reg_in_audit(node, monkeypatch):
@@ -19,7 +19,7 @@ def test_audit_ledger_with_node_reg_feature_added(looper, tconf, txnPoolNodeSet,
         patch_node_reg_in_audit(n, monkeypatch)
 
     # 2. order a txn
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
     # 3. check that node reg is not present in the latest audit txn
     for node in txnPoolNodeSet:
@@ -29,7 +29,7 @@ def test_audit_ledger_with_node_reg_feature_added(looper, tconf, txnPoolNodeSet,
     monkeypatch.undo()
 
     # 5. order a txn
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
     # 6. check that node reg is present in the latest audit txn
     for node in txnPoolNodeSet:

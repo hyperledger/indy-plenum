@@ -11,7 +11,7 @@ from plenum.common.exceptions import (
     InvalidClientTaaAcceptanceError, RequestRejectedException
 )
 
-from plenum.test.helper import sdk_send_and_check
+from plenum.test.helper import vdr_send_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from .helper import (
     build_nym_request, build_node_request,
@@ -64,7 +64,7 @@ def validate_taa_acceptance_func_api(node_validator):
 def validate_taa_acceptance_txn_api(looper, txnPoolNodeSet, sdk_pool_handle):
     def wrapped(signed_req_dict):
         signed_req_json = json.dumps(signed_req_dict)
-        sdk_send_and_check([signed_req_json], looper, txnPoolNodeSet, sdk_pool_handle)[0]
+        vdr_send_and_check([signed_req_json], looper, txnPoolNodeSet, sdk_pool_handle)[0]
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     return wrapped
 

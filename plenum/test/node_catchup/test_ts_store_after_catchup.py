@@ -5,7 +5,7 @@ from plenum.common.util import get_utc_epoch
 from plenum.server.request_handlers.static_taa_helper import StaticTAAHelper
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import GET_BUY
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import checkNodesConnected
@@ -22,7 +22,7 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
                                      tdir,
                                      allPluginsPath
                                      ):
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
     node_to_disconnect = txnPoolNodeSet[-1]
 
@@ -30,7 +30,7 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
                                             txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
-    sdk_replies = sdk_send_random_and_check(looper, txnPoolNodeSet,
+    sdk_replies = vdr_send_random_and_check(looper, txnPoolNodeSet,
                                             sdk_pool_handle, sdk_wallet_steward, 2)
 
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,

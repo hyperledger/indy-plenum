@@ -1,5 +1,5 @@
 from plenum.test.view_change.conftest import perf_chk_patched
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 # Perf check is invoked manually in this test so prevent scheduled perf check
 # as it affects the result of subsequent manual perf checks
@@ -29,7 +29,7 @@ def test_not_check_if_no_new_requests(perf_chk_patched, looper, txnPoolNodeSet,
     # Send new request and check that after it nodes can do
     # performance check again
     num_requests = 1
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               num_requests)

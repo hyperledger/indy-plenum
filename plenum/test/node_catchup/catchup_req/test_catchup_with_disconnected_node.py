@@ -3,7 +3,7 @@ from logging import getLogger
 from plenum.test.logging.conftest import logsearch
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
@@ -41,7 +41,7 @@ def test_catchup_with_disconnected_node(tdir, tconf,
     looper.removeProdable(restarted_node)
 
     # Send more requests to active nodes
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, len(rest_nodes) * 3)
     waitNodeDataEquality(looper, *rest_nodes)
 

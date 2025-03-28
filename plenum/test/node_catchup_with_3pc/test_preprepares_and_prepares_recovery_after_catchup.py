@@ -4,7 +4,7 @@ import pytest
 
 from plenum.test import waits
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
-from plenum.test.helper import max_3pc_batch_limits, sdk_send_random_and_check
+from plenum.test.helper import max_3pc_batch_limits, vdr_send_random_and_check
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
 from plenum.test.view_change_with_delays.helper import check_last_ordered
@@ -57,7 +57,7 @@ def test_preprepares_and_prepares_recovery_after_catchup(tdir, tconf,
 
     node_to_restart = txnPoolNodeSet[-1]
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, NUM_OF_REQ)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, NUM_OF_REQ)
 
     # Check that all of the nodes except the slows one ordered the request
     looper.run(eventually(check_last_ordered, txnPoolNodeSet, (0, NUM_OF_REQ)))

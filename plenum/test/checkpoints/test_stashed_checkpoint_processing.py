@@ -4,7 +4,7 @@ from plenum.test.checkpoints.helper import check_last_checkpoint, check_num_rece
     check_last_received_checkpoint, check_received_checkpoint_votes, check_stable_checkpoint, \
     check_num_unstable_checkpoints
 from plenum.test.delayers import cDelay, chk_delay
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from stp_core.loop.eventually import eventually
 
 CHK_FREQ = 5
@@ -24,14 +24,14 @@ def test_stashed_checkpoint_processing(chkFreqPatched, looper, txnPoolNodeSet,
     """
     epsilon = txnPoolNodeSet[-1]
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 4)
 
     epsilon.nodeIbStasher.delay(cDelay())
     epsilon.nodeIbStasher.delay(chk_delay(sender_filter='Gamma'))
     epsilon.nodeIbStasher.delay(chk_delay(sender_filter='Delta'))
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     stabilization_timeout = \

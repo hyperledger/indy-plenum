@@ -3,7 +3,7 @@ import json
 import pytest
 from plenum.common.exceptions import RequestNackedException
 
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import vdr_get_and_check_replies
 
 from plenum.common.util import randomString
 from plenum.common.constants import FORCE
@@ -28,6 +28,6 @@ def test_forced_request_validation(looper, txnPoolNodeSet, sdk_wallet_client,
                                                         node_request)
 
     with pytest.raises(RequestNackedException):
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
 
     sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward)

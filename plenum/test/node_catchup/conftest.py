@@ -5,7 +5,7 @@ from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
@@ -25,7 +25,7 @@ def sdk_node_created_after_some_txns_not_started(looper, testNodeClass, do_post_
                                      sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
                                      txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               txnCount)
@@ -48,7 +48,7 @@ def poolAfterSomeTxns(
         sdk_wallet_client,
         request):
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               txnCount)

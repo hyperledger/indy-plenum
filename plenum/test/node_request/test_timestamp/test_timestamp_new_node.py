@@ -3,7 +3,7 @@ from plenum.test.node_request.test_timestamp.helper import \
     get_timestamp_suspicion_count
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 txnCount = 20
 Max3PCBatchSize = 4
@@ -21,7 +21,7 @@ def test_new_node_accepts_timestamp(tconf, looper, txnPoolNodeSet,
     _, new_node, _, _ = sdk_node_created_after_some_txns
     old_susp_count = get_timestamp_suspicion_count(new_node)
     # Don't wait for node to catchup, start sending requests
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
@@ -32,7 +32,7 @@ def test_new_node_accepts_timestamp(tconf, looper, txnPoolNodeSet,
     assert get_timestamp_suspicion_count(new_node) == old_susp_count
 
     # All nodes should reply
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
@@ -44,7 +44,7 @@ def test_new_node_accepts_timestamp(tconf, looper, txnPoolNodeSet,
         node) for node in txnPoolNodeSet}
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

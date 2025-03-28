@@ -8,7 +8,7 @@ from plenum.common.config_util import getConfigOnce
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.recorder.helper import reload_modules_for_replay, \
     get_replayable_node_class, create_replayable_node_and_check
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from stp_core.loop.eventually import eventually
 from stp_core.types import HA
@@ -31,7 +31,7 @@ def test_replay_new_bouncing(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
     txnPoolNodesLooper.run(eventually(checkViewNoForNodes, other_nodes,
                                       old_view_no + 1, retryWait=1, timeout=30))
 
-    sdk_send_random_and_check(txnPoolNodesLooper, other_nodes,
+    vdr_send_random_and_check(txnPoolNodesLooper, other_nodes,
                               sdk_pool_handle,
                               sdk_wallet_client, 10)
     ensure_all_nodes_have_same_data(txnPoolNodesLooper, other_nodes)
@@ -56,7 +56,7 @@ def test_replay_new_bouncing(txnPoolNodesLooper, txnPoolNodeSet, tconf, tdir,
     restarting_at = time.perf_counter()
     print('Stopped for {}'.format(restarting_at - stopping_at))
 
-    sdk_send_random_and_check(txnPoolNodesLooper, txnPoolNodeSet,
+    vdr_send_random_and_check(txnPoolNodesLooper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client, 10)
     ensure_all_nodes_have_same_data(txnPoolNodesLooper, txnPoolNodeSet)

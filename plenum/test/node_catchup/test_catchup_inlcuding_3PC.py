@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.util import check_if_all_equal_in_list
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import check_last_3pc_master, \
     waitNodeDataEquality
 from plenum.test.test_node import ensureElectionsDone
@@ -37,13 +37,13 @@ def pre_check(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client)
     # TODO: Maybe this needs to be extracted in another fixture
 
     for i in range(tconf.ProcessedBatchMapsToKeep - 1):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, 1)
 
     # All node maintain the same map from txn range to 3PC
     looper.run(eventually(chk_if_equal_txn_to_3pc, txnPoolNodeSet))
     for i in range(3):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, 1)
 
     # All node maintain the same map from txn range to 3PC and its equal to
@@ -71,6 +71,6 @@ def test_nodes_maintain_master_txn_3PC_map(looper, txnPoolNodeSet, pre_check,
                         nodes=txnPoolNodeSet)
 
     # Requests still processed
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 2)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])

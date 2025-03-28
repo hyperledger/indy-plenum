@@ -3,7 +3,7 @@ import asyncio
 
 from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay, cDelay
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_request.test_timestamp.helper import get_timestamp_suspicion_count
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
@@ -40,7 +40,7 @@ def test_pp_obsolescence_check_fail_for_delayed(tdir, tconf,
         lagging_node.nodeIbStasher, ppDelay(), pDelay(), cDelay()
     ):
         # Order request on all nodes except lagging one
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_client, 1)
         looper.run(asyncio.sleep(delay))
 

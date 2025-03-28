@@ -4,7 +4,7 @@ from pytest import fixture
 
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.util import getMaxFailures
-from plenum.test.helper import sdk_send_random_and_check, assertExp, sdk_get_and_check_replies, waitForViewChange, \
+from plenum.test.helper import vdr_send_random_and_check, assertExp, vdr_get_and_check_replies, waitForViewChange, \
     view_change_timeout
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 
@@ -26,7 +26,7 @@ def tconf(tconf):
 def test_catchup_after_replica_removing(looper, sdk_pool_handle, txnPoolNodeSet,
                                         sdk_wallet_stewards, tdir, tconf, allPluginsPath):
     view_no = txnPoolNodeSet[-1].viewNo
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_stewards[0], 1)
     waitNodeDataEquality(looper, *txnPoolNodeSet)
 
@@ -42,6 +42,6 @@ def test_catchup_after_replica_removing(looper, sdk_pool_handle, txnPoolNodeSet,
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)
 
     waitNodeDataEquality(looper, *txnPoolNodeSet)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_stewards[0], 1)
     waitNodeDataEquality(looper, *txnPoolNodeSet)

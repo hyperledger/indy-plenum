@@ -3,7 +3,7 @@ import pytest
 from plenum.common.util import hexToFriendly
 
 from plenum.common.constants import VALIDATOR
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     checkNodeDataForInequality
 from plenum.test.pool_transactions.helper import \
@@ -38,7 +38,7 @@ def test_catch_up_after_demoted(
 
     logger.info("3. send more requests, "
                 "so that the new node's state is outdated")
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 5)
     checkNodeDataForInequality(new_node, *txnPoolNodeSet[:-1])
 
@@ -56,6 +56,6 @@ def test_catch_up_after_demoted(
 
     logger.info("6. send more requests and make sure "
                 "that the new node participates in processing them")
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 10)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])

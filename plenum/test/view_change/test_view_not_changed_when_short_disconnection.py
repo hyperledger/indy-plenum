@@ -1,7 +1,7 @@
 from plenum.test.view_change.helper import node_received_instance_changes_count
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from stp_core.loop.eventually import eventually
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.test_node import get_master_primary_node
 from plenum.test.view_change.helper import start_stopped_node
 
@@ -52,4 +52,4 @@ def test_view_not_changed_when_short_disconnection(txnPoolNodeSet, looper, sdk_p
     assert checkViewNoForNodes(txnPoolNodeSet) == view_no
 
     # Send some requests and make sure the request execute
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)

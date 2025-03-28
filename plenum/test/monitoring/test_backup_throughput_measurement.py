@@ -2,7 +2,7 @@ from pytest import fixture
 
 from plenum.common.average_strategies import MedianLowStrategy, MedianMediumStrategy
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.pool_transactions.helper import sdk_pool_refresh
 from stp_core.loop.eventually import eventually
 
@@ -42,7 +42,7 @@ def test_backup_throughput_measurement(looper, sdk_pool_handle, txnPoolNodeSet,
                   tconf.throughput_measurement_params['min_cnt'])
 
     # Send some txns
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 1)
 
     # Stop backup primaries
@@ -52,7 +52,7 @@ def test_backup_throughput_measurement(looper, sdk_pool_handle, txnPoolNodeSet,
         node.stop()
 
     # Send more txns so that master replica got more throughput
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, int(2 / tconf.DELTA))
 
     def chk():

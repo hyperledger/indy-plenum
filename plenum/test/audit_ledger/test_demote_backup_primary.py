@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_and_check, waitForViewChange, view_change_timeout
+from plenum.test.helper import vdr_send_random_and_check, waitForViewChange, view_change_timeout
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import demote_node, disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
@@ -20,7 +20,7 @@ def test_demote_backup_primary(looper, txnPoolNodeSet, sdk_pool_handle,
     assert len(txnPoolNodeSet) == 6
     view_no = txnPoolNodeSet[-1].viewNo
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_stewards[0], 1)
 
     node_to_restart = txnPoolNodeSet[-1]
@@ -54,6 +54,6 @@ def test_demote_backup_primary(looper, txnPoolNodeSet, sdk_pool_handle,
     looper.run(checkNodesConnected(txnPoolNodeSet))
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_stewards[0], 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=20)

@@ -3,7 +3,7 @@ from plenum.test.delayers import ppgDelay, req_delay
 from plenum.test.node_request.test_propagate.helper import sum_of_request_propagates
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 
 
@@ -53,7 +53,7 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
     old_count_request_propagates = sum_of_request_propagates(faulty_node)
 
     sent_reqs = 1
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

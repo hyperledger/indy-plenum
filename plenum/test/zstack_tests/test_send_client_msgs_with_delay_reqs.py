@@ -3,7 +3,7 @@ import zmq
 
 from plenum.common.constants import TRUSTEE_STRING
 from plenum.common.exceptions import RequestRejectedException
-from plenum.test.helper import sdk_get_and_check_replies, assertExp, sdk_send_random_requests
+from plenum.test.helper import vdr_get_and_check_replies, assertExp, vdr_send_random_requests
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.test_node import checkNodesConnected
@@ -47,12 +47,12 @@ def test_resending_pending_client_msgs(looper,
     monkeypatch.delattr(problem_node.clientstack.listener, 'send_multipart', raising=True)
 
     # Send the second request.
-    sdk_reqs = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    sdk_reqs = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
 
     # Waiting reject for the first request, which will sent with a reply for the second request.
     with pytest.raises(RequestRejectedException, match="Only Steward is allowed to do these transactions"):
-        _, resp = sdk_get_and_check_replies(looper, [resp_task])[0]
+        _, resp = vdr_get_and_check_replies(looper, [resp_task])[0]
 
     # Waiting a rely for the second request
-    sdk_get_and_check_replies(looper, sdk_reqs)
+    vdr_get_and_check_replies(looper, sdk_reqs)
     monkeypatch.undo()

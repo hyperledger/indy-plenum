@@ -8,8 +8,8 @@ from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 
 from plenum.test.delayers import cDelay, pDelay
-from plenum.test.helper import sdk_send_batches_of_random_and_check, \
-    sdk_send_batches_of_random, max_3pc_batch_limits, assertExp
+from plenum.test.helper import vdr_send_batches_of_random_and_check, \
+    vdr_send_batches_of_random, max_3pc_batch_limits, assertExp
 
 from plenum.test.checkpoints.conftest import chkFreqPatched, reqs_for_checkpoint
 
@@ -37,14 +37,14 @@ def test_freeing_forwarded_preprepared_request(
     # Case, when both backup and primary had problems
     behind_node = txnPoolNodeSet[-1]
 
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_steward, CHK_FREQ, CHK_FREQ)
     with delay_rules(behind_node.nodeIbStasher,
                      pDelay(delay=sys.maxsize),
                      cDelay(delay=sys.maxsize), ):
         count = behind_node.spylog.count(behind_node.allLedgersCaughtUp)
 
-        sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool_handle,
                                    sdk_wallet_steward, req_num, req_num)
 
         looper.run(eventually(node_caughtup, behind_node, count, retryWait=1))
@@ -56,7 +56,7 @@ def test_freeing_forwarded_preprepared_request(
     assert all(r.executed for r in behind_node.requests.values() if behind_node.seqNoDB.
                get_by_full_digest(r.request.key)[1])
 
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_steward, CHK_FREQ, CHK_FREQ)
 
     # Master and backup replicas do not stash new requests and successfully order them

@@ -1,7 +1,7 @@
 from plenum.test.delayers import pDelay
 
 from plenum.test.test_node import get_master_primary_node
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 
 def test_primary_receives_delayed_prepares(looper, txnPoolNodeSet,
@@ -15,7 +15,7 @@ def test_primary_receives_delayed_prepares(looper, txnPoolNodeSet,
     other_nodes = [n for n in txnPoolNodeSet if n != primary_node]
     primary_node.nodeIbStasher.delay(pDelay(delay, 0))
 
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

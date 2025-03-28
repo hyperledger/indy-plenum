@@ -3,7 +3,7 @@ import pytest
 from plenum.common.constants import LEDGER_STATUS, COMMIT
 from plenum.common.messages.node_messages import MessageRep, ConsistencyProof
 from plenum.test.delayers import delay_3pc, lsDelay, msg_rep_delay, cpDelay
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules_without_processing
 from stp_core.loop.eventually import eventually
@@ -32,13 +32,13 @@ def test_catchup_with_reask_ls(txnPoolNodeSet,
     Check that the catchup finished
     '''
     lagged_node = txnPoolNodeSet[-1]
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
     lagged_node.nodeIbStasher.delay(msg_rep_delay(types_to_delay=[COMMIT]))
 
     with delay_rules_without_processing(lagged_node.nodeIbStasher, delay_3pc(),
                                         msg_rep_delay(types_to_delay=[COMMIT])):
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward,
                                   2)
         lagged_node.nodeIbStasher.drop_delayeds()
@@ -73,11 +73,11 @@ def test_catchup_with_reask_cp(txnPoolNodeSet,
     Check that the catchup finished
     '''
     lagged_node = txnPoolNodeSet[-1]
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
     with delay_rules_without_processing(lagged_node.nodeIbStasher, delay_3pc(),
                                         msg_rep_delay(types_to_delay=[COMMIT])):
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward,
                                   2)
         lagged_node.nodeIbStasher.drop_delayeds()

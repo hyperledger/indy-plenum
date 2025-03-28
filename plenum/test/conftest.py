@@ -58,8 +58,8 @@ from plenum.server.notifier_plugin_manager import PluginManager
 from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockDistributions, mockImportModule, chk_all_funcs, \
-    create_new_test_node, sdk_json_to_request_object, sdk_send_random_requests, \
-    sdk_get_and_check_replies, sdk_set_protocol_version, sdk_send_random_and_check, MockTimer, create_pool_txn_data
+    create_new_test_node, vdr_json_to_request_object, vdr_send_random_requests, \
+    vdr_get_and_check_replies, vdr_set_protocol_version, vdr_send_random_and_check, MockTimer, create_pool_txn_data
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -451,7 +451,7 @@ def delayed_perf_chk(txnPoolNodeSet):
 @pytest.fixture(scope="module")
 def sent1(looper, sdk_pool_handle,
           sdk_wallet_client):
-    request_couple_json = sdk_send_random_requests(
+    request_couple_json = vdr_send_random_requests(
         looper, sdk_pool_handle, sdk_wallet_client, 1)
     return request_couple_json
 
@@ -460,7 +460,7 @@ def sent1(looper, sdk_pool_handle,
 def reqAcked1(looper, txnPoolNodeSet, sent1, faultyNodes):
     numerOfNodes = len(txnPoolNodeSet)
 
-    request = sdk_json_to_request_object(sent1[0][0])
+    request = vdr_json_to_request_object(sent1[0][0])
 
     # Wait until request received by all nodes
     propTimeout = waits.expectedClientToPoolRequestDeliveryTime(numerOfNodes)
@@ -551,7 +551,7 @@ def replied1(looper, txnPoolNodeSet, sdk_wallet_client,
                           retryWait=1,
                           timeout=orderingTimeout))
 
-    sdk_get_and_check_replies(looper, sent1)
+    vdr_get_and_check_replies(looper, sent1)
     return committed1
 
 
@@ -1074,7 +1074,7 @@ def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creatio
                                      sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
                                      txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               txnCount)

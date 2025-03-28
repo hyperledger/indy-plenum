@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.delayers import ppDelay
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import get_count
@@ -32,7 +32,7 @@ def test_node_requests_missing_preprepare(looper, txnPoolNodeSet,
     old_count_mrp = get_count(slow_node.master_replica._message_req_service,
                               slow_node.master_replica._message_req_service.process_message_rep)
 
-    sdk_send_batches_of_random_and_check(looper,
+    vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,

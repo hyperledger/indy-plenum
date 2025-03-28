@@ -2,7 +2,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import PrePrepare, Commit
-from plenum.test.helper import sdk_send_random_requests, sdk_get_and_check_replies
+from plenum.test.helper import vdr_send_random_requests, vdr_get_and_check_replies
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 from plenum.test import waits
 
@@ -61,11 +61,11 @@ def testOrderingCase2(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client
         logger.debug('{} would be delaying commits'.format(node))
         node.nodeIbStasher.delay(specificCommits)
 
-    sdk_reqs = sdk_send_random_requests(looper, sdk_pool_handle,
+    sdk_reqs = vdr_send_random_requests(looper, sdk_pool_handle,
                                         sdk_wallet_client, requestCount)
 
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=timeout)
 
-    sdk_get_and_check_replies(looper, sdk_reqs)
+    vdr_get_and_check_replies(looper, sdk_reqs)

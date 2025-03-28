@@ -20,8 +20,7 @@ def test_sigining_without_identifier(looper, txnPoolNodeSet, sdk_pool_handle, sd
     did_future = create_and_store_did(sdk_wallet_handle)
     did, verkey = looper.loop.run_until_complete(did_future)
 
-    nym_future = build_nym_request(steward_did, did, verkey, None, None)
-    nym = looper.loop.run_until_complete(nym_future)
+    nym = build_nym_request(steward_did, did, verkey, None, None)
 
     resp_future = sign_and_submit_request(sdk_pool_handle, sdk_wallet_handle, steward_did, nym)
     resp = looper.loop.run_until_complete(resp_future)

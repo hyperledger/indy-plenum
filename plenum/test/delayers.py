@@ -90,8 +90,9 @@ def ppgDelay(delay: float = DEFAULT_DELAY, sender_filter: str = None):
 
 def ppDelay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
     # Delayer of PRE-PREPARE requests from a particular instance
-    return delayerMsgTuple(delay, PrePrepare, instFilter=instId,
+    res = delayerMsgTuple(delay, PrePrepare, instFilter=instId,
                            senderFilter=sender_filter)
+    return res
 
 
 def pDelay(delay: float = DEFAULT_DELAY, instId: int = None, sender_filter: str = None):
@@ -162,7 +163,8 @@ def old_view_pp_reply_delay(delay: float = DEFAULT_DELAY, ledger_filter=None):
 
 def req_delay(delay: float = DEFAULT_DELAY):
     # Delayer of Request requests
-    return delayerMsgTuple(delay, Request)
+    res = delayerMsgTuple(delay, Request)
+    return res
 
 
 def msg_req_delay(delay: float = DEFAULT_DELAY, types_to_delay: List = None):

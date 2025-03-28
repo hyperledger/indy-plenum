@@ -4,7 +4,7 @@ from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
 from plenum.test.spy_helpers import getAllArgs
 from plenum.test.test_node import getPrimaryReplica, getNonPrimaryReplicas
 from plenum.test.view_change.conftest import perf_chk_patched
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 logger = getlogger()
 
@@ -43,7 +43,7 @@ def testPrePrepareProcessedInOrder(perf_chk_patched, looper, txnPoolNodeSet,
                      format(node))
         node.nodeIbStasher.delay(specificPrePrepares)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                               (ppsToDelay + 1) * tconf.Max3PCBatchSize)
 
     checkNodesHaveSameRoots(txnPoolNodeSet)

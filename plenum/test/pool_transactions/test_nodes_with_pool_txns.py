@@ -9,8 +9,8 @@ from plenum.common.constants import DATA, \
     NODE_IP, NODE_PORT, CLIENT_IP, CLIENT_PORT, STEWARD_STRING
 from plenum.common.util import getMaxFailures, randomString
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check, \
-    sdk_get_and_check_replies
+from plenum.test.helper import vdr_send_random_and_check, \
+    vdr_get_and_check_replies
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import sdk_add_new_node, \
     sdk_add_2_nodes, sdk_pool_refresh, sdk_add_new_nym, prepare_new_node_data, \
@@ -54,7 +54,7 @@ def testClientConnectsToNewNode(looper,
     """
     _, new_node = sdk_node_theta_added
     logger.debug("{} connected to the pool".format(new_node))
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
 
 
@@ -127,7 +127,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
                                                         sdk_pool_handle,
                                                         node_request1)
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
     assert 'missed fields - node_port' in e._excinfo[1].args[0]
 
     for fn in (NODE_IP, CLIENT_IP, NODE_PORT, CLIENT_PORT):
@@ -141,7 +141,7 @@ def testStewardCannotAddNodeWithOutFullFieldsSet(looper, tdir, tconf,
         # wait NAcks with exact message. it does not works for just 'is missed'
         # because the 'is missed' will check only first few cases
         with pytest.raises(RequestNackedException) as e:
-            sdk_get_and_check_replies(looper, [request_couple])
+            vdr_get_and_check_replies(looper, [request_couple])
         assert 'missed fields' in e._excinfo[1].args[0]
 
 

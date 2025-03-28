@@ -7,7 +7,7 @@ from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 
 from plenum.test.pool_transactions.helper import demote_node
 from plenum.test.test_node import TestNode, checkNodesConnected, ensureElectionsDone, ensure_node_disconnected
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.types import f
@@ -18,7 +18,7 @@ serializer = Base58Serializer()
 
 def test_bls_not_depend_on_node_reg(looper, txnPoolNodeSet,
                                     sdk_pool_handle, sdk_wallet_client):
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet,
                                          sdk_pool_handle, sdk_wallet_client, 3, 3)
 
     node = txnPoolNodeSet[2]
@@ -46,7 +46,7 @@ def test_bls_not_depend_on_node_reg(looper, txnPoolNodeSet,
 def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
                                         sdk_pool_handle, sdk_wallet_client, tdir, tconf, allPluginsPath,
                                         sdk_wallet_stewards):
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet,
                                          sdk_pool_handle, sdk_wallet_client, 3, 3)
 
     primary_node = txnPoolNodeSet[0]
@@ -70,7 +70,7 @@ def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
     looper.run(checkNodesConnected(txnPoolNodeSet))
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet, check_primaries=False)
 
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet,
                                          sdk_pool_handle, sdk_wallet_client, 1, 1)
 
     def get_current_bls_keys(node):

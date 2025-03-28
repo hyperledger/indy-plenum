@@ -7,7 +7,7 @@ from plenum.test.pool_transactions.helper import sdk_send_update_node
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     ensureElectionsDone
 from plenum.test.helper import checkViewNoForNodes, \
-    sdk_send_random_and_check
+    vdr_send_random_and_check
 
 from plenum.test.primary_selection.helper import getPrimaryNodesIdxs
 from plenum.common.config_helper import PNodeConfigHelper
@@ -65,7 +65,7 @@ def test_primary_selection_after_primary_demotion_and_pool_restart(looper,
     looper.run(checkNodesConnected(restNodes))
     ensureElectionsDone(looper, restNodes)
     checkViewNoForNodes(restNodes, 0)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)
 
     primariesIdxs = getPrimaryNodesIdxs(restNodes)

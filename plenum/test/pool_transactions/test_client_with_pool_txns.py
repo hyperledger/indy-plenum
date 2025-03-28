@@ -2,7 +2,7 @@ from plenum.test.pool_transactions.helper import sdk_pool_refresh
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_node import checkNodesConnected, TestNode, \
     ensureElectionsDone
@@ -16,7 +16,7 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet,
                                       poolTxnNodeNames, allPluginsPath,
                                       sdk_wallet_new_client,
                                       sdk_pool_handle):
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_new_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_new_client, 1)
     for node in txnPoolNodeSet:
         node.stop()
         looper.removeProdable(node)

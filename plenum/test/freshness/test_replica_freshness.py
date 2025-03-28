@@ -40,7 +40,7 @@ def inst_id(request):
 
 @pytest.fixture(scope='function')
 def replica_with_valid_requests(primary_replica):
-    requests = {ledger_id: sdk_random_request_objects(1, identifier="did",
+    requests = {ledger_id: vdr_random_request_objects(1, identifier="did",
                                                       protocol_version=CURRENT_PROTOCOL_VERSION)[0]
                 for ledger_id in LEDGER_IDS}
 

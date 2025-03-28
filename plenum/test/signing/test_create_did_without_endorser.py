@@ -10,7 +10,7 @@ from plenum.common.exceptions import UnauthorizedClientRequest, RequestNackedExc
 from plenum.common.txn_util import get_request_data
 from plenum.common.util import randomString
 from plenum.server.request_handlers.utils import get_nym_details
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import vdr_get_and_check_replies
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 
 NEW_ROLE = None
@@ -51,11 +51,10 @@ def nym_txn_data(looper, sdk_wallet_client):
 
 def test_create_did_without_endorser(looper, txnPoolNodeSet, nym_txn_data, sdk_pool_handle, patch_nym_validation):
     wh, alias, sender_did, sender_verkey = nym_txn_data
-    nym_request = looper.loop.run_until_complete(
-        build_nym_request(sender_did, sender_did, sender_verkey, alias, NEW_ROLE))
+    nym_request = build_nym_request(sender_did, sender_did, sender_verkey, alias, NEW_ROLE)
 
     request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
-    sdk_get_and_check_replies(looper, [request_couple])
+    vdr_get_and_check_replies(looper, [request_couple])
 
     details = get_nym_details(txnPoolNodeSet[0].states[1], sender_did, is_committed=True)
     assert details[ROLE] == NEW_ROLE
@@ -66,22 +65,21 @@ def test_create_did_without_endorser_empty_verkey(looper, nym_txn_data, sdk_wall
                                             patch_nym_validation):
     wh, alias, sender_did, sender_verkey = nym_txn_data
 
-    nym_request = looper.loop.run_until_complete(build_nym_request(sender_did, sender_did, None, alias, NEW_ROLE))
+    nym_request = build_nym_request(sender_did, sender_did, None, alias, NEW_ROLE)
 
     request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
 
     with pytest.raises(RequestNackedException, match=CouldNotAuthenticate.reason.format(sender_did)):
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
 
 
 def test_create_did_without_endorser_different_dest(looper, nym_txn_data, sdk_wallet_client, sdk_pool_handle,
                                                     patch_nym_validation):
     wh, alias, sender_did, sender_verkey = nym_txn_data
 
-    nym_request = looper.loop.run_until_complete(
-        build_nym_request(sender_did, sdk_wallet_client[1], sender_verkey, alias, NEW_ROLE))
+    nym_request = build_nym_request(sender_did, sdk_wallet_client[1], sender_verkey, alias, NEW_ROLE)
 
     request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
 
     with pytest.raises(RequestNackedException, match=CouldNotAuthenticate.reason.format(sender_did)):
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])

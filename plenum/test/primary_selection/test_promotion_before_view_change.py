@@ -2,7 +2,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 
-from plenum.test.helper import sdk_send_random_and_check, checkViewNoForNodes, waitForViewChange
+from plenum.test.helper import vdr_send_random_and_check, checkViewNoForNodes, waitForViewChange
 from plenum.test.pool_transactions.helper import demote_node, disconnect_node_and_ensure_disconnected, promote_node
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 
@@ -17,7 +17,7 @@ def test_promotion_before_view_change(looper,
                                       sdk_wallet_stewards,
                                       sdk_pool_handle):
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)
     assert txnPoolNodeSet[0].master_replica.isPrimary
     assert txnPoolNodeSet[1].replicas[1].isPrimary
     assert txnPoolNodeSet[2].replicas[2].isPrimary
@@ -56,5 +56,5 @@ def test_promotion_before_view_change(looper,
     # node 5 is a primary since promoted node is added at the end of the list
     assert node_5.master_replica.isPrimary
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

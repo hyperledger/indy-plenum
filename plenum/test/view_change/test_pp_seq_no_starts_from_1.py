@@ -1,7 +1,7 @@
 import pytest
 from plenum.test.helper import checkViewNoForNodes
 from plenum.test.view_change.helper import ensure_view_change
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 
 # make sure that we send each reqeust individually to count pp_seq_no
@@ -30,7 +30,7 @@ def test_pp_seq_not_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper,
     batches_count = 0
     chk(batches_count)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
     batches_count += 5
     chk(batches_count)
 
@@ -39,10 +39,10 @@ def test_pp_seq_not_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper,
     batches_count += 1
     chk(batches_count)  # After view_change, master primary must initiate 3pc batch
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     batches_count += 1
     chk(batches_count)  # new request for new view => last ordered 3PC is (0,2)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
     batches_count += 5
     chk(batches_count)

@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import cDelay
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
@@ -19,7 +19,7 @@ def test_view_change_with_next_primary_stopped_and_one_node_lost_commit(looper, 
     other_nodes = [n for n in txnPoolNodeSet if n.name != next_primary]
 
     with delay_rules_without_processing(delayed_node.nodeIbStasher, cDelay()):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
 
         disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, next_primary)
         trigger_view_change(other_nodes)

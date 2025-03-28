@@ -3,7 +3,7 @@ import types
 import pytest
 
 from plenum.common.exceptions import PoolLedgerTimeoutException
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -29,7 +29,7 @@ def test_send_too_much_reqs(looper,
                             sdk_pool_handle,
                             sdk_wallet_steward):
     for _ in range(TXN_COUNT):
-        sdk_send_random_and_check(looper,
+        vdr_send_random_and_check(looper,
                                   txnPoolNodeSet,
                                   sdk_pool_handle,
                                   sdk_wallet_steward,
@@ -65,7 +65,7 @@ def test_send_with_clientstack_restarts(looper,
     failed_txns = 0
     for _ in range(int(TXN_COUNT)):
         try:
-            sdk_send_random_and_check(looper,
+            vdr_send_random_and_check(looper,
                                       patched_pool_set,
                                       sdk_pool_handle,
                                       sdk_wallet_steward,

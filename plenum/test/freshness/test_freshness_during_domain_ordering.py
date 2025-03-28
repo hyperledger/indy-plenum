@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.test.freshness.helper import check_update_bls_multi_sig_during_ordering
-from plenum.test.helper import freshness, sdk_send_random_and_check
+from plenum.test.helper import freshness, vdr_send_random_and_check
 
 FRESHNESS_TIMEOUT = 10
 
@@ -18,7 +18,7 @@ def test_update_bls_multi_sig_during_domain_ordering(looper, tconf, txnPoolNodeS
                                                      sdk_wallet_stewards):
 
     def send_txn():
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle,
                                   sdk_wallet_stewards[3],
                                   1)

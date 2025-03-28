@@ -2,14 +2,14 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.txn_util import reqToTxn
-from plenum.test.helper import sdk_signed_random_requests
+from plenum.test.helper import vdr_signed_random_requests
 
 NUM_BATCHES = 3
 TXNS_IN_BATCH = 5
 
 
 def create_txns(looper, sdk_wallet_client, count=TXNS_IN_BATCH):
-    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, count)
+    reqs = vdr_signed_random_requests(looper, sdk_wallet_client, count)
     return [reqToTxn(req) for req in reqs]
 
 

@@ -7,7 +7,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState
 from plenum.common.types import HA
 from plenum.test import waits
 from plenum.test.delayers import cr_delay
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_ledger_state
 from plenum.test.pool_transactions.helper import \
@@ -62,7 +62,7 @@ def test_node_catchup_after_restart_with_txns(
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
     more_requests = 5
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, more_requests)
     logger.debug("Starting the stopped node, {}".format(new_node))
     nodeHa, nodeCHa = HA(*new_node.nodestack.ha), HA(*new_node.clientstack.ha)

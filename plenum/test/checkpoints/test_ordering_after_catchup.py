@@ -1,4 +1,4 @@
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensure_all_nodes_have_same_data
 from plenum.common.util import randomString
@@ -46,7 +46,7 @@ def test_ordering_after_more_than_f_nodes_caught_up(
                      tdir, tconf, allPluginsPath)
     checkViewNoForNodes(txnPoolNodeSet, initial_view_no)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 20)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, exclude_from_check=['check_last_ordered_3pc_backup'])
     checkViewNoForNodes(txnPoolNodeSet, initial_view_no)

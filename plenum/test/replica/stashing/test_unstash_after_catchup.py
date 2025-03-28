@@ -4,8 +4,8 @@ from plenum.common.constants import COMMIT, PREPREPARE, PREPARE, LEDGER_STATUS
 from plenum.common.startable import Mode
 from plenum.server.replica_validator_enums import STASH_CATCH_UP, STASH_VIEW_3PC
 from plenum.test.delayers import msg_rep_delay, cDelay, cr_delay
-from plenum.test.helper import sdk_send_random_and_check, assertExp, sdk_send_random_request, \
-    sdk_get_and_check_replies, get_pp_seq_no
+from plenum.test.helper import vdr_send_random_and_check, assertExp, vdr_send_random_request, \
+    vdr_get_and_check_replies, get_pp_seq_no
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
@@ -43,7 +43,7 @@ def test_unstash_three_phase_msg_after_catchup(txnPoolNodeSet, looper, tconf,
 
         # Delay Commit messages for slow_node.
         slow_node.nodeIbStasher.delay(cDelay(sys.maxsize))
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_steward, 1)
         batches_count += 1
 
@@ -51,7 +51,7 @@ def test_unstash_three_phase_msg_after_catchup(txnPoolNodeSet, looper, tconf,
         for n in fast_nodes:
             n.nodeIbStasher.delay(cDelay(sys.maxsize))
 
-        request2 = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_steward)
+        request2 = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_steward)
         batches_count += 1
 
         def check_commits(commit_key):
@@ -86,7 +86,7 @@ def test_unstash_three_phase_msg_after_catchup(txnPoolNodeSet, looper, tconf,
                                       old_stashed,
                                       (len(txnPoolNodeSet) - 1) * 2))
 
-        sdk_get_and_check_replies(looper, [request2])
+        vdr_get_and_check_replies(looper, [request2])
         _check_nodes_stashed(fast_nodes, old_stashed, 0)
         assert get_pp_seq_no(txnPoolNodeSet) == batches_count
 

@@ -6,7 +6,7 @@ from plenum.test.stasher import delay_rules
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, STEWARD_STRING
 from plenum.test.audit_ledger.helper import check_audit_ledger_updated, check_audit_txn
-from plenum.test.helper import sdk_send_random_and_check, assertExp, get_pp_seq_no
+from plenum.test.helper import vdr_send_random_and_check, assertExp, get_pp_seq_no
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_add_new_node
 from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
 from stp_core.loop.eventually import eventually
@@ -61,7 +61,7 @@ def test_audit_ledger_view_change(looper, txnPoolNodeSet,
         txnPoolNodeSet.append(new_node)
         looper.run(checkNodesConnected(other_nodes + [new_node]))
 
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, 1)
 
         check_audit_ledger_updated(audit_size_initial, [slow_node],

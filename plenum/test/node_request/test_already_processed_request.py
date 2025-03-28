@@ -1,6 +1,6 @@
-from plenum.test.helper import sdk_send_random_and_check, \
-    sdk_send_signed_requests, sdk_eval_timeout, \
-    sdk_get_replies, sdk_check_reply, sdk_signed_random_requests
+from plenum.test.helper import vdr_send_random_and_check, \
+    vdr_send_signed_requests, vdr_eval_timeout, \
+    vdr_get_replies, vdr_check_reply, vdr_signed_random_requests
 from plenum.test.spy_helpers import getAllReturnVals
 
 
@@ -40,14 +40,14 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     rpc1 = get_recordAndPropagate_call_count()
 
     # Request which will be send twice
-    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
+    reqs = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
 
     # Send, check and getting reply from first request
-    sdk_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
-    total_timeout = sdk_eval_timeout(len(sdk_reqs), len(txnPoolNodeSet))
-    request1 = sdk_get_replies(looper, sdk_reqs, timeout=total_timeout)
+    sdk_reqs = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    total_timeout = vdr_eval_timeout(len(sdk_reqs), len(txnPoolNodeSet))
+    request1 = vdr_get_replies(looper, sdk_reqs, timeout=total_timeout)
     for req_res in request1:
-        sdk_check_reply(req_res)
+        vdr_check_reply(req_res)
     first_req_id = request1[0][0]['reqId']
 
     rlc2 = get_getReplyFromLedgerForRequest_call_count()
@@ -58,7 +58,7 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     assert r1 is None  # getReplyFromLedgerForRequest returned None since had not seen request
 
     # Request which we will send only once
-    request2 = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    request2 = vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     second_req_id = request2[0][0]['reqId']
 
     assert second_req_id != first_req_id
@@ -73,9 +73,9 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     rep1 = request1[0][1]['result']
 
     # Client re-sending first request
-    request3 = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
-    total_timeout = sdk_eval_timeout(len(request3), len(txnPoolNodeSet))
-    request3 = sdk_get_replies(looper, request3, timeout=total_timeout)
+    request3 = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    total_timeout = vdr_eval_timeout(len(request3), len(txnPoolNodeSet))
+    request3 = vdr_get_replies(looper, request3, timeout=total_timeout)
     third_req_id = request3[0][0]['reqId']
 
     assert third_req_id == first_req_id

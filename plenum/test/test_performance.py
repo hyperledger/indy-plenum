@@ -13,7 +13,7 @@ from plenum.test.delayers import cr_delay
 from stp_core.loop.eventually import eventually
 from plenum.common.types import HA
 from stp_core.common.log import getlogger, Logger
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_ledger_state
 from plenum.test.pool_transactions.helper import \
@@ -71,7 +71,7 @@ def test_node_load(looper, txnPoolNodeSet,
     txns_per_batch = 25
     for i in range(client_batches):
         s = perf_counter()
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
@@ -109,7 +109,7 @@ def test_node_load_consistent_time(tconf, change_checkpoint_freq,
 
     for i in range(client_batches):
         s = perf_counter()
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, txns_per_batch)
         t = perf_counter() - s
         with capsys.disabled():
@@ -166,14 +166,14 @@ def test_node_load_after_add(sdk_new_node_caught_up, txnPoolNodeSet,
     txns_per_batch = 25
     for i in range(client_batches):
         s = perf_counter()
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
                   format(i + 1, txns_per_batch, perf_counter() - s))
 
     logger.debug("Starting the stopped node, {}".format(new_node))
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 5)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
 
@@ -200,7 +200,7 @@ def test_node_load_after_add_then_disconnect(sdk_new_node_caught_up, txnPoolNode
     txns_per_batch = 10
     for i in range(client_batches):
         s = perf_counter()
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
@@ -235,7 +235,7 @@ def test_node_load_after_add_then_disconnect(sdk_new_node_caught_up, txnPoolNode
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],
                          customTimeout=timeout)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 5)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4])
 
@@ -270,7 +270,7 @@ def test_node_load_after_disconnect(looper, txnPoolNodeSet, tconf,
     txns_per_batch = 10
     for i in range(client_batches):
         s = perf_counter()
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.
@@ -307,7 +307,7 @@ def test_node_load_after_one_node_drops_all_msgs(
     txns_per_batch = 25
     for i in range(client_batches):
         s = perf_counter()
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, txns_per_batch)
         with capsys.disabled():
             print('{} executed {} client txns in {:.2f} seconds'.

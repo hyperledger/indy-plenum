@@ -1,5 +1,5 @@
 import pytest
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 from plenum.test.delayers import ppgDelay, req_delay
 from plenum.test.spy_helpers import get_count
@@ -25,7 +25,7 @@ def test_node_request_propagates_with_delay(looper, setup, txnPoolNodeSet,
     old_count_recv_ppg = get_count(faulty_node, faulty_node.processPropagate)
 
     sent_reqs = 5
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

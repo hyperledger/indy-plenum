@@ -2,7 +2,7 @@ import logging
 
 import pytest
 
-from plenum.test.helper import checkViewNoForNodes, waitForViewChange, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, waitForViewChange, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import demote_node, promote_node
@@ -52,7 +52,7 @@ def test_demote_promote_restart_after_promotion_from_10_to_4_nodes(txnPoolNodeSe
     etalon_node = txnPoolNodeSet[-1]
     while len(rest_nodes) > 4:
         rest_nodes = demote_another_one(rest_nodes)
-        sdk_send_random_and_check(looper, rest_nodes, sdk_pool_handle, sdk_wallet_steward, 5)
+        vdr_send_random_and_check(looper, rest_nodes, sdk_pool_handle, sdk_wallet_steward, 5)
 
     starting_view_no = checkViewNoForNodes(rest_nodes)
     promote_node(looper, sdk_wallet_steward, sdk_pool_handle, etalon_node)

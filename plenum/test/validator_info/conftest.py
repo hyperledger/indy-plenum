@@ -5,7 +5,7 @@ from plenum.common.constants import TXN_TYPE, DATA, \
 from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.common.util import getTimeBasedId
-from plenum.test.helper import sdk_sign_and_submit_req_obj, sdk_get_and_check_replies
+from plenum.test.helper import vdr_sign_and_submit_req_obj, vdr_get_and_check_replies
 
 TEST_NODE_NAME = 'Alpha'
 INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
@@ -39,7 +39,7 @@ def read_txn_and_get_latest_info(looper,
         req = Request(identifier=did,
                       operation=op, reqId=getTimeBasedId(),
                       protocolVersion=CURRENT_PROTOCOL_VERSION)
-        sdk_get_and_check_replies(looper, [sdk_sign_and_submit_req_obj(
+        vdr_get_and_check_replies(looper, [vdr_sign_and_submit_req_obj(
             looper, sdk_pool_handle, sdk_wallet_client, req)])
 
         return node._info_tool.info

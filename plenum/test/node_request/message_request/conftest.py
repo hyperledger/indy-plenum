@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 
 @pytest.fixture(scope="module")
@@ -22,6 +22,6 @@ def teardown(request, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle
                                            for n in txnPoolNodeSet])
 
         # Check the network is functional since all nodes reply
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
 
     request.addfinalizer(tear)

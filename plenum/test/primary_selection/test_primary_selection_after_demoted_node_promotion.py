@@ -6,7 +6,7 @@ from stp_core.common.log import getlogger
 
 from plenum.common.constants import VALIDATOR
 
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, sdk_send_update_node
@@ -60,7 +60,7 @@ def test_primary_selection_after_demoted_node_promotion(
 
     check_all_nodes_the_same_pool_list(remainingNodes)
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet, 3)
     # TODO view change might happen unexpectedly by unknown reason
     # checkViewNoForNodes(remainingNodes, expectedViewNo=viewNo0)
@@ -73,7 +73,7 @@ def test_primary_selection_after_demoted_node_promotion(
 
     check_all_nodes_the_same_pool_list(txnPoolNodeSet)
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet, 3)
     # checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=viewNo0)
 
@@ -86,7 +86,7 @@ def test_primary_selection_after_demoted_node_promotion(
     remainingNodes = list(set(txnPoolNodeSet) - {stopped_node})
     ensureElectionsDone(looper, remainingNodes)
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet, 3)
     # checkViewNoForNodes(remainingNodes, expectedViewNo=viewNo0)
 
@@ -96,7 +96,7 @@ def test_primary_selection_after_demoted_node_promotion(
     txnPoolNodeSet = remainingNodes + [restartedNode]
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet, 3)
     # checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=viewNo0)
 
@@ -105,5 +105,5 @@ def test_primary_selection_after_demoted_node_promotion(
     while txnPoolNodeSet[0].viewNo < 4:
         ensure_view_change_complete(looper, txnPoolNodeSet)
         # ensure pool is working properly
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   new_steward_wallet, 3)

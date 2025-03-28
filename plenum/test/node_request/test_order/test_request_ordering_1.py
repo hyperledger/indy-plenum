@@ -1,7 +1,7 @@
 import types
 
 from stp_core.loop.eventually import eventually
-from plenum.test.helper import sdk_send_random_request
+from plenum.test.helper import vdr_send_random_request
 from plenum.test.malicious_behaviors_node import delaysPrePrepareProcessing
 from plenum.test.test_node import getNonPrimaryReplicas
 
@@ -31,7 +31,7 @@ def testOrderingCase1(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle
     def chk(n):
         assert replica._ordering_service.spylog.count(replica._ordering_service._do_order.__name__) == n
 
-    sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+    vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
     timeout = delay - 5
     looper.run(eventually(chk, 0, retryWait=1, timeout=timeout))
     timeout = delay + 5

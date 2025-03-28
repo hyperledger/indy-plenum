@@ -5,7 +5,7 @@ import pytest
 from stp_core.common.util import adict
 from plenum.server.node import Node
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change
@@ -74,7 +74,7 @@ def step1(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
     # the master instance has a primary replica, call it P
     P = getPrimaryReplica(startedNodes)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
     # profile_this(sendReqsToNodesAndVerifySuffReplies, looper, client1, 5)
 
     return adict(P=P,
@@ -120,7 +120,7 @@ def testInstChangeWithLowerRatioThanDelta(looper, step3, sdk_pool_handle, sdk_wa
     # from plenum.test.test_node import ensureElectionsDone
     # ensureElectionsDone(looper, [])
 
-    sdk_send_random_and_check(looper, step3.nodes, sdk_pool_handle, sdk_wallet_client, 9)
+    vdr_send_random_and_check(looper, step3.nodes, sdk_pool_handle, sdk_wallet_client, 9)
     # wait for every node to run another checkPerformance
     waitForNextPerfCheck(looper, step3.nodes, step3.perfChecks)
     provoke_and_wait_for_view_change(looper, step3.nodes, 1, sdk_pool_handle, sdk_wallet_client)

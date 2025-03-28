@@ -1,5 +1,5 @@
 import pytest
-from plenum.test.helper import sdk_get_bad_response
+from plenum.test.helper import vdr_get_bad_response
 
 from plenum.common.constants import VALIDATOR
 from plenum.common.util import randomString, hexToFriendly
@@ -58,7 +58,7 @@ def test_add_node_with_existing_data(looper,
         looper, steward_wallet_handle, tconf, tdir, txnPoolNodeSet[0].name)
     request_couple = sdk_sign_and_send_prepared_request(looper, steward_wallet_handle,
                                                         sdk_pool_handle, node_request)
-    sdk_get_bad_response(looper, [request_couple], RequestRejectedException,
+    vdr_get_bad_response(looper, [request_couple], RequestRejectedException,
                          "Node's alias must be unique")
 
     # Check for existing node HAs
@@ -67,7 +67,7 @@ def test_add_node_with_existing_data(looper,
         new_node_ip=existing_ha[0], new_node_port=existing_ha[1])
     request_couple = sdk_sign_and_send_prepared_request(looper, steward_wallet_handle,
                                                         sdk_pool_handle, node_request)
-    sdk_get_bad_response(looper, [request_couple], RequestRejectedException,
+    vdr_get_bad_response(looper, [request_couple], RequestRejectedException,
                          "Node's nodestack addresses must be unique")
 
     # Check for existing client HAs
@@ -76,7 +76,7 @@ def test_add_node_with_existing_data(looper,
         new_client_ip=existing_cli_ha[0], new_client_port=existing_cli_ha[1])
     request_couple = sdk_sign_and_send_prepared_request(looper, steward_wallet_handle,
                                                         sdk_pool_handle, node_request)
-    sdk_get_bad_response(looper, [request_couple], RequestRejectedException,
+    vdr_get_bad_response(looper, [request_couple], RequestRejectedException,
                          "Node's clientstack addresses must be unique")
 
 

@@ -2,8 +2,8 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import delay_3pc_messages, icDelay
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_and_check_replies
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check, \
+    vdr_send_random_requests, vdr_get_and_check_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.batching_3pc.conftest import tconf
 
@@ -40,7 +40,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
     delay_3pc = 100
     delay_ic = 5
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 2 * Max3PCBatchSize)
 
     delay_3pc_messages([slow_node], 0, delay_3pc)
@@ -53,13 +53,13 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
                                    if e.params['ledgerId'] == DOMAIN_LEDGER_ID])
 
     s = start_count()
-    requests = sdk_send_random_requests(looper, sdk_pool_handle,
+    requests = vdr_send_random_requests(looper, sdk_pool_handle,
                                         sdk_wallet_client, 10 * Max3PCBatchSize)
 
     ensure_view_change(looper, nodes=txnPoolNodeSet,
                        exclude_from_check=nodes_slow_to_inst_chg)
 
-    sdk_get_and_check_replies(looper, requests)
+    vdr_get_and_check_replies(looper, requests)
 
     waitNodeDataEquality(looper, slow_node, *txnPoolNodeSet[:-1])
 
@@ -69,7 +69,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
     looper.run(eventually(checkViewNoForNodes, slow_node.viewNo))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 2 * Max3PCBatchSize)
 
     waitNodeDataEquality(looper, new_node, *nodes_slow_to_inst_chg)

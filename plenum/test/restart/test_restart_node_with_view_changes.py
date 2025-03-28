@@ -3,7 +3,7 @@ from functools import partial
 from plenum.common.messages.node_messages import ViewChangeStartMessage
 
 from plenum.test.delayers import msg_rep_delay
-from plenum.test.helper import sdk_send_random_and_check, assertExp, waitForViewChange
+from plenum.test.helper import vdr_send_random_and_check, assertExp, waitForViewChange
 
 from plenum.test import waits
 from plenum.test.node_catchup.helper import waitNodeDataEquality
@@ -48,7 +48,7 @@ def test_restart_node_with_view_changes(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, len(rest_nodes) * 3)
     waitNodeDataEquality(looper, *rest_nodes)
 
@@ -114,6 +114,6 @@ def test_restart_node_with_view_changes(tdir, tconf,
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
                         instances_list=range(txnPoolNodeSet[0].requiredNumberOfInstances))
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     waitNodeDataEquality(looper, *txnPoolNodeSet)

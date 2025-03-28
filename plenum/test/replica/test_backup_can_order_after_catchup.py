@@ -3,7 +3,7 @@ import pytest
 from plenum.server.replica_helper import generateName
 from plenum.server.replicas import MASTER_REPLICA_INDEX
 from plenum.test.delayers import cDelay, pDelay, ppDelay, old_view_pp_request_delay
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import check_not_in_view_change
@@ -35,7 +35,7 @@ def test_backup_can_order_after_catchup(txnPoolNodeSet,
                                         pDelay(instId=MASTER_REPLICA_INDEX),
                                         cDelay(instId=MASTER_REPLICA_INDEX),
                                         ppDelay(instId=MASTER_REPLICA_INDEX)):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, REQUEST_COUNT)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, REQUEST_COUNT)
         with delay_rules_without_processing([n.nodeIbStasher for n in txnPoolNodeSet],
                                             old_view_pp_request_delay()):
             ensure_view_change(looper, txnPoolNodeSet)
@@ -54,7 +54,7 @@ def test_backup_can_order_after_catchup(txnPoolNodeSet,
             looper.run(eventually(check_backup_primaries))
 
             # Check, that backup cannot order
-            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, REQUEST_COUNT)
+            vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, REQUEST_COUNT)
             for n in txnPoolNodeSet:
                 assert n.replicas._replicas[BACKUP_INST_ID].last_ordered_3pc[1] == 0
 
@@ -64,6 +64,6 @@ def test_backup_can_order_after_catchup(txnPoolNodeSet,
 
             # Check, that backup can order after catchup
             b_pp_seq_no_before = delayed_node.replicas[BACKUP_INST_ID].last_ordered_3pc[1]
-            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, REQUEST_COUNT)
+            vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, REQUEST_COUNT)
             assert delayed_node.replicas[BACKUP_INST_ID].last_ordered_3pc[1] == \
                    b_pp_seq_no_before + REQUEST_COUNT

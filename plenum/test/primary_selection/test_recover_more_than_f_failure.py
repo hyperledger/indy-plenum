@@ -2,7 +2,7 @@ from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpo
 from stp_core.common.log import getlogger
 
 from plenum.test.helper import waitForViewChange, \
-    sdk_send_random_and_check
+    vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
@@ -39,7 +39,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes)
 
     logger.info("send at least one checkpoint")
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 2 * checkpoint_size - 1)
     # TODO: When stable checkpoint is not deleted it makes sense to check just our last checkpoint
     # and remove eventually.
@@ -65,7 +65,7 @@ def test_recover_stop_primaries(looper, checkpoint_size, txnPoolNodeSet,
                                     exclude_from_check=['check_last_ordered_3pc_backup'])
 
     logger.info("Check if the pool is able to process requests")
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 10 * checkpoint_size)
     ensure_all_nodes_have_same_data(looper, nodes=active_nodes,
                                     exclude_from_check=['check_last_ordered_3pc_backup'])

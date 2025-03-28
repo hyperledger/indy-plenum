@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.server.monitor import Monitor
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 WIND_SIZE = 5
@@ -31,7 +31,7 @@ def testPostingThroughput(postingStatsEnabled,
                           sdk_wallet_client, sdk_pool_handle):
     config = decreasedMonitoringTimeouts
     reqCount = 10
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
@@ -59,7 +59,7 @@ def testPostingLatency(postingStatsEnabled,
                        sdk_wallet_client, sdk_pool_handle):
     config = decreasedMonitoringTimeouts
     reqCount = 10
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

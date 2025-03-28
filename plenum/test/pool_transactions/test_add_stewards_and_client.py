@@ -9,7 +9,7 @@ from plenum.common.exceptions import RequestNackedException
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString
 from plenum.test import waits
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import vdr_get_and_check_replies
 from plenum.test.pool_transactions.helper import prepare_new_node_data, prepare_node_request, \
     sdk_sign_and_send_prepared_request
 from stp_core.loop.eventually import eventually
@@ -68,7 +68,7 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
                                                         sdk_pool_handle,
                                                         node_request)
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
     assert 'client request invalid' in e._excinfo[1].args[0]
 
 
@@ -120,7 +120,7 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases
         with pytest.raises(RequestNackedException) as e:
-            sdk_get_and_check_replies(looper, [request_couple])
+            vdr_get_and_check_replies(looper, [request_couple])
         assert 'invalid network ip address' in e._excinfo[1].args[0] or \
                'expected types' in e._excinfo[1].args[0] or \
                'network port out of the range' in e._excinfo[1].args[0]

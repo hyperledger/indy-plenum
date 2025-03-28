@@ -5,7 +5,7 @@ from plenum.common.constants import LEDGER_STATUS, DOMAIN_LEDGER_ID
 from plenum.common.messages.node_messages import MessageReq, CatchupReq
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.test.delayers import ppDelay, pDelay, cDelay, DEFAULT_DELAY
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_request.test_timestamp.helper import get_timestamp_suspicion_count
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules, start_delaying, stop_delaying_and_process
@@ -48,7 +48,7 @@ def test_first_audit_catchup_during_ordering(tdir, tconf, looper, txnPoolNodeSet
         assert lagging_node_state() != NodeLeecherService.State.Idle
 
         # Order request on all nodes except lagging one where they goes to stashed state
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_client, 1)
 
     # Now catchup should end and lagging node starts processing stashed PPs

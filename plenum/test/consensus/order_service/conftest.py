@@ -10,7 +10,7 @@ from plenum.server.consensus.ordering_service import OrderingService
 from plenum.server.consensus.primary_selector import RoundRobinConstantNodesPrimariesSelector
 from plenum.server.replica_freshness_checker import FreshnessChecker
 from plenum.test.consensus.order_service.helper import _register_pp_ts
-from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
+from plenum.test.helper import vdr_random_request_objects, create_pre_prepare_params
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
 from plenum.test.testing_utils import FakeSomething
 
@@ -86,7 +86,7 @@ def pre_prepare(orderer, _pre_prepare):
 
 @pytest.fixture()
 def fake_requests():
-    return sdk_random_request_objects(10, identifier="fake_did",
+    return vdr_random_request_objects(10, identifier="fake_did",
                                       protocol_version=CURRENT_PROTOCOL_VERSION)
 
 

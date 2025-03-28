@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import PROPAGATE
-from plenum.test.helper import sdk_send_random_requests
+from plenum.test.helper import vdr_send_random_requests
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.test.delayers import delay, msg_rep_delay
@@ -50,7 +50,7 @@ def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     # is requested
     A.nodeIbStasher.delay(msg_rep_delay(10 * howlong, [PROPAGATE, ]))
     initial_ledger_size = lagged_node.domainLedger.size
-    request_couple_json = sdk_send_random_requests(
+    request_couple_json = vdr_send_random_requests(
         looper, sdk_pool_handle, sdk_wallet_client, 1)
     return request_couple_json
 

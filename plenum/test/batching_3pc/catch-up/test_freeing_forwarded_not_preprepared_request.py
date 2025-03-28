@@ -8,8 +8,8 @@ from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
 
 from plenum.test.delayers import cDelay, pDelay, ppDelay, chk_delay
-from plenum.test.helper import sdk_send_batches_of_random_and_check, \
-    sdk_send_batches_of_random, max_3pc_batch_limits, assertExp
+from plenum.test.helper import vdr_send_batches_of_random_and_check, \
+    vdr_send_batches_of_random, max_3pc_batch_limits, assertExp
 
 from plenum.test.checkpoints.conftest import chkFreqPatched, reqs_for_checkpoint
 
@@ -37,7 +37,7 @@ def test_freeing_forwarded_not_preprepared_request(
     behind_node = txnPoolNodeSet[-1]
     behind_node.requests.clear()
 
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_steward, CHK_FREQ, CHK_FREQ)
     count = behind_node.spylog.count(behind_node.allLedgersCaughtUp)
     with delay_rules(behind_node.nodeIbStasher,
@@ -45,7 +45,7 @@ def test_freeing_forwarded_not_preprepared_request(
                      pDelay(delay=sys.maxsize),
                      cDelay(delay=sys.maxsize)):
         with delay_rules(behind_node.nodeIbStasher, chk_delay(delay=sys.maxsize)):
-            sdk_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool_handle,
+            vdr_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool_handle,
                                        sdk_wallet_steward, req_num, req_num)
             looper.run(eventually(lambda: assertExp(len(behind_node.requests) == req_num)))
         # Start catchup with the quorum of Checkpoints

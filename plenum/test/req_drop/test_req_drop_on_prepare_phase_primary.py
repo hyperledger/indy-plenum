@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_requests
+from plenum.test.helper import vdr_send_random_requests
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Prepare, Commit
 from plenum.test.delayers import delay
@@ -42,7 +42,7 @@ def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     delay(Prepare, frm=frm, to=lagged_node, howlong=howlong)
     delay(Commit, frm=frm, to=lagged_node, howlong=howlong + 3)
     initial_ledger_size = txnPoolNodeSet[0].domainLedger.size
-    request_couple_json = sdk_send_random_requests(
+    request_couple_json = vdr_send_random_requests(
         looper, sdk_pool_handle, sdk_wallet_client, 1)
     return request_couple_json
 

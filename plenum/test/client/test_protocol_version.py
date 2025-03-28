@@ -7,9 +7,9 @@ from plenum.server.node import Node
 from plenum.common.request import Request
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.common.exceptions import RequestNackedException, CommonSdkIOException
-from plenum.test.helper import sdk_send_signed_requests, \
-    sdk_get_and_check_replies, sdk_random_request_objects, \
-    sdk_sign_request_objects, sdk_get_bad_response, sdk_send_random_and_check, sdk_signed_random_requests
+from plenum.test.helper import vdr_send_signed_requests, \
+    vdr_get_and_check_replies, vdr_random_request_objects, \
+    vdr_sign_request_objects, vdr_get_bad_response, vdr_send_random_and_check, vdr_signed_random_requests
 
 error_msg = 'Make sure that the latest LibIndy is used ' \
             'and `set_protocol_version({})` is called' \
@@ -59,7 +59,7 @@ def test_client_send_correct_ledger_status(looper,
                                            txnPoolNodeSet):
     # Client send LEDGER_STATUS with protocoloVersion field.
     # Node send her LEDGER_STATUS back
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client, 1)
 
@@ -80,7 +80,7 @@ def test_request_none_protocol_version(looper, txnPoolNodeSet,
     assert req_obj.protocolVersion == None
 
     with pytest.raises(VdrError) as e:
-        sdk_signed_random_requests(looper, sdk_wallet_client, request_num, protocol_version=None)
+        vdr_signed_random_requests(looper, sdk_wallet_client, request_num, protocol_version=None)
     #sdk_get_bad_response(looper, reqs, RequestNackedException,
     #                     'missed fields - protocolVersion. ' + error_msg)
 
@@ -96,7 +96,7 @@ def test_request_with_outdated_version(looper,
     assert req_obj.protocolVersion == protocol
 
     with pytest.raises(VdrError) as e:
-        sdk_signed_random_requests(looper, sdk_wallet_client, request_num, protocol_version=CURRENT_PROTOCOL_VERSION - 1)
+        vdr_signed_random_requests(looper, sdk_wallet_client, request_num, protocol_version=CURRENT_PROTOCOL_VERSION - 1)
 
 
 def test_request_with_invalid_version(looper,
@@ -108,9 +108,9 @@ def test_request_with_invalid_version(looper,
     req_obj = Request(identifier=did, protocolVersion=-1)
     assert req_obj.protocolVersion == -1
 
-    signed_objects = sdk_signed_random_requests(looper, sdk_wallet_client, request_num)
-    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_objects, looper)
-    sdk_get_bad_response(looper, reqs, RequestNackedException,
+    signed_objects = vdr_signed_random_requests(looper, sdk_wallet_client, request_num)
+    reqs = vdr_send_signed_requests(sdk_pool_handle, signed_objects, looper)
+    vdr_get_bad_response(looper, reqs, RequestNackedException,
                          'missed fields - protocolVersion. ' + error_msg)
     
     
@@ -122,11 +122,11 @@ def test_request_with_correct_version(looper,
                                       sdk_wallet_client,
                                       request_num):
     _, did = sdk_wallet_client
-    reqs_obj = sdk_random_request_objects(request_num, identifier=did,
+    reqs_obj = vdr_random_request_objects(request_num, identifier=did,
                                           protocol_version=CURRENT_PROTOCOL_VERSION)
     for req_obj in reqs_obj:
         assert json.loads(req_obj.body)["protocolVersion"] == CURRENT_PROTOCOL_VERSION
 
-    signed_reqs = sdk_sign_request_objects(looper, sdk_wallet_client, reqs_obj)
-    reqs = sdk_send_signed_requests(sdk_pool_handle, signed_reqs, looper)
-    sdk_get_and_check_replies(looper, reqs)
+    signed_reqs = vdr_sign_request_objects(looper, sdk_wallet_client, reqs_obj)
+    reqs = vdr_send_signed_requests(sdk_pool_handle, signed_reqs, looper)
+    vdr_get_and_check_replies(looper, reqs)

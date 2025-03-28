@@ -14,9 +14,9 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getPrimaryReplica
 from plenum.common.exceptions import RequestNackedException
 from plenum.common.request import Request
-from plenum.test.helper import sdk_gen_request, sdk_multisign_request_object, sdk_send_signed_requests, \
-    sdk_get_and_check_replies, sdk_random_request_objects, waitForViewChange, max_3pc_batch_limits, \
-    sdk_send_random_and_check
+from plenum.test.helper import vdr_gen_request, vdr_multisign_request_object, vdr_send_signed_requests, \
+    vdr_get_and_check_replies, vdr_random_request_objects, waitForViewChange, max_3pc_batch_limits, \
+    vdr_send_random_and_check
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID, TXN_TYPE
 
@@ -55,12 +55,12 @@ def wait_one_batch(node, before):
 def two_requests(looper, op, sdk_wallet_stewards):
     wh, did = sdk_wallet_stewards[0]
 
-    req = json.dumps(sdk_gen_request(op, protocol_version=CURRENT_PROTOCOL_VERSION,
+    req = json.dumps(vdr_gen_request(op, protocol_version=CURRENT_PROTOCOL_VERSION,
                                      identifier=did).as_dict)
-    req1 = sdk_multisign_request_object(looper, sdk_wallet_stewards[0], req)
+    req1 = vdr_multisign_request_object(looper, sdk_wallet_stewards[0], req)
     req_obj1 = Request(**json.loads(req1))
 
-    req2 = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], req1)
+    req2 = vdr_multisign_request_object(looper, sdk_wallet_stewards[1], req1)
     req_obj2 = Request(**json.loads(req2))
 
     assert req_obj1.payload_digest == req_obj2.payload_digest
@@ -70,11 +70,11 @@ def two_requests(looper, op, sdk_wallet_stewards):
 
 def test_second_digest_is_written(
         looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards):
-    reqs = sdk_random_request_objects(1, CURRENT_PROTOCOL_VERSION, sdk_wallet_stewards[0][1])
+    reqs = vdr_random_request_objects(1, CURRENT_PROTOCOL_VERSION, sdk_wallet_stewards[0][1])
     #req = json.dumps(reqs.as_dict)
-    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[0], reqs[0])
-    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], reqs[0])
-    res = sdk_get_and_check_replies(looper, sdk_send_signed_requests(sdk_pool_handle, [req], looper))
+    req = vdr_multisign_request_object(looper, sdk_wallet_stewards[0], reqs[0])
+    req = vdr_multisign_request_object(looper, sdk_wallet_stewards[1], reqs[0])
+    res = vdr_get_and_check_replies(looper, vdr_send_signed_requests(sdk_pool_handle, [req], looper))
 
     req_metadata = json.loads(res[0][1]["Alpha"])["result"]["txn"]["metadata"]
 
@@ -92,12 +92,12 @@ def test_send_same_txn_with_different_signatures_in_separate_batches(
 
     req1, req2 = two_requests
 
-    rep1 = sdk_send_signed_requests(sdk_pool_handle, [req1], looper)
-    sdk_get_and_check_replies(looper, rep1)
+    rep1 = vdr_send_signed_requests(sdk_pool_handle, [req1], looper)
+    vdr_get_and_check_replies(looper, rep1)
 
-    rep2 = sdk_send_signed_requests(sdk_pool_handle, [req2], looper)
+    rep2 = vdr_send_signed_requests(sdk_pool_handle, [req2], looper)
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, rep2)
+        vdr_get_and_check_replies(looper, rep2)
     e.match('Same txn was already ordered with different signatures or pluggable fields')
 
 
@@ -110,8 +110,8 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
 
     old_reqs = len(txnPoolNodeSet[0].requests)
     with max_3pc_batch_limits(tconf, size=2):
-        sdk_send_signed_requests(sdk_pool_handle, [req1], looper)
-        sdk_send_signed_requests(sdk_pool_handle, [req2], looper)
+        vdr_send_signed_requests(sdk_pool_handle, [req1], looper)
+        vdr_send_signed_requests(sdk_pool_handle, [req2], looper)
 
         # We need to check for ordering this way, cause sdk do not allow
         # track two requests with same reqId at the same time
@@ -160,12 +160,12 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
         assert node.spylog.count(node.request_propagates) >= 1
         node.spylog.getAll(node.request_propagates)
 
-    req1s = sdk_send_signed_requests(sdk_pool_handle, [req1s], looper)
-    sdk_get_and_check_replies(looper, req1s)
+    req1s = vdr_send_signed_requests(sdk_pool_handle, [req1s], looper)
+    vdr_get_and_check_replies(looper, req1s)
 
-    req2s = sdk_send_signed_requests(sdk_pool_handle, [req2s], looper)
+    req2s = vdr_send_signed_requests(sdk_pool_handle, [req2s], looper)
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, req2s)
+        vdr_get_and_check_replies(looper, req2s)
     e.match('Same txn was already ordered with different signatures or pluggable fields')
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
@@ -181,8 +181,8 @@ def test_suspicious_primary_send_same_request_with_different_signatures(
     req1, req2 = two_requests
 
     old_view = txnPoolNodeSet[0].viewNo
-    sdk_send_signed_requests(sdk_pool_handle, [req1], looper)
-    sdk_send_signed_requests(sdk_pool_handle, [req2], looper)
+    vdr_send_signed_requests(sdk_pool_handle, [req1], looper)
+    vdr_send_signed_requests(sdk_pool_handle, [req2], looper)
 
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=old_view + 1)
     all(cll.params['msg'][1] == Suspicions.PPR_WITH_ORDERED_REQUEST.code for cll in
@@ -194,7 +194,7 @@ def test_suspicious_primary_send_same_request_with_different_signatures(
 
 def test_suspicious_primary_send_same_request_with_same_signatures(
         looper, txnPoolNodeSet, sdk_pool_handle, two_requests, sdk_wallet_stewards, tconf):
-    couple = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)[0]
+    couple = vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)[0]
     req = Request(**couple[0])
     replica = getPrimaryReplica(txnPoolNodeSet)
     replica._ordering_service._do_dynamic_validation = types.MethodType(malicious_dynamic_validation, replica.node)

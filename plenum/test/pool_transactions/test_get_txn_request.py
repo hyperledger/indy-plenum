@@ -11,7 +11,7 @@ from plenum.test.pool_transactions.helper import \
     sdk_sign_and_send_prepared_request, prepare_nym_request, \
     sdk_build_get_txn_request
 from stp_core.loop.eventually import eventually
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import vdr_get_and_check_replies
 from plenum.common.util import getMaxFailures, randomString
 
 c_delay = 10
@@ -40,7 +40,7 @@ def test_get_txn_for_invalid_ledger_id(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            request)
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
     assert 'expected one of' in e._excinfo[1].args[0]
 
 
@@ -59,7 +59,7 @@ def test_get_txn_for_invalid_seq_no(looper, txnPoolNodeSet,
                                            sdk_pool_handle,
                                            request)
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
     assert 'cannot be smaller' in e._excinfo[1].args[0]
 
 
@@ -99,7 +99,7 @@ def test_get_txn_for_non_existing_seq_no(looper, txnPoolNodeSet,
                                            sdk_wallet_steward,
                                            sdk_pool_handle,
                                            request)
-    reply = sdk_get_and_check_replies(looper, [request_couple])[0][1]
+    reply = vdr_get_and_check_replies(looper, [request_couple])[0][1]
     assert reply['result'][DATA] is None
 
 
@@ -120,7 +120,7 @@ def test_get_txn_response_as_expected(looper, txnPoolNodeSet,
         looper, sdk_wallet_steward,
         sdk_pool_handle, nym_request)
 
-    result1 = sdk_get_and_check_replies(looper,
+    result1 = vdr_get_and_check_replies(looper,
                                         [request_couple])[0][1]['result']
     seqNo = get_seq_no(result1)
 
@@ -132,7 +132,7 @@ def test_get_txn_response_as_expected(looper, txnPoolNodeSet,
                                            sdk_wallet_steward,
                                            sdk_pool_handle,
                                            request)
-    result2 = sdk_get_and_check_replies(looper,
+    result2 = vdr_get_and_check_replies(looper,
                                         [request_couple])[0][1]['result']
 
     assert result1['reqSignature'] == result2['data']['reqSignature']

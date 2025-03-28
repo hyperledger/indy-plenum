@@ -2,7 +2,7 @@ from plenum.common.constants import PREPREPARE, STEWARD_STRING, VALIDATOR
 from plenum.common.messages.internal_messages import NodeNeedViewChange, VoteForViewChange
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import cDelay, ppDelay, msg_rep_delay, old_view_pp_reply_delay, nv_delay
-from plenum.test.helper import waitForViewChange, checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import waitForViewChange, checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_add_new_node
@@ -119,7 +119,7 @@ def check_view_change_one_slow_node(looper, txnPoolNodeSet, sdk_pool_handle, sdk
     # delay OldViewPrePrepareReply so that slow node doesn't receive PrePrepares before ReOrdering phase finishes
     with delay_rules(delayed_node.nodeIbStasher, old_view_pp_reply_delay()):
         with delay_rules_without_processing(delayed_node.nodeIbStasher, *delayers):
-            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+            vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
             trigger_view_change(txnPoolNodeSet)
             if vc_counts == 2:
                 for node in txnPoolNodeSet:

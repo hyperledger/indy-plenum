@@ -7,7 +7,7 @@ from plenum.test.node_request.node_request_helper import \
     chk_commits_prepares_recvd
 from plenum.test.test_node import getNonPrimaryReplicas
 from stp_core.loop.eventually import eventually
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +33,7 @@ def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
     delay_3pc_messages([slow_node], 1, delay)
 
     sent_batches = 3
-    sdk_send_batches_of_random_and_check(looper,
+    vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,

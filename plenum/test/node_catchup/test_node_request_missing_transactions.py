@@ -4,7 +4,7 @@ import pytest
 
 from plenum.common.messages.node_messages import CatchupReq
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_requests, sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_requests, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
@@ -50,7 +50,7 @@ def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
     badNode.nodeMsgRouter.routes[CatchupReq] = types.MethodType(
         ignoreCatchupReq, badNode.ledgerManager)
     more_requests = 10
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, more_requests)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, more_requests)
 
     _, new_node = sdk_add_new_steward_and_node(
         looper, sdk_pool_handle, sdk_wallet_steward,
@@ -67,7 +67,7 @@ def testNodeRequestingTxns(reduced_catchup_timeout_conf, txnPoolNodeSet,
                          customTimeout=timeout,
                          exclude_from_check=['check_last_ordered_3pc_backup'])
 
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 2)
+    vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 2)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
                          customTimeout=timeout,
                          exclude_from_check=['check_last_ordered_3pc_backup'])

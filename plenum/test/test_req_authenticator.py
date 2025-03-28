@@ -9,7 +9,7 @@ from plenum.common.types import f
 from plenum.common.util import randomString
 from plenum.server.client_authn import SimpleAuthNr, CoreAuthNr
 from plenum.server.req_authenticator import ReqAuthenticator
-from plenum.test.helper import sdk_sign_and_submit_op, sdk_send_random_and_check
+from plenum.test.helper import vdr_sign_and_submit_op, vdr_send_random_and_check
 from plenum.test.pool_transactions.helper import new_client_request
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
@@ -59,7 +59,7 @@ def test_authentication(looper, pre_reqs, registration,
         DATA: 1
     }
     # Just creating the request
-    req = sdk_sign_and_submit_op(looper, sdk_pool_handle,
+    req = vdr_sign_and_submit_op(looper, sdk_pool_handle,
                                  sdk_wallet_client, op)
     with pytest.raises(NoAuthenticatorFound):
         req_authnr.authenticate(req[0])
@@ -71,7 +71,7 @@ def test_authentication(looper, pre_reqs, registration,
         DATA: 1
     }
     # Just creating the request
-    req = sdk_sign_and_submit_op(looper, sdk_pool_handle,
+    req = vdr_sign_and_submit_op(looper, sdk_pool_handle,
                                  sdk_wallet_client, op)
     assert set() == req_authnr.authenticate(req[0])
 
@@ -98,7 +98,7 @@ def test_propagate_of_ordered_request_doesnt_stash_requests_in_authenticator(
     lastNode = txnPoolNodeSet[-1]
     with delay_rules(lastNode.nodeIbStasher, stopAll), \
          delay_rules(lastNode.clientIbStasher, stopAll):
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle,
                                   sdk_wallet_client, 1)
         old_propagates = [n.spylog.count('processPropagate') for n in txnPoolNodeSet]

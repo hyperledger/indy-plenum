@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import delay_3pc
-from plenum.test.helper import max_3pc_batch_limits, sdk_send_random_requests, sdk_get_and_check_replies
+from plenum.test.helper import max_3pc_batch_limits, vdr_send_random_requests, vdr_get_and_check_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import start_delaying, stop_delaying_and_process
 from stp_core.common.log import getlogger
@@ -49,7 +49,7 @@ def test_max_3pc_batches_in_flight(tdir, tconf,
         delayers.append((pp_seq_no, delayer))
 
     # Send a number of requests
-    reqs = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, BATCHES_TO_ORDER)
+    reqs = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, BATCHES_TO_ORDER)
 
     # Continuously check number of batches in flight
     for pp_seq_no, delayer in delayers:
@@ -62,7 +62,7 @@ def test_max_3pc_batches_in_flight(tdir, tconf,
                 assert batches_in_flight <= MAX_BATCHES_IN_FLIGHT
 
     # Check all requests are ordered
-    sdk_get_and_check_replies(looper, reqs)
+    vdr_get_and_check_replies(looper, reqs)
 
     # Ensure that all nodes will eventually have same data
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

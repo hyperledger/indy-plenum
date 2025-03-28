@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import cr_delay, cDelay
-from plenum.test.helper import sdk_send_random_and_check, freshness
+from plenum.test.helper import vdr_send_random_and_check, freshness
 from plenum.test.stasher import delay_rules
 
 STATE_FRESHNESS_UPDATE_INTERVAL = 5
@@ -31,7 +31,7 @@ def test_freshness_in_catchup(looper,
     lagging_node = txnPoolNodeSet[-1]
 
     with delay_rules(lagging_node.nodeIbStasher, cr_delay(), cDelay()):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
         lagging_node.start_catchup()
         looper.runFor(tconf.ACCEPTABLE_FRESHNESS_INTERVALS_COUNT * tconf.STATE_FRESHNESS_UPDATE_INTERVAL + 5)
 

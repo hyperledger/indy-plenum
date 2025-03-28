@@ -4,7 +4,7 @@ from plenum.common.constants import POOL_LEDGER_ID, NODE
 from plenum.common.exceptions import PoolLedgerTimeoutException
 from plenum.test.bls.helper import update_bls_keys_no_proof, \
     update_validate_bls_signature_without_key_proof
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 nodes_wth_bls = 0
 
@@ -39,9 +39,9 @@ def test_ordering_with_nodes_have_not_bls_key_proofs(looper,
 
     with update_validate_bls_signature_without_key_proof(txnPoolNodeSet, validate_bls_signature_without_key_proof):
         if validate_bls_signature_without_key_proof:
-            sdk_send_random_and_check(looper, txnPoolNodeSet,
+            vdr_send_random_and_check(looper, txnPoolNodeSet,
                                       sdk_pool_handle, sdk_wallet_stewards[3], 1)
         else:
             with pytest.raises(PoolLedgerTimeoutException):
-                sdk_send_random_and_check(looper, txnPoolNodeSet,
+                vdr_send_random_and_check(looper, txnPoolNodeSet,
                                           sdk_pool_handle, sdk_wallet_stewards[3], 1)

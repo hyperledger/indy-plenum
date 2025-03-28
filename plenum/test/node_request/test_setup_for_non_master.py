@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.util import compare_3PC_keys
-from plenum.test.helper import sdk_send_random_and_check, waitForViewChange
+from plenum.test.helper import vdr_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
 from plenum.test.spy_helpers import get_count
@@ -32,7 +32,7 @@ def test_integration_setup_last_ordered_after_catchup(looper, txnPoolNodeSet,
                                                 sdk_pool_handle, tdir,
                                                 tconf, allPluginsPath):
     start_view_no = txnPoolNodeSet[0].viewNo
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
     _, new_node = sdk_add_new_steward_and_node(
         looper, sdk_pool_handle, sdk_wallet_steward,
@@ -43,7 +43,7 @@ def test_integration_setup_last_ordered_after_catchup(looper, txnPoolNodeSet,
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=start_view_no + 1)
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
                          exclude_from_check=['check_last_ordered_3pc_backup'])
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
     looper.run(eventually(backup_replicas_synced, txnPoolNodeSet, (start_view_no + 1, 2)))
     for node in txnPoolNodeSet:

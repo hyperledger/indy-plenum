@@ -5,7 +5,7 @@ from plenum.common.messages.node_messages import CatchupRep
 from plenum.test.delayers import delay_3pc_messages, pDelay, cDelay, ppDelay, \
     cr_delay
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies, \
-    check_last_ordered_3pc, sdk_json_couples_to_request_list, assertExp
+    check_last_ordered_3pc, vdr_json_couples_to_request_list, assertExp
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getNonPrimaryReplicas, ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
@@ -35,7 +35,7 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
     """
     slow_node, fast_nodes = setup
 
-    reqs = sdk_json_couples_to_request_list(
+    reqs = vdr_json_couples_to_request_list(
         send_reqs_batches_and_get_suff_replies(
             looper, txnPoolNodeSet,
             sdk_pool_handle,

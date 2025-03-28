@@ -1,7 +1,7 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID, NYM
 from plenum.common.txn_util import get_txn_time
 from plenum.common.util import get_utc_epoch
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import get_master_primary_node, checkNodesConnected
@@ -16,7 +16,7 @@ def test_get_last_ordered_timestamp_after_catchup(looper,
                                                   tdir,
                                                   allPluginsPath):
     node_to_disconnect = txnPoolNodeSet[-1]
-    reply_before = sdk_send_random_and_check(looper,
+    reply_before = vdr_send_random_and_check(looper,
                                              txnPoolNodeSet,
                                              sdk_pool_handle,
                                              sdk_wallet_steward,
@@ -26,7 +26,7 @@ def test_get_last_ordered_timestamp_after_catchup(looper,
                                             txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
-    reply = sdk_send_random_and_check(looper,
+    reply = vdr_send_random_and_check(looper,
                                       txnPoolNodeSet,
                                       sdk_pool_handle,
                                       sdk_wallet_steward,
@@ -47,7 +47,7 @@ def test_choose_ts_from_state(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_steward):
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_steward,
@@ -58,7 +58,7 @@ def test_choose_ts_from_state(looper,
     req_handler.database_manager.ts_store.set(excpected_ts,
                                               req_handler.state.headHash)
     primary_node.master_replica._ordering_service.last_accepted_pre_prepare_time = None
-    reply = sdk_send_random_and_check(looper,
+    reply = vdr_send_random_and_check(looper,
                                       txnPoolNodeSet,
                                       sdk_pool_handle,
                                       sdk_wallet_steward,

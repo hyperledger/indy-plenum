@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import cDelay
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone, getRequiredInstances
@@ -29,7 +29,7 @@ def test_unstash_waiting_for_first_batch_ordered(
     lagged_node = txnPoolNodeSet[-1]
     other_nodes = list(set(txnPoolNodeSet) - {lagged_node})
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     with delay_rules(lagged_node.nodeIbStasher, cDelay()):
@@ -37,7 +37,7 @@ def test_unstash_waiting_for_first_batch_ordered(
         ensureElectionsDone(looper, other_nodes,
                             instances_list=range(getRequiredInstances(len(txnPoolNodeSet))))
 
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_client, 2)
 
     ensureElectionsDone(looper, txnPoolNodeSet)

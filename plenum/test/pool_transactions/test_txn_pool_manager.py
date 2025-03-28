@@ -4,7 +4,7 @@ from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.test_node import TestNode
 from stp_core.loop.eventually import eventually
 
-from plenum.test.helper import sdk_send_random_and_check, assertExp
+from plenum.test.helper import vdr_send_random_and_check, assertExp
 
 from plenum.common.txn_util import get_type, get_payload_data
 
@@ -37,7 +37,7 @@ def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
     assert all(node.write_manager.get_node_data(demoted_nym)[SERVICES] == []
                for node in alive_pool)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_stewards[0], request_count)
 
     looper.run(

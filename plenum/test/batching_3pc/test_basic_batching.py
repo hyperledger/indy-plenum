@@ -2,9 +2,9 @@ import types
 import pytest
 from plenum.common.exceptions import UnauthorizedClientRequest, RequestRejectedException
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
-from plenum.test.helper import sdk_send_random_requests, sdk_get_and_check_replies
+from plenum.test.helper import vdr_send_random_requests, vdr_get_and_check_replies
 from plenum.common.exceptions import InvalidClientRequest
-from plenum.test.helper import generate_invalid_unsigned_plenum_request, sdk_send_random_and_check
+from plenum.test.helper import generate_invalid_unsigned_plenum_request, vdr_send_random_and_check
 from plenum.common.request import Request
 
 
@@ -27,7 +27,7 @@ def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet,
     received and propagated.
     :return:
     """
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
 
 
 def test3PCOverBatchWithLessThanThresholdReqs(tconf, looper, txnPoolNodeSet,
@@ -37,7 +37,7 @@ def test3PCOverBatchWithLessThanThresholdReqs(tconf, looper, txnPoolNodeSet,
     not received but threshold time has passed
     :return:
     """
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize - 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize - 1)
 
 
 def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
@@ -48,11 +48,11 @@ def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
     :return:
     """
     # Send 1 batch
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # Send 2 batches
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * tconf.Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
 
@@ -77,12 +77,12 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
         for replica in node.replicas._replicas.values():
             replica._ordering_service._do_dynamic_validation = types.MethodType(rejectingMethod, replica._ordering_service)
 
-    reqs = sdk_send_random_requests(looper, sdk_pool_handle,
+    reqs = vdr_send_random_requests(looper, sdk_pool_handle,
                                     sdk_wallet_client,
                                     tconf.Max3PCBatchSize)
-    sdk_get_and_check_replies(looper, reqs[:-1])
+    vdr_get_and_check_replies(looper, reqs[:-1])
     with pytest.raises(RequestRejectedException) as e:
-        sdk_get_and_check_replies(looper, reqs[-1:])
+        vdr_get_and_check_replies(looper, reqs[-1:])
 
     assert 'Simulated rejection' in e._excinfo[1].args[0]
     assert 'UnauthorizedClientRequest' in e._excinfo[1].args[0]

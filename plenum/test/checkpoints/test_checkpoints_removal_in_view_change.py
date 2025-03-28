@@ -3,8 +3,8 @@ import sys
 
 from plenum.common.constants import CHECKPOINT, COMMIT
 from plenum.test.delayers import cDelay, chk_delay
-from plenum.test.helper import sdk_send_random_requests, \
-    sdk_get_and_check_replies, sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_requests, \
+    vdr_get_and_check_replies, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
@@ -28,13 +28,13 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     # delay checkpoints processing for slow_nodes
     delay_msg(slow_nodes, chk_delay)
     # send txns for finalizing current checkpoint
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, CHK_FREQ)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     # delay commits processing for slow_nodes
     delay_msg(slow_nodes, cDelay)
 
-    requests = sdk_send_random_requests(looper, sdk_pool_handle,
+    requests = vdr_send_random_requests(looper, sdk_pool_handle,
                                         sdk_wallet_client, 1)
     # check that slow nodes have prepared certificate with new txn
     looper.run(eventually(last_prepared_certificate,
@@ -71,7 +71,7 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     # because slow_nodes contains 3 nodes and without their replies sdk method
     # for get reply will not successfully finish.
     reset_delay(slow_nodes, COMMIT)
-    sdk_get_and_check_replies(looper, requests)
+    vdr_get_and_check_replies(looper, requests)
     looper.run(eventually(last_ordered_check,
                           txnPoolNodeSet,
                           (0, CHK_FREQ + 1)))
@@ -80,7 +80,7 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     for n in slow_nodes:
         assert (1, CHK_FREQ) not in n.master_replica._checkpointer._checkpoint_state
     # check that all nodes have same data after new txns ordering
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, CHK_FREQ)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 

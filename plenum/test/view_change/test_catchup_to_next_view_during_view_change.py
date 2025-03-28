@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import icDelay, delay_for_view, vc_delay
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, waitForViewChange
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
@@ -39,7 +39,7 @@ def test_catchup_to_next_view_during_view_change_0_to_1_then_1_to_2(txnPoolNodeS
             ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
             # order some txns
-            sdk_send_random_and_check(looper, txnPoolNodeSet,
+            vdr_send_random_and_check(looper, txnPoolNodeSet,
                                       sdk_pool_handle, sdk_wallet_steward, 5)
 
             # view change to viewNo=2
@@ -51,7 +51,7 @@ def test_catchup_to_next_view_during_view_change_0_to_1_then_1_to_2(txnPoolNodeS
             ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
             # order some txns
-            sdk_send_random_and_check(looper, txnPoolNodeSet,
+            vdr_send_random_and_check(looper, txnPoolNodeSet,
                                       sdk_pool_handle, sdk_wallet_steward, 5)
 
             assert initial_view_no == lagging_node.viewNo
@@ -100,7 +100,7 @@ def test_catchup_to_next_view_during_view_change_0_to_2(txnPoolNodeSet, looper,
         ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
         # order some txns
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 5)
 
         # view change to viewNo=2
@@ -112,7 +112,7 @@ def test_catchup_to_next_view_during_view_change_0_to_2(txnPoolNodeSet, looper,
         ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
         # order some txns
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 5)
 
         assert initial_view_no == lagging_node.viewNo

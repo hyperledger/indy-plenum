@@ -6,7 +6,7 @@ import pytest
 from plenum.common.constants import STEWARD_STRING, VALIDATOR, VERKEY
 from plenum.common.exceptions import RequestNackedException
 from plenum.common.util import randomString
-from plenum.test.helper import sdk_get_bad_response
+from plenum.test.helper import vdr_get_bad_response
 from plenum.test.pool_transactions.helper import sdk_add_new_nym, prepare_new_node_data, prepare_node_request, \
     sdk_sign_and_send_prepared_request, sdk_change_node_keys
 
@@ -43,7 +43,7 @@ def test_send_node_with_invalid_dest_verkey(looper, sdk_pool_handle,
 
     request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
                                                         sdk_pool_handle, node_request)
-    sdk_get_bad_response(looper, [request_couple], RequestNackedException,
+    vdr_get_bad_response(looper, [request_couple], RequestNackedException,
                          'Node\'s dest is not correct Ed25519 key.')
 
     node_request = looper.loop.run_until_complete(
@@ -64,7 +64,7 @@ def test_send_node_with_invalid_dest_verkey(looper, sdk_pool_handle,
 
     request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
                                                         sdk_pool_handle, node_request)
-    sdk_get_bad_response(looper, [request_couple], RequestNackedException,
+    vdr_get_bad_response(looper, [request_couple], RequestNackedException,
                          'Node\'s verkey is not correct Ed25519 key.')
 
 

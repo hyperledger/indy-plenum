@@ -7,7 +7,7 @@ from plenum.common.txn_util import append_txn_metadata, reqToTxn
 from plenum.common.types import f
 from plenum.common.util import SortedDict
 from plenum.server.catchup.utils import CatchupTill
-from plenum.test.helper import sdk_signed_random_requests
+from plenum.test.helper import vdr_signed_random_requests
 
 ledger_id = DOMAIN_LEDGER_ID
 
@@ -22,7 +22,7 @@ def _add_txns_to_ledger(node, looper, sdk_wallet_client, num_txns_in_reply, repl
     ledger_manager = node.ledgerManager
     ledger = ledger_manager.ledgerRegistry[ledger_id].ledger
     catchup_rep_service = ledger_manager._node_leecher._leechers[ledger_id]._catchup_rep_service
-    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, txn_count)
+    reqs = vdr_signed_random_requests(looper, sdk_wallet_client, txn_count)
     # add transactions to ledger
     for req in reqs:
         txn = append_txn_metadata(reqToTxn(req), txn_time=12345678)
@@ -149,7 +149,7 @@ def test_process_invalid_catchup_reply(txnPoolNodeSet, looper, sdk_wallet_client
     # make invalid catchup reply by dint of adding new transaction in it
     reply2 = catchup_reps[1]
     txns = OrderedDict(getattr(reply2, f.TXNS.nm))
-    req = sdk_signed_random_requests(looper, sdk_wallet_client, 1)[0]
+    req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)[0]
     txns[str(ledger_size + 4)] = append_txn_metadata(reqToTxn(req), txn_time=12345678)
     invalid_reply2 = CatchupRep(ledger_id,
                                 txns,

@@ -24,7 +24,7 @@ from plenum.test.txn_author_agreement.helper import (
     TaaData, expected_state_data, expected_data,
     TaaAmlData, expected_aml_data)
 
-from plenum.test.helper import sdk_get_and_check_replies, get_handler_by_type_wm
+from plenum.test.helper import vdr_get_and_check_replies, get_handler_by_type_wm
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from .helper import (
@@ -130,7 +130,7 @@ def set_txn_author_agreement_aml(
 ):
     req = sdk_sign_and_send_prepared_request(
         looper, sdk_wallet_trustee, sdk_pool_handle, taa_aml_request_module)
-    return sdk_get_and_check_replies(looper, [req])[0]
+    return vdr_get_and_check_replies(looper, [req])[0]
 
 
 @pytest.fixture(scope='module')

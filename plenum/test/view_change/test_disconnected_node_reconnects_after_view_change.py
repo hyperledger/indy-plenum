@@ -2,7 +2,7 @@ import pytest
 
 from plenum.test import waits
 from plenum.test.helper import checkViewNoForNodes, waitForViewChange, \
-    sdk_send_random_and_check, sdk_send_batches_of_random_and_check
+    vdr_send_random_and_check, vdr_send_batches_of_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, \
@@ -50,7 +50,7 @@ def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
     """
     checkViewNoForNodes(txnPoolNodeSet, 0)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     ensure_view_change(looper, txnPoolNodeSet)
@@ -58,7 +58,7 @@ def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     checkViewNoForNodes(txnPoolNodeSet, 1)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     lagged_node = getNonPrimaryReplicas(txnPoolNodeSet)[-1].node
@@ -68,7 +68,7 @@ def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
                                             stopNode=False)
     other_nodes = list(set(txnPoolNodeSet) - {lagged_node})
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     ensure_view_change(looper, other_nodes)
@@ -78,7 +78,7 @@ def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
     checkViewNoForNodes(other_nodes, 2)
     checkViewNoForNodes([lagged_node], 1)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     ensure_view_change(looper, other_nodes)
@@ -88,7 +88,7 @@ def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
     checkViewNoForNodes(other_nodes, 3)
     checkViewNoForNodes([lagged_node], 1)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     reconnect_node_and_ensure_connected(looper, txnPoolNodeSet, lagged_node)
@@ -100,11 +100,11 @@ def test_disconnected_node_with_lagged_view_pulls_up_its_view_on_reconnection(
                       customTimeout=waits.expectedPoolElectionTimeout(
                           len(txnPoolNodeSet)))
 
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_reqs=2 * tconf.CHK_FREQ)
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_reqs=2 * tconf.CHK_FREQ)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     checkViewNoForNodes(txnPoolNodeSet, 3)
     ensureElectionsDone(looper, txnPoolNodeSet)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

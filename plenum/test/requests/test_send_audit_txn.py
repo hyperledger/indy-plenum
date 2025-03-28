@@ -2,7 +2,7 @@ import json
 import time
 import pytest
 
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import vdr_get_and_check_replies
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 
 from plenum.common.exceptions import RequestNackedException
@@ -23,5 +23,5 @@ def test_send_audit_txn(looper, sdk_wallet_client, sdk_pool_handle):
 
     rep = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client, sdk_pool_handle, json.dumps(req))
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, [rep])
+        vdr_get_and_check_replies(looper, [rep])
     e.match('External audit requests are not allowed')

@@ -7,7 +7,7 @@ from plenum.server.replica_validator_enums import STASH_CATCH_UP
 from plenum.test import waits
 from plenum.test.delayers import cDelay, cr_delay, lsDelay
 from plenum.test.helper import check_last_ordered_3pc, \
-    assertEquality, sdk_send_random_and_check
+    assertEquality, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataInequality, \
     ensure_all_nodes_have_same_data, make_a_node_catchup_less, \
     repair_node_catchup_less
@@ -49,7 +49,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     try to process delayed COMMITs, some COMMITs will be rejected but some will
     be processed since catchup was done for older ledger.
     """
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 3 * Max3PCBatchSize)
     nprs = getNonPrimaryReplicas(txnPoolNodeSet, 0)
     slow_node = nprs[-1].node
@@ -73,7 +73,7 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     make_a_node_catchup_less(slow_node, other_nodes, DOMAIN_LEDGER_ID,
                              delay_batches * Max3PCBatchSize)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 6 * Max3PCBatchSize)
     ensure_all_nodes_have_same_data(looper, other_nodes)
     waitNodeDataInequality(looper, slow_node, *other_nodes)
@@ -142,6 +142,6 @@ def test_slow_node_reverts_unordered_state_during_catchup(looper,
     # make sure that the pool is functional
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 2 * Max3PCBatchSize)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

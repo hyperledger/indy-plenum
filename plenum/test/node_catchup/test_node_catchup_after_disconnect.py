@@ -1,7 +1,7 @@
 import pytest
 
 from stp_core.common.log import getlogger
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     waitNodeDataInequality, checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import \
@@ -34,7 +34,7 @@ def testNodeCatchupAfterDisconnect(sdk_new_node_caught_up, txnPoolNodeSet,
 
     # TODO: Check if the node has really stopped processing requests?
     logger.debug("Sending requests")
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 5)
     # Make sure new node got out of sync
     waitNodeDataInequality(looper, new_node, *txnPoolNodeSet[:-1])
@@ -46,6 +46,6 @@ def testNodeCatchupAfterDisconnect(sdk_new_node_caught_up, txnPoolNodeSet,
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
     logger.debug("Sending more requests")
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 10)
     checkNodeDataForEquality(new_node, *txnPoolNodeSet[:-1])

@@ -1,6 +1,6 @@
 import types
 
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.test_node import TestNode
 
 
@@ -23,7 +23,7 @@ def test_restart_clientstack_before_reply_on_3_of_4_nodes(looper,
                                                       node)
 
     patch_sendReplyToClient()
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_steward,

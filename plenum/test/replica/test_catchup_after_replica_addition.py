@@ -4,7 +4,7 @@ from pytest import fixture
 
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.common.util import getMaxFailures
-from plenum.test.helper import sdk_send_random_and_check, assertExp, sdk_get_and_check_replies
+from plenum.test.helper import vdr_send_random_and_check, assertExp, vdr_get_and_check_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 from plenum.test.pool_transactions.conftest import sdk_node_theta_added
@@ -44,13 +44,13 @@ def _send_txn_for_creating_node(looper, sdk_pool_handle, sdk_wallet_steward, tdi
                                                         sdk_pool_handle, node_request)
 
     # waiting for replies
-    sdk_get_and_check_replies(looper, [request_couple])
+    vdr_get_and_check_replies(looper, [request_couple])
 
 
 def test_catchup_after_replica_addition(looper, sdk_pool_handle, txnPoolNodeSet,
                                         sdk_wallet_steward, tdir, tconf, allPluginsPath):
     view_no = txnPoolNodeSet[-1].viewNo
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 1)
     waitNodeDataEquality(looper, *txnPoolNodeSet)
 
@@ -72,6 +72,6 @@ def test_catchup_after_replica_addition(looper, sdk_pool_handle, txnPoolNodeSet,
 
     looper.run(eventually(lambda: assertExp(n.viewNo == view_no + 1 for n in txnPoolNodeSet)))
     waitNodeDataEquality(looper, *txnPoolNodeSet)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 1)
     waitNodeDataEquality(looper, *txnPoolNodeSet, exclude_from_check=['check_last_ordered_3pc'])

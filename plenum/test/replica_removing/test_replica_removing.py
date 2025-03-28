@@ -15,8 +15,8 @@ from plenum.test.stasher import delay_rules
 from plenum.test.view_change.helper import ensure_view_change
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
-from plenum.test.helper import sdk_send_random_requests, sdk_get_replies, sdk_send_random_and_check, waitForViewChange, \
-    freshness, sdk_send_batches_of_random_and_check, get_pp_seq_no, assertExp
+from plenum.test.helper import vdr_send_random_requests, vdr_get_replies, vdr_send_random_and_check, waitForViewChange, \
+    freshness, vdr_send_batches_of_random_and_check, get_pp_seq_no, assertExp
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected, \
     get_master_primary_node, get_last_master_non_primary_node
 
@@ -63,12 +63,12 @@ def test_primary_after_replica_restored(looper,
     assert C.replicas._replicas[1].isPrimary
 
     D.replicas.remove_replica(1)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * CHK_FREQ)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * CHK_FREQ)
     do_view_change(txnPoolNodeSet, looper)
     batches_before = D.replicas._replicas[1].last_ordered_3pc[1]
     assert D.replicas._replicas[1].isPrimary
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * CHK_FREQ)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * CHK_FREQ)
     batches_after = D.replicas._replicas[1].last_ordered_3pc[1]
     assert batches_after > batches_before
 
@@ -95,12 +95,12 @@ def test_replica_removal_does_not_cause_master_degradation(
 
     node = txnPoolNodeSet[0]
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
     node.replicas.remove_replica(node.replicas.num_replicas - 1)
 
     assert not node.monitor.isMasterDegraded()
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
 
     assert not node.monitor.isMasterDegraded()
 
@@ -147,11 +147,11 @@ def test_ordered_request_freed_on_replica_removal(looper,
                                                   chkFreqPatched,
                                                   view_change):
     node = txnPoolNodeSet[0]
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
     old_stable_checkpoint = node.master_replica._consensus_data.stable_checkpoint
 
     with delay_rules(node.nodeIbStasher, cDelay(), msg_rep_delay(types_to_delay=[COMMIT])):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
 
         f_d, f_r = get_forwarded_to_all(node)
         assert f_d
@@ -162,7 +162,7 @@ def test_ordered_request_freed_on_replica_removal(looper,
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, exclude_from_check=['check_primaries'])
 
     # Send one more request to stabilize checkpoint
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                               CHK_FREQ - 1)
     looper.run(eventually(check_for_nodes, txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint + CHK_FREQ))
 
@@ -176,13 +176,13 @@ def test_unordered_request_freed_on_replica_removal(looper,
     node = txnPoolNodeSet[0]
     # Stabilize checkpoint
     # Send one more request to stabilize checkpoint
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
                               CHK_FREQ - get_pp_seq_no(txnPoolNodeSet) % CHK_FREQ)
     old_stable_checkpoint = node.master_replica._consensus_data.stable_checkpoint
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
 
     with delay_rules(stashers, cDelay(delay=sys.maxsize), msg_rep_delay(types_to_delay=[COMMIT])):
-        req = sdk_send_random_requests(looper,
+        req = vdr_send_random_requests(looper,
                                        sdk_pool_handle,
                                        sdk_wallet_client,
                                        1)
@@ -198,11 +198,11 @@ def test_unordered_request_freed_on_replica_removal(looper,
         assert node.requests[f_d].forwardedTo == node.replicas.num_replicas
         check_for_nodes(txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint)
 
-    sdk_get_replies(looper, req)
+    vdr_get_replies(looper, req)
     check_for_nodes(txnPoolNodeSet, check_stable_checkpoint, old_stable_checkpoint)
 
     # Send one more request to stabilize checkpoint
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, CHK_FREQ - 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, CHK_FREQ - 1)
 
     looper.run(eventually(check_for_nodes,
                           txnPoolNodeSet,

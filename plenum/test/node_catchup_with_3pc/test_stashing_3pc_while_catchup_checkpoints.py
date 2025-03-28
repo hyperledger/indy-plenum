@@ -13,7 +13,7 @@ from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpo
 from plenum.test.delayers import cr_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
+from plenum.test.helper import vdr_send_random_and_check, assertExp, max_3pc_batch_limits, \
     check_last_ordered_3pc_on_all_replicas, get_pp_seq_no
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
@@ -56,7 +56,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
     rest_nodes = txnPoolNodeSet[:-1]
 
     # Check that requests executed well
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     batches_count += 1
     # Stop one node
@@ -68,7 +68,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     batches_count += 1
     waitNodeDataEquality(looper, *rest_nodes)
@@ -101,7 +101,7 @@ def test_3pc_while_catchup_with_chkpoints(tdir, tconf,
         # stash enough stable checkpoints for starting a catch-up
         num_checkpoints = Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1
         num_reqs = reqs_for_checkpoint * num_checkpoints + 1
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client,
                                   num_reqs)
         batches_count += num_reqs

@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import pDelay, cDelay
-from plenum.test.helper import sdk_send_random_and_check, checkViewNoForNodes
+from plenum.test.helper import vdr_send_random_and_check, checkViewNoForNodes
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone, check_not_in_view_change
@@ -39,7 +39,7 @@ def test_new_primary_lagging_behind(looper,
     expected_primary_name = get_next_primary_name(txnPoolNodeSet, initial_view_no + 2)
     # Next primary cannot stabilize 1 checkpoint
     with delay_rules(next_primary.nodeIbStasher, cDelay(), pDelay()):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, CHK_FREQ)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, CHK_FREQ)
         ensure_view_change(looper, txnPoolNodeSet)
         looper.run(eventually(check_not_in_view_change, txnPoolNodeSet,
                               timeout=2 * tconf.NEW_VIEW_TIMEOUT))
@@ -51,5 +51,5 @@ def test_new_primary_lagging_behind(looper,
     assert checkViewNoForNodes(txnPoolNodeSet) == initial_view_no + 2
 
     # send CHK_FREQ reqs so that slow node will start catch-up
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, CHK_FREQ)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, CHK_FREQ)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=30)

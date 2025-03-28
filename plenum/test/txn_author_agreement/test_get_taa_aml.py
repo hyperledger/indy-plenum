@@ -16,7 +16,7 @@ from plenum.common.constants import REPLY, TXN_AUTHOR_AGREEMENT_TEXT, TXN_AUTHOR
     GET_TXN_AUTHOR_AGREEMENT_AML, CURRENT_PROTOCOL_VERSION, TXN_AUTHOR_AGREEMENT_RETIREMENT_TS, TXN_AUTHOR_AGREEMENT_DIGEST
 from plenum.common.util import randomString
 from plenum.test.delayers import req_delay
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import vdr_get_and_check_replies
 from plenum.test.stasher import delay_rules
 from plenum.test.txn_author_agreement.helper import check_state_proof, sdk_get_taa_aml, sdk_send_txn_author_agreement
 
@@ -37,7 +37,7 @@ def send_aml_request(looper, sdk_wallet_trustee, sdk_pool_handle, version, aml, 
         aml,
         version, context))
     req = sdk_sign_and_send_prepared_request(looper, sdk_wallet_trustee, sdk_pool_handle, req)
-    return sdk_get_and_check_replies(looper, [req])[0]
+    return vdr_get_and_check_replies(looper, [req])[0]
 
 
 @pytest.fixture(scope='module')
@@ -111,7 +111,7 @@ def test_get_taa_aml_static_validation_fails(looper, txnPoolNodeSet, sdk_pool_ha
     }
     rep = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client, sdk_pool_handle, json.dumps(req))
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, [rep])
+        vdr_get_and_check_replies(looper, [rep])
     e.match('cannot be used in GET_TXN_AUTHOR_AGREEMENT_AML request together')
 
 

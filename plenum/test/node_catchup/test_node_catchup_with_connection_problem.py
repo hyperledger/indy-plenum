@@ -3,7 +3,7 @@ from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.messages.node_messages import LedgerStatus, ConsistencyProof
 from plenum.common.util import getCallableName
 from plenum.server.router import Route
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
@@ -38,7 +38,7 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
 
     node_to_disconnect = txnPoolNodeSet[-1]
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
 
     # restart node
@@ -46,7 +46,7 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
                                             txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward,
                               2)
 
@@ -97,7 +97,7 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
     Test makes sure that the node eventually finishes catchup'''
     node_to_disconnect = txnPoolNodeSet[-1]
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
 
     # restart node
@@ -105,7 +105,7 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
                                             txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward,
                               2)
 
@@ -149,7 +149,7 @@ def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
     '''Test cancel of schedule with requesting ledger statuses and consistency
     proofs after catchup.'''
     node_to_disconnect = txnPoolNodeSet[-1]
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
 
     # restart node
@@ -157,7 +157,7 @@ def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
                                             txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward,
                               2)
     # add node_to_disconnect to pool

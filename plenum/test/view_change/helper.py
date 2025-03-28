@@ -8,7 +8,7 @@ from stp_core.types import HA
 from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
     reset_delays_and_process_delayeds
 from plenum.test.helper import checkViewNoForNodes, \
-    sdk_send_random_requests, sdk_send_random_and_check
+    vdr_send_random_requests, vdr_send_random_and_check
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node, sdk_pool_refresh
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
@@ -53,7 +53,7 @@ def provoke_and_check_view_change(looper, nodes, newViewNo, sdk_pool_handle, sdk
     else:
         logger.info('Master instance has not degraded yet, '
                     'sending more requests')
-        sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client)
+        vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client)
         assert False
 
 
@@ -81,7 +81,7 @@ def simulate_slow_master(looper, txnPoolNodeSet, sdk_pool_handle,
     # Delay processing of PRE-PREPARE from all non primary replicas of master
     # so master's performance falls and view changes
     delayNonPrimaries(txnPoolNodeSet, 0, delay)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, num_reqs)
     return m_primary_node
 
@@ -295,10 +295,10 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes,
                                sdk_pool_handle,
                                sdk_wallet_client,
                                slow_delay=1, wait=None):
-    sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 4)
+    vdr_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 4)
     delay_3pc_messages(slow_nodes, 0, delay=slow_delay)
 
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 10)
+    vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 10)
     if wait:
         looper.runFor(wait)
 
@@ -310,9 +310,9 @@ def view_change_in_between_3pc(looper, nodes, slow_nodes,
     ensureElectionsDone(looper=looper, nodes=nodes)
     ensure_all_nodes_have_same_data(looper, nodes)
 
-    sdk_send_random_and_check(looper, nodes, sdk_pool_handle,
+    vdr_send_random_and_check(looper, nodes, sdk_pool_handle,
                               sdk_wallet_client, 5, total_timeout=30)
-    sdk_send_random_and_check(looper, nodes, sdk_pool_handle,
+    vdr_send_random_and_check(looper, nodes, sdk_pool_handle,
                               sdk_wallet_client, 5, total_timeout=30)
 
 
@@ -325,13 +325,13 @@ def view_change_in_between_3pc_random_delays(
         tconf,
         min_delay=0,
         max_delay=0):
-    sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 4)
+    vdr_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 4)
 
     # max delay should not be more than catchup timeout.
     max_delay = max_delay or tconf.NEW_VIEW_TIMEOUT - 1
     delay_3pc_messages(slow_nodes, 0, min_delay=min_delay, max_delay=max_delay)
 
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 10)
+    vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 10)
 
     ensure_view_change_complete(looper,
                                 nodes,
@@ -340,7 +340,7 @@ def view_change_in_between_3pc_random_delays(
 
     reset_delays_and_process_delayeds(slow_nodes)
 
-    sdk_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 10)
+    vdr_send_random_and_check(looper, nodes, sdk_pool_handle, sdk_wallet_client, 10)
 
 
 def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,

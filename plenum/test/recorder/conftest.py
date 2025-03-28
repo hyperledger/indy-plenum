@@ -5,7 +5,7 @@ import pytest
 
 from plenum.common.util import randomString
 from plenum.test.pool_transactions.helper import sdk_add_new_nym
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.recorder.helper import create_recorder_for_test, \
     reload_modules_for_recorder
 
@@ -27,7 +27,7 @@ def some_txns_done(tconf, txnPoolNodesLooper, txnPoolNodeSet, sdk_pool_handle,
         sdk_add_new_nym(txnPoolNodesLooper, sdk_pool_handle, sdk_wallet_steward,
                         alias='testSteward' + randomString(100))
     for i in range(math.floor(TOTAL_TXNS / 2)):
-        sdk_send_random_and_check(txnPoolNodesLooper, txnPoolNodeSet,
+        vdr_send_random_and_check(txnPoolNodesLooper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_steward, 5)
 
 

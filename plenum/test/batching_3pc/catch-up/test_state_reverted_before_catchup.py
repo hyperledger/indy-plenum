@@ -2,8 +2,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import cDelay, cpDelay
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.batching_3pc.helper import checkNodesHaveSameRoots
-from plenum.test.helper import sdk_signed_random_requests, sdk_send_and_check, \
-    sdk_send_random_requests, sdk_get_replies
+from plenum.test.helper import vdr_signed_random_requests, vdr_send_and_check, \
+    vdr_send_random_requests, vdr_get_replies
 
 
 def test_unordered_state_reverted_before_catchup(
@@ -26,8 +26,8 @@ def test_unordered_state_reverted_before_catchup(
 
     # send reqs and make sure we are at the same state
 
-    reqs = sdk_signed_random_requests(looper, sdk_wallet_client, 10)
-    sdk_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
+    reqs = vdr_signed_random_requests(looper, sdk_wallet_client, 10)
+    vdr_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # the state of the node before
@@ -44,8 +44,8 @@ def test_unordered_state_reverted_before_catchup(
     non_primary_node.nodeIbStasher.delay(cpDelay())
 
     # send requests
-    reqs = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
-    sdk_get_replies(looper, reqs, timeout=40)
+    reqs = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
+    vdr_get_replies(looper, reqs, timeout=40)
 
     committed_ledger_during_3pc = non_primary_node.getLedger(
         ledger_id).tree.root_hash

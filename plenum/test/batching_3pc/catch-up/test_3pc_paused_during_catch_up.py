@@ -1,7 +1,7 @@
 from plenum.common.messages.node_messages import Prepare
 from plenum.test.batching_3pc.helper import make_node_syncing, fail_on_execute_batch_on_master
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.helper import sdk_send_random_requests
+from plenum.test.helper import vdr_send_random_requests
 
 
 def test_sdk_no_ordering_during_syncup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
@@ -15,5 +15,5 @@ def test_sdk_no_ordering_during_syncup(tconf, looper, txnPoolNodeSet, sdk_pool_h
 
     # Send requests. The non-primary Node should not fail since no ordering is
     # called while syncing
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
+    vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
     looper.runFor(5)

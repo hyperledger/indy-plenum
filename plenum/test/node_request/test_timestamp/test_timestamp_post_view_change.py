@@ -6,7 +6,7 @@ from plenum.test.node_request.test_timestamp.helper import make_clock_faulty, \
     get_timestamp_suspicion_count
 from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas
 from plenum.test.view_change.helper import ensure_view_change
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 Max3PCBatchSize = 4
 
@@ -61,7 +61,7 @@ def test_new_primary_has_wrong_clock(tconf, looper, txnPoolNodeSet,
     looper.run(eventually(chk, retryWait=1))
 
     # All nodes reply
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

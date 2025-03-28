@@ -2,7 +2,7 @@ import types
 import pytest
 
 from plenum.common.constants import PROPAGATE
-from plenum.test.helper import sdk_json_to_request_object, sdk_send_random_requests
+from plenum.test.helper import vdr_json_to_request_object, vdr_send_random_requests
 from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Propagate
@@ -29,14 +29,14 @@ def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client,):
     # disable _clean method which remove req.key from requests map
     A.requests._clean = types.MethodType(
                             _clean, A.requests)
-    request_couple_json = sdk_send_random_requests(
+    request_couple_json = vdr_send_random_requests(
         looper, sdk_pool_handle, sdk_wallet_client, reqCount)
     return request_couple_json
 
 
 def testPropagateRecvdAfterRequest(setup, looper, txnPoolNodeSet):
     A, B, C, D = txnPoolNodeSet  # type: TestNode
-    sent1 = sdk_json_to_request_object(setup[0][0])
+    sent1 = vdr_json_to_request_object(setup[0][0])
 
     def x():
         # A should have received a request from the client

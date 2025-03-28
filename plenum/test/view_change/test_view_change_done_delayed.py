@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import delay_3pc_messages, nv_delay
-from plenum.test.helper import sdk_send_batches_of_random_and_check, sdk_send_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     ensure_all_nodes_have_same_data
 from plenum.test.test_node import getNonPrimaryReplicas
@@ -27,7 +27,7 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
         assert node.isParticipating
         assert None not in {r.isPrimary for r in node.replicas.values()}
 
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                          sdk_wallet_client, 5 * 4, 4)
 
     ensure_view_change(looper, nodes=txnPoolNodeSet)
@@ -45,7 +45,7 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
     assert all(slow_node.viewNo == node.viewNo for node in other_nodes)
 
     # Send requests to make sure pool is functional
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
 
     # Repair network
     slow_node.reset_delays_and_process_delayeds()
@@ -57,5 +57,5 @@ def test_view_change_done_delayed(txnPoolNodeSet, looper, sdk_pool_handle, sdk_w
     waitNodeDataEquality(looper, slow_node, *other_nodes)
 
     # Send more requests and compare data of all nodes
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

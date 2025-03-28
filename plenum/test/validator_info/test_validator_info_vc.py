@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.server.suspicion_codes import Suspicions
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, sdk_pool_refresh
 from plenum.test.test_node import get_master_primary_node, checkNodesConnected
@@ -37,7 +37,7 @@ def test_number_txns_in_catchup_and_vc_queue_valid(looper,
     looper.run(eventually(checkViewNoForNodes, other_nodes, expected_view_no, retryWait=1,
                           timeout=tconf.NEW_VIEW_TIMEOUT))
     sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_send_random_and_check(looper, other_nodes, sdk_pool_handle, sdk_wallet_steward, num_txns)
+    vdr_send_random_and_check(looper, other_nodes, sdk_pool_handle, sdk_wallet_steward, num_txns)
     master_node = start_stopped_node(master_node, looper, tconf,
                                      tdir, allPluginsPath)
     txnPoolNodeSet[master_node_index] = master_node

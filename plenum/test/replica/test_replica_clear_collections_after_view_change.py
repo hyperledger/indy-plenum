@@ -7,7 +7,7 @@ from plenum.test.delayers import cDelay
 from plenum.test.stasher import delay_rules
 from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_batches_of_random_and_check, \
+from plenum.test.helper import vdr_send_random_and_check, vdr_send_batches_of_random_and_check, \
     waitForViewChange, max_3pc_batch_limits
 from plenum.test.checkpoints.conftest import chkFreqPatched, reqs_for_checkpoint
 
@@ -42,7 +42,7 @@ def test_replica_clear_collections_after_view_change(looper,
 
     stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
     with delay_rules(stashers, cDelay(delay=sys.maxsize, instId=1)):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_steward, 1)
 
         trigger_view_change(txnPoolNodeSet)
@@ -51,7 +51,7 @@ def test_replica_clear_collections_after_view_change(looper,
                           customTimeout=2 * tconf.NEW_VIEW_TIMEOUT)
 
     # + 1 because of lastPrePrepareSeqNo was not dropped after view_change
-    sdk_send_batches_of_random_and_check(looper,
+    vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,

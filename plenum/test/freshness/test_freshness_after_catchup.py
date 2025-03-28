@@ -5,7 +5,7 @@ from plenum.test.freshness.helper import get_all_multi_sig_values_for_all_nodes,
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 
-from plenum.test.helper import assertExp, sdk_send_random_and_check, freshness
+from plenum.test.helper import assertExp, vdr_send_random_and_check, freshness
 from plenum.test.test_node import checkNodesConnected
 from plenum.test.view_change.helper import start_stopped_node
 from stp_core.loop.eventually import eventually
@@ -66,6 +66,6 @@ def test_freshness_after_catchup(looper,
     waitNodeDataEquality(looper, *txnPoolNodeSet)
     assert all(n.viewNo == view_no for n in txnPoolNodeSet)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     waitNodeDataEquality(looper, *txnPoolNodeSet)

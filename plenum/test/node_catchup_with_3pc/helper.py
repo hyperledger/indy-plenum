@@ -5,7 +5,7 @@ from plenum.common.messages.node_messages import Commit
 from plenum.common.util import compare_3PC_keys
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.test.delayers import delay_3pc, cr_delay
-from plenum.test.helper import sdk_send_random_pool_requests, sdk_get_and_check_replies
+from plenum.test.helper import vdr_send_random_pool_requests, vdr_get_and_check_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
@@ -49,8 +49,8 @@ def check_catchup_with_skipped_commits_received_before_catchup(catchup_state,
     # Order pool requests while delaying first two commits on lagging node
     with delay_rules(lagging_stasher, delay_3pc(before=init_pp_seq_no + 3, msgs=Commit)):
         # Send some pool requests
-        reqs = sdk_send_random_pool_requests(looper, sdk_pool_handle, sdk_wallet_new_steward, 4)
-        sdk_get_and_check_replies(looper, reqs)
+        reqs = vdr_send_random_pool_requests(looper, sdk_pool_handle, sdk_wallet_new_steward, 4)
+        vdr_get_and_check_replies(looper, reqs)
 
     # Make sure pool is in expected state
     for node in other_nodes:

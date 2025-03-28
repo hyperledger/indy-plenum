@@ -2,7 +2,7 @@ from plenum.common.util import check_if_all_equal_in_list
 from plenum.test.delayers import ppDelay, pDelay
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.test_node import getNonPrimaryReplicas
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 
 
 def test_commits_recvd_first(looper, txnPoolNodeSet,
@@ -13,7 +13,7 @@ def test_commits_recvd_first(looper, txnPoolNodeSet,
     slow_node.nodeIbStasher.delay(ppDelay(delay, 0))
     slow_node.nodeIbStasher.delay(pDelay(delay, 0))
 
-    sdk_send_batches_of_random_and_check(looper,
+    vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,

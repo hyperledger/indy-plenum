@@ -5,7 +5,7 @@ from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewC
 from plenum.common.messages.node_messages import NewView
 from plenum.server.consensus.utils import preprepare_to_batch_id
 from plenum.test.delayers import delay_3pc, msg_rep_delay
-from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
+from plenum.test.helper import vdr_send_random_and_check, max_3pc_batch_limits
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules_without_processing
@@ -24,7 +24,7 @@ def test_re_order_pre_prepares_no_pre_prepares(looper, txnPoolNodeSet,
     lagging_node = txnPoolNodeSet[-1]
     other_nodes = txnPoolNodeSet[:-1]
     with delay_rules_without_processing(lagging_node.nodeIbStasher, delay_3pc()):
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_client, 3)
         assert all(n.master_last_ordered_3PC == (0, 3) for n in other_nodes)
 

@@ -4,7 +4,7 @@ from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
 from plenum.test.delayers import ppDelay, pDelay
-from plenum.test.helper import sdk_send_random_request
+from plenum.test.helper import vdr_send_random_request
 from plenum.test.test_node import getNonPrimaryReplicas
 
 
@@ -42,7 +42,7 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
     def chk1():
         assert len(slow_rep._ordering_service.commitsWaitingForPrepare) > 0
 
-    sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+    vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
     timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet)) + delay
     looper.run(eventually(chk1, retryWait=1, timeout=timeout))
 

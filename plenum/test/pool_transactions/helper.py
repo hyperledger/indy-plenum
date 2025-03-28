@@ -13,9 +13,9 @@ from plenum.common.constants import VERKEY, VALIDATOR, STEWARD_STRING
 from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.helper import sdk_sign_request_objects, \
-    sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies, sdk_sign_request_strings
+from plenum.test.helper import vdr_sign_request_objects, \
+    vdr_send_signed_requests, vdr_json_to_request_object, \
+    vdr_get_and_check_replies, vdr_sign_request_strings
 
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.test_node import TestNode, \
@@ -38,7 +38,7 @@ def new_client_request(role, name, looper, sdk_wallet):
         build_nym_request(did, named_did, named_verkey,
                           name, role))
 
-    return sdk_sign_request_strings(looper, sdk_wallet,
+    return vdr_sign_request_strings(looper, sdk_wallet,
                                     [json.loads(nym_request)])[0]
 
 
@@ -206,7 +206,7 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
     if no_wait:
         return request_couple
     # waitng for replies
-    sdk_get_and_check_replies(looper, [request_couple])
+    vdr_get_and_check_replies(looper, [request_couple])
     return wh, new_did
 
 
@@ -242,7 +242,7 @@ def sdk_add_new_node(looper,
 
     if wait_till_added:
         # waiting for replies
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
 
     return create_and_start_new_node(looper, new_node_name, tdir, sigseed,
                                      (nodeIp, nodePort), (clientIp, clientPort),
@@ -303,8 +303,8 @@ def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
 
 
 def sdk_sign_and_send_prepared_request(looper, sdk_wallet, sdk_pool_handle, req_obj):
-    signed_reqs = sdk_sign_request_objects(looper, sdk_wallet,[req_obj])
-    request_couple = sdk_send_signed_requests(sdk_pool_handle, signed_reqs, looper)[0]
+    signed_reqs = vdr_sign_request_objects(looper, sdk_wallet,[req_obj])
+    request_couple = vdr_send_signed_requests(sdk_pool_handle, signed_reqs, looper)[0]
     return request_couple
 
 
@@ -335,7 +335,7 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                                                         sdk_pool_handle, node_request)
 
     # waitng for replies
-    reply = sdk_get_and_check_replies(looper, [request_couple])[0][1]
+    reply = vdr_get_and_check_replies(looper, [request_couple])[0][1]
     if pool_refresh:
         sdk_pool_refresh(looper, sdk_pool_handle)
     return reply
@@ -407,7 +407,7 @@ def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle,
 
     request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward,
                                                         sdk_pool_handle, node_request1)
-    sdk_get_and_check_replies(looper, [request_couple])
+    vdr_get_and_check_replies(looper, [request_couple])
 
     node.nodestack.clearLocalRoleKeep()
     node.nodestack.clearRemoteRoleKeeps()

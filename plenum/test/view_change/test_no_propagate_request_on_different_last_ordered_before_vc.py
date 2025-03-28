@@ -1,7 +1,7 @@
 from plenum.server.node import Node
 from plenum.test.delayers import cDelay, pDelay, ppDelay
-from plenum.test.helper import sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_replies, sdk_check_reply
+from plenum.test.helper import vdr_send_random_and_check, \
+    vdr_send_random_requests, vdr_get_replies, vdr_check_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica, check_not_in_view_change
@@ -19,7 +19,7 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
     5. reset delays
     => we expect that all nodes and all instances have the same last ordered
     '''
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     slow_instance = 1
     slow_nodes = txnPoolNodeSet[1:4]
@@ -30,7 +30,7 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
     backup_last_pp_seq_no = txnPoolNodeSet[0].replicas[slow_instance].last_ordered_3pc[1]
     with delay_rules(nodes_stashers, cDelay(instId=slow_instance)):
         # send one request
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_client, 1)
         master_pp_seq_no += 1
         looper.run(
@@ -62,7 +62,7 @@ def test_no_propagate_request_on_different_last_ordered_on_backup_before_vc(loop
                           txnPoolNodeSet[0].master_replica.instId,
                           (last_view_no + 1, master_pp_seq_no)))
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     master_pp_seq_no += 1
     assert all(0 == node.spylog.count(node.request_propagates)
@@ -79,7 +79,7 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
     5. reset delays
     => we expect that all nodes and all instances have the same last ordered
     '''
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     slow_instance = 1
     slow_nodes = txnPoolNodeSet[1:3]
@@ -91,7 +91,7 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
     with delay_rules(nodes_stashers, pDelay(instId=slow_instance)):
         with delay_rules(nodes_stashers, ppDelay(instId=slow_instance)):
             # send one request
-            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+            vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                       sdk_wallet_client, 1)
             master_pp_seq_no += 1
             looper.run(
@@ -122,7 +122,7 @@ def test_no_propagate_request_on_different_prepares_on_backup_before_vc(looper, 
                           txnPoolNodeSet[0].master_replica.instId,
                           (last_view_no + 1, master_pp_seq_no)))
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     master_pp_seq_no += 1
     looper.run(
@@ -139,7 +139,7 @@ def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(loop
     ''' Send random request and do view change then fast_nodes (1, 4 - without
     primary after next view change) are already ordered transaction on master
     and slow_nodes are not. Check ordering on slow_nodes.'''
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     master_instance = txnPoolNodeSet[0].master_replica.instId
     slow_nodes = txnPoolNodeSet[1:3]
@@ -149,7 +149,7 @@ def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(loop
     batches_count = old_last_ordered[1]
     with delay_rules(nodes_stashers, cDelay()):
         # send one request
-        requests = sdk_send_random_requests(looper, sdk_pool_handle,
+        requests = vdr_send_random_requests(looper, sdk_pool_handle,
                                             sdk_wallet_client, 1)
         batches_count += 1
         last_ordered_for_slow = slow_nodes[0].master_replica.last_ordered_3pc
@@ -168,9 +168,9 @@ def test_no_propagate_request_on_different_last_ordered_on_master_before_vc(loop
 
     batches_count += 1
 
-    replies = sdk_get_replies(looper, requests)
+    replies = vdr_get_replies(looper, requests)
     for reply in replies:
-        sdk_check_reply(reply)
+        vdr_check_reply(reply)
 
     # a new primary will send a PrePrepare for the new view
     looper.run(eventually(check_last_ordered, txnPoolNodeSet,

@@ -1,6 +1,6 @@
 import pytest
 from plenum.common.exceptions import RequestNackedException
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import vdr_get_and_check_replies
 from plenum.common.constants import VALIDATOR
 from plenum.test.pool_transactions.helper import prepare_new_node_data, \
     prepare_node_request, sdk_sign_and_send_prepared_request
@@ -39,7 +39,7 @@ def test_add_node_with_invalid_key_proof(looper,
 
     # waitng for replies
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
     assert "Proof of possession {} " \
            "is incorrect for BLS key {}".format(key_proof, bls_key) \
            in e._excinfo[1].args[0]

@@ -2,7 +2,7 @@ from plenum.common.constants import LEDGER_STATUS
 from plenum.common.messages.fields import LedgerIdField, NonNegativeNumberField, \
     MerkleRootField
 from plenum.common.messages.message_base import MessageBase
-from plenum.test.helper import sdk_send_random_and_check, countDiscarded
+from plenum.test.helper import vdr_send_random_and_check, countDiscarded
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 from plenum.test.pool_transactions.helper import \
@@ -25,7 +25,7 @@ def test_catchup_with_ledger_statuses_in_old_format_from_one_node(
 
     old_node = txnPoolNodeSet[0]
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
 
     original_get_ledger_status = old_node.getLedgerStatus
@@ -49,7 +49,7 @@ def test_catchup_with_ledger_statuses_in_old_format_from_one_node(
                                             txnPoolNodeSet,
                                             node_to_restart)
     looper.removeProdable(name=node_to_restart.name)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward,
                               2)
 
@@ -69,7 +69,7 @@ def test_catchup_with_ledger_statuses_in_old_format_from_one_node(
 
     # Verify that `node_to_restart` participates in ordering
     # of further transactions
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_steward, 5)
     waitNodeDataEquality(looper, node_to_restart, *other_nodes)
 

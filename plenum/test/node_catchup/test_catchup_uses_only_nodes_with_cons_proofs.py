@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import AUDIT_LEDGER_ID
 from plenum.test.delayers import delay_3pc, cqDelay
-from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits, assert_eq
+from plenum.test.helper import vdr_send_random_and_check, max_3pc_batch_limits, assert_eq
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import start_delaying, stop_delaying_and_process
 from stp_core.loop.eventually import eventually
@@ -37,7 +37,7 @@ def test_catchup_uses_only_nodes_with_cons_proofs(looper,
     other_nodes = txnPoolNodeSet[:-1]
 
     start_delaying(lagging_node.nodeIbStasher, delay_3pc())
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 10)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 10)
 
     catchup_reqs = {node.name: start_delaying(node.nodeIbStasher, cqDelay())
                     for node in other_nodes}

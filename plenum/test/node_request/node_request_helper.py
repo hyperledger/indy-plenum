@@ -1,3 +1,5 @@
+import json
+
 from functools import partial
 
 from plenum.common.messages.node_messages import PrePrepare
@@ -27,11 +29,18 @@ def checkPropagated(looper, txnPoolNodeSet, request, faultyNodes=0):
         2. no of propagate received by node must be greater than
          or equal to f + 1
         """
-        actualMsgs = len([x for x in
-                          getAllArgs(node, Node.processPropagate)
-                          if x['msg'].request[f.REQ_ID.nm] == request.reqId and
-                          x['msg'].request[f.IDENTIFIER.nm] == request.identifier and
-                          x['msg'].request[OPERATION] == request.operation])
+        x = []
+        for n in getAllArgs(node, Node.processPropagate):
+            if n['msg'].request[f.REQ_ID.nm] == json.loads(request[0][1][node.name])["result"]["txn"]["metadata"]["reqId"] and \
+                    n['msg'].request[f.IDENTIFIER.nm] == request[0][0]["identifier"] and \
+                    n['msg'].request[OPERATION] == {"amount":json.loads(request[0][1][node.name])["result"]["txn"]["data"]["amount"], "type":json.loads(request[0][1][node.name])["result"]["txn"]["type"]}: # operation here equals txn not op
+                x.append(n)
+        actualMsgs = len(x)
+        # actualMsgs = len([x for x in
+        #                   getAllArgs(node, Node.processPropagate)
+        #                   if x['msg'].request[f.REQ_ID.nm] == json.loads(request[0][1][node.master_primary_name])["result"]["txn"]["metadata"]["reqId"] and
+        #                   x['msg'].request[f.IDENTIFIER.nm] == request[0][0]["identifier"] and
+        #                   x['msg'].request[OPERATION] == json.loads(request[0][1][node.master_primary_name])["op"]])
 
         numOfMsgsWithZFN = nodesSize - 1
         numOfMsgsWithFaults = faultyNodes + 1

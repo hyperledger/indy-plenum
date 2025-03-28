@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.delayers import cDelay, ppDelay, pDelay, icDelay, msg_rep_delay, vc_delay, nv_delay
-from plenum.test.helper import waitForViewChange, checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import waitForViewChange, checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
@@ -96,6 +96,6 @@ def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet
 
     # We assume that after 2 Checkpoints receiving lagged node will start catchup and elect right primaries
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 2 * CHK_SIZE)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 2 * CHK_SIZE)
     ensureElectionsDone(looper, txnPoolNodeSet)
     sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)

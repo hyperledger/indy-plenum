@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check, waitForViewChange, view_change_timeout
+from plenum.test.helper import vdr_send_random_and_check, waitForViewChange, view_change_timeout
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.restart.helper import restart_nodes
 from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
@@ -39,7 +39,7 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     ensureElectionsDone(looper, alive_nodes, instances_list=range(3))
 
     # Add transaction to ledger
-    sdk_send_random_and_check(looper, alive_nodes, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, alive_nodes, sdk_pool_handle, sdk_wallet_client, 1)
 
     # Restart majority group
     majority_before_restart = majority.copy()

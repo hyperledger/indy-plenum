@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.messages.node_messages import CatchupReq
 from stp_core.common.log import getlogger
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 logger = getlogger()
 ledger_id = 1
@@ -15,7 +15,7 @@ def test_receive_incorrect_catchup_request_with_end_greater_catchuptill(looper,
     end = 15
     catchup_till = 10
     req = CatchupReq(ledger_id, 1, end, catchup_till)
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
@@ -35,7 +35,7 @@ def test_receive_incorrect_catchup_request_with_start_greater_end(looper,
     start = 10
     end = 5
     req = CatchupReq(ledger_id, start, end, 11)
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
@@ -55,7 +55,7 @@ def test_receive_incorrect_catchup_request_with_catchuptill_greater_ledger_size(
         sdk_wallet_client):
     catchup_till = 100
     req = CatchupReq(ledger_id, 1, 10, catchup_till)
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

@@ -5,7 +5,7 @@ from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_
 from stp_core.common.log import getlogger
 from plenum.common.util import hexToFriendly
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.test_node import TestNode, checkNodesConnected, \
     ensureElectionsDone
 from stp_core.network.port_dispenser import genHa
@@ -71,7 +71,7 @@ def changeNodeHa(looper, txnPoolNodeSet,
                         customTimeout=electionTimeout)
 
     sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               8)

@@ -8,8 +8,8 @@ from stp_core.loop.eventually import eventually
 
 from plenum.test import waits
 from plenum.test.helper import checkViewNoForNodes, \
-    check_last_ordered_3pc, sdk_send_random_request, sdk_get_replies, \
-    sdk_send_random_and_check, get_pp_seq_no
+    check_last_ordered_3pc, vdr_send_random_request, vdr_get_replies, \
+    vdr_send_random_and_check, get_pp_seq_no
 from plenum.test.delayers import delay_3pc_messages, \
     reset_delays_and_process_delayeds
 from plenum.test.view_change.helper import ensure_view_change_complete, ensure_view_change
@@ -45,9 +45,9 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     #       for master instances only cause non-master ones have
     #       specific logic of its management which we don't care in
     #       the test, see Replica::_setup_for_non_master)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     batches_count = get_pp_seq_no(txnPoolNodeSet)
     last_ordered_3pc = (viewNo, batches_count)
@@ -76,7 +76,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     delay_3pc_messages(txnPoolNodeSet,
                        1,
                        delay=propagationTimeout * 2)
-    requests = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+    requests = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
     def checkPrePrepareSentAtLeastByPrimary():
         for node in txnPoolNodeSet:
@@ -111,7 +111,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
-    sdk_get_replies(looper, [requests])
+    vdr_get_replies(looper, [requests])
     batches_count += 1
 
     checkViewNoForNodes(txnPoolNodeSet, viewNo)

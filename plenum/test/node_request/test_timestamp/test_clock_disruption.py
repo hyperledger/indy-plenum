@@ -8,7 +8,7 @@ from stp_core.loop.eventually import eventually
 
 from plenum.test.node_request.test_timestamp.helper import make_clock_faulty, \
     get_timestamp_suspicion_count
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_request
+from plenum.test.helper import vdr_send_random_and_check, vdr_send_random_request
 
 Max3PCBatchSize = 4
 
@@ -26,7 +26,7 @@ def test_nodes_with_bad_clock(tconf, looper, txnPoolNodeSet,
     nodes being cut off from NTP server for some time or NTP sync disabled
     then without node restart NTP sync enabled
     """
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
@@ -45,7 +45,7 @@ def test_nodes_with_bad_clock(tconf, looper, txnPoolNodeSet,
             ppr_always_wrong=False)
 
     for _ in range(5):
-        sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+        vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
         looper.runFor(.2)
 
     # Let some time pass
@@ -71,7 +71,7 @@ def test_nodes_with_bad_clock(tconf, looper, txnPoolNodeSet,
     looper.runFor(3)
 
     # All nodes reply
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

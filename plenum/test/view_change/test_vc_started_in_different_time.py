@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change.helper import restart_node, nodes_received_ic
 from plenum.test.view_change_service.helper import send_test_instance_change
@@ -36,7 +36,7 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
     send_test_instance_change(beta)
 
     # Ensure that pool is still functional
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     # Restart Alpha, Beta
@@ -50,6 +50,6 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
         send_test_instance_change(node)
 
     # Ensure that pool is still functional
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

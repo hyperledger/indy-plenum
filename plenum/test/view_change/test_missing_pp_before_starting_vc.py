@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.test.delayers import delay_3pc
-from plenum.test.helper import sdk_send_random_requests, check_missing_pre_prepares, max_3pc_batch_limits
+from plenum.test.helper import vdr_send_random_requests, check_missing_pre_prepares, max_3pc_batch_limits
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
@@ -36,7 +36,7 @@ def test_missing_pp_before_starting_vc(tconf, txnPoolNodeSet, looper,
         looper.run(eventually(check_not_in_view_change, txnPoolNodeSet))
 
         # 3. send requests
-        sdk_send_random_requests(looper, sdk_pool_handle,
+        vdr_send_random_requests(looper, sdk_pool_handle,
                                  sdk_wallet_steward, 10)
 
         # 4. do view change for view=2

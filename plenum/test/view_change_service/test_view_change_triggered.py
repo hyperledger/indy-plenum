@@ -1,4 +1,4 @@
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, assertExp
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check, assertExp
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 
@@ -21,7 +21,7 @@ def test_view_change_triggered(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
 
 
 def test_view_change_triggered_after_ordering(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, REQ_COUNT)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, REQ_COUNT)
     current_view_no = checkViewNoForNodes(txnPoolNodeSet)
 
     trigger_view_change(txnPoolNodeSet)

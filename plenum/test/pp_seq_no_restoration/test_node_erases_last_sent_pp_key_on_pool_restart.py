@@ -3,7 +3,7 @@ from copy import copy
 from plenum.common.constants import LAST_SENT_PRE_PREPARE
 from plenum.test import waits
 from plenum.test.checkpoints.conftest import chkFreqPatched
-from plenum.test.helper import sdk_send_batches_of_random, assertExp
+from plenum.test.helper import vdr_send_batches_of_random, assertExp
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
 from plenum.test.test_node import ensureElectionsDone, getPrimaryReplica, \
@@ -27,7 +27,7 @@ def test_node_not_erases_last_sent_pp_key_on_pool_restart(
     node = replica.node
 
     # Send some 3PC-batches and wait until the replica orders the 3PC-batches
-    sdk_send_batches_of_random(looper, txnPoolNodeSet,
+    vdr_send_batches_of_random(looper, txnPoolNodeSet,
                                sdk_pool_handle, sdk_wallet_client,
                                num_reqs=7, num_batches=7,
                                timeout=tconf.Max3PCBatchWait)
@@ -85,7 +85,7 @@ def test_node_not_erases_last_sent_pp_key_on_pool_restart(
     assert replica.H == replica.last_ordered_3pc[1] + LOG_SIZE
 
     # Send a 3PC-batch and ensure that the replica orders it
-    sdk_send_batches_of_random(looper, txnPoolNodeSet,
+    vdr_send_batches_of_random(looper, txnPoolNodeSet,
                                sdk_pool_handle, sdk_wallet_client,
                                num_reqs=1, num_batches=1,
                                timeout=tconf.Max3PCBatchWait)

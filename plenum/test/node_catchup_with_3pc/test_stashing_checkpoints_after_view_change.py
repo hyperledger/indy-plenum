@@ -10,7 +10,7 @@ from plenum.server.replica_validator_enums import STASH_VIEW_3PC
 from plenum.test import waits
 from plenum.test.checkpoints.helper import check_for_nodes, check_stable_checkpoint, check_for_instance
 from plenum.test.delayers import lsDelay, nv_delay
-from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
+from plenum.test.helper import vdr_send_random_and_check, assertExp, max_3pc_batch_limits, \
     check_last_ordered_3pc_on_master, check_last_ordered_3pc_on_backup
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
@@ -68,7 +68,7 @@ def test_checkpoints_after_view_change(tconf,
             # stash enough stable checkpoints for starting a catch-up
             num_checkpoints = Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1
             num_reqs = reqs_for_checkpoint * num_checkpoints + 1
-            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+            vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                       sdk_wallet_client,
                                       num_reqs)
             looper.run(

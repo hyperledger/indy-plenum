@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.test_node import getNonPrimaryReplicas
 
 
@@ -19,7 +19,7 @@ def test_ignore_pre_prepare_pp_seq_no_less_than_expected(looper,
     replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=0)[0]
     replica.last_ordered_3pc = (replica.viewNo, 10)
 
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

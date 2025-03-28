@@ -2,7 +2,7 @@ from base58 import b58encode
 
 from plenum.test.buy_handler import BuyHandler
 from plenum.test.constants import GET_BUY
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.common.types import f
 from plenum.common.constants import ROOT_HASH
 
@@ -11,10 +11,10 @@ def test_get_state_value_and_proof(looper, sdk_wallet_steward,
                                    sdk_pool_handle, txnPoolNodeSet):
     node = txnPoolNodeSet[0]
     req_handler = node.read_manager.request_handlers[GET_BUY]
-    req1, _ = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)[0]
+    req1, _ = vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)[0]
     # Save headHash after first request
     head1 = req_handler.state.headHash
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
     # Save headHash after second request
     head2 = req_handler.state.headHash
     # Build path to first request

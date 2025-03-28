@@ -3,7 +3,7 @@ import pytest
 from plenum.common.constants import AUDIT_LEDGER_ID
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.test.delayers import delay_3pc, lsDelay
-from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits, assertExp
+from plenum.test.helper import vdr_send_random_and_check, max_3pc_batch_limits, assertExp
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules_without_processing, delay_rules
 from stp_core.loop.eventually import eventually
@@ -41,10 +41,10 @@ def test_catchup_from_unequal_nodes_without_reasking(looper,
     normal_stashers = [node.nodeIbStasher for node in normal_nodes]
 
     with delay_rules_without_processing(lagged_node_1.nodeIbStasher, delay_3pc()):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
 
         with delay_rules_without_processing(lagged_node_2.nodeIbStasher, delay_3pc()):
-            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 7)
+            vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 7)
             ensure_all_nodes_have_same_data(looper, normal_nodes, custom_timeout=30)
 
             # Perform catchup, while making sure that cons proof from lagging node is received

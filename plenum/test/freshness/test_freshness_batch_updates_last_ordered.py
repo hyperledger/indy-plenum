@@ -5,7 +5,7 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.freshness.helper import get_all_multi_sig_values_for_all_nodes, \
     check_updated_bls_multi_sig_for_all_ledgers, check_freshness_updated_for_all
-from plenum.test.helper import freshness, sdk_send_random_and_check, primary_disconnection_time
+from plenum.test.helper import freshness, vdr_send_random_and_check, primary_disconnection_time
 from plenum.test.spy_helpers import getSpecificDiscardedMsg
 from plenum.test.view_change.helper import restart_node
 
@@ -49,7 +49,7 @@ def test_freshness_batch_updates_last_ordered(looper, txnPoolNodeSet, sdk_pool_h
     old_discard = len(getSpecificDiscardedMsg(txnPoolNodeSet[1], PrePrepare))
 
     # correct ordering
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
 
     # domain ledger equeal
     assert txnPoolNodeSet[0].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID) == \
@@ -80,7 +80,7 @@ def test_freshness_batch_updates_last_ordered_non_primary(looper, txnPoolNodeSet
            txnPoolNodeSet[1].master_replica.last_ordered_3pc
 
     # correct ordering
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
 
     # domain ledger equeal
     assert txnPoolNodeSet[0].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID) == \

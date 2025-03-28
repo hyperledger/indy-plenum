@@ -1,7 +1,7 @@
 from plenum.common.constants import DOMAIN_LEDGER_ID, POOL_LEDGER_ID
 from plenum.test.audit_ledger.helper import check_audit_ledger_updated, check_audit_txn
 from plenum.test.bls.helper import sdk_change_bls_key
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 
 def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
@@ -16,7 +16,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
 
     # 1st domain txn
     audit_size_initial = [node.auditLedger.size for node in txnPoolNodeSet]
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     check_audit_ledger_updated(audit_size_initial, txnPoolNodeSet, audit_txns_added=1)
 
     for node in txnPoolNodeSet:
@@ -46,7 +46,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
         )
 
     # 2d domain txn
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     check_audit_ledger_updated(audit_size_initial, txnPoolNodeSet, audit_txns_added=2)
 
     for node in txnPoolNodeSet:
@@ -138,7 +138,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
         )
 
     # one more domain txn
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     check_audit_ledger_updated(audit_size_initial, txnPoolNodeSet, audit_txns_added=5)
 
     for node in txnPoolNodeSet:

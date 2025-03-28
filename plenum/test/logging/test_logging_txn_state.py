@@ -14,8 +14,8 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, STEWARD_STRING
 from plenum.test.pool_transactions.helper import prepare_nym_request, \
     sdk_sign_and_send_prepared_request
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check, \
-    sdk_get_and_check_replies, get_key_from_req
+from plenum.test.helper import vdr_send_random_and_check, \
+    vdr_get_and_check_replies, get_key_from_req
 
 from stp_core.common.log import Logger
 import logging
@@ -37,7 +37,7 @@ def testLoggingTxnStateForValidRequest(
     logsOrdered, _ = logsearch(files=['ordering_service.py'], funcs=['_order_3pc_key'], msgs=['ordered batch request'])
     logsCommited, _ = logsearch(files=['node.py'], funcs=['executeBatch'], msgs=['committed batch request'])
 
-    reqs = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    reqs = vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                      sdk_wallet_client, 1)
     req, _ = reqs[0]
 
@@ -65,7 +65,7 @@ def testLoggingTxnStateForInvalidRequest(
                                                         sdk_pool_handle, nym_request)
 
     with pytest.raises(RequestRejectedException) as e:
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
 
     assert 'Only Steward is allowed to do these transactions' in e._excinfo[1].args[0]
     request = request_couple[0]

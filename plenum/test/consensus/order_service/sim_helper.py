@@ -3,7 +3,7 @@ from plenum.common.request import ReqKey
 from plenum.common.startable import Mode
 from plenum.server.consensus.utils import replica_name_to_node_name
 from plenum.test.consensus.helper import SimPool
-from plenum.test.helper import sdk_random_request_objects
+from plenum.test.helper import vdr_random_request_objects
 from stp_core.common.log import getlogger
 
 
@@ -13,7 +13,7 @@ CHK_FREQ = 20
 
 
 def create_requests(count):
-    return sdk_random_request_objects(count, CURRENT_PROTOCOL_VERSION)
+    return vdr_random_request_objects(count, CURRENT_PROTOCOL_VERSION)
 
 
 def create_pool(random):

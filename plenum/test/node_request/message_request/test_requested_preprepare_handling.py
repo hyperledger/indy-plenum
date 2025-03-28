@@ -11,7 +11,7 @@ from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 
 
 def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
@@ -39,7 +39,7 @@ def test_handle_delayed_preprepares(looper, txnPoolNodeSet,
     # Delay PRE-PREPAREs by large amount simulating loss
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
 
-    sdk_send_batches_of_random_and_check(looper,
+    vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
                                          sdk_pool_handle,
                                          sdk_wallet_client,

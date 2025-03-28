@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import delay_for_view
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, waitForViewChange, view_change_timeout
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check, waitForViewChange, view_change_timeout
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
@@ -48,7 +48,7 @@ def test_catchup_to_next_view_during_view_change_by_primary(txnPoolNodeSet, loop
             ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
             # order some txns
-            sdk_send_random_and_check(looper, txnPoolNodeSet,
+            vdr_send_random_and_check(looper, txnPoolNodeSet,
                                       sdk_pool_handle, sdk_wallet_steward, 5)
 
             assert initial_view_no == lagging_node.viewNo

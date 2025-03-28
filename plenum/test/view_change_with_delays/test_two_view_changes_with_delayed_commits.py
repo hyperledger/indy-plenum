@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_and_check, perf_monitor_disabled
+from plenum.test.helper import vdr_send_random_and_check, perf_monitor_disabled
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.view_change_with_delays.helper import do_view_change_with_pending_request_and_one_fast_node
 
@@ -34,5 +34,5 @@ def test_two_view_changes_with_delayed_commits(txnPoolNodeSet, looper,
                                                           looper, sdk_pool_handle, sdk_wallet_client)
 
     # Check that pool can write transactions
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

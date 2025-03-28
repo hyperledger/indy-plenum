@@ -11,8 +11,8 @@ from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, sdk_pool_refresh, sdk_add_new_steward_and_node
 
 from plenum.common.util import randomString
-from plenum.test.helper import sdk_gen_request, sdk_sign_request_objects, \
-    sdk_send_signed_requests, sdk_get_replies, sdk_get_and_check_replies, sdk_send_random_and_check
+from plenum.test.helper import vdr_gen_request, vdr_sign_request_objects, \
+    vdr_send_signed_requests, vdr_get_replies, vdr_get_and_check_replies, vdr_send_random_and_check
 
 from plenum.common.constants import CONFIG_LEDGER_ID, DATA
 from plenum.test.test_config_req_handler import write_conf_op, \
@@ -23,20 +23,20 @@ from stp_core.types import HA
 
 def write(key, val, looper, sdk_pool_handle, sdk_wallet):
     _, idr = sdk_wallet
-    reqs_obj = [sdk_gen_request(op, identifier=idr)
+    reqs_obj = [vdr_gen_request(op, identifier=idr)
                 for op in [write_conf_op(key, val)]]
-    reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
-    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
-    sdk_get_and_check_replies(looper, sent_reqs, timeout=10)
+    reqs = vdr_sign_request_objects(looper, sdk_wallet, reqs_obj)
+    sent_reqs = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    vdr_get_and_check_replies(looper, sent_reqs, timeout=10)
 
 
 def read(key, looper, sdk_pool_handle, sdk_wallet):
     _, idr = sdk_wallet
-    reqs_obj = [sdk_gen_request(op, identifier=idr)
+    reqs_obj = [vdr_gen_request(op, identifier=idr)
                 for op in [read_conf_op(key)]]
-    reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
-    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs, looper)
-    (req, resp), = sdk_get_and_check_replies(looper, sent_reqs, timeout=10)
+    reqs = vdr_sign_request_objects(looper, sdk_wallet, reqs_obj)
+    sent_reqs = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    (req, resp), = vdr_get_and_check_replies(looper, sent_reqs, timeout=10)
     return json.loads(resp['result'][DATA])[key]
 
 
@@ -70,7 +70,7 @@ def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creatio
         return node
 
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               txnCount)

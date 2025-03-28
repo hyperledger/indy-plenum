@@ -9,7 +9,7 @@ from plenum.common.exceptions import RequestNackedException, RequestRejectedExce
 from plenum.common.types import OPERATION
 from plenum.common.util import randomString, get_utc_epoch
 
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import vdr_get_and_check_replies
 from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
 from .helper import sdk_send_txn_author_agreement, sdk_get_txn_author_agreement
 
@@ -46,7 +46,7 @@ def test_send_invalid_txn_author_agreement_fails(
     req[OPERATION]['text'] = 42
     rep = sdk_sign_and_send_prepared_request(looper, sdk_wallet_trustee, sdk_pool_handle, json.dumps(req))
     with pytest.raises(RequestNackedException):
-        sdk_get_and_check_replies(looper, [rep])
+        vdr_get_and_check_replies(looper, [rep])
 
 
 def test_create_txn_author_agreement_succeeds(looper, set_txn_author_agreement_aml, sdk_pool_handle, sdk_wallet_trustee):

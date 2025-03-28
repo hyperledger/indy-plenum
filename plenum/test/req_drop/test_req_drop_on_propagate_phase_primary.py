@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.constants import PROPAGATE
-from plenum.test.helper import sdk_json_to_request_object, sdk_send_random_requests
+from plenum.test.helper import vdr_json_to_request_object, vdr_send_random_requests
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Propagate
 from plenum.test.delayers import delay, msg_rep_delay
@@ -45,7 +45,7 @@ def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
     # is requested
     A.nodeIbStasher.delay(msg_rep_delay(10 * howlong, [PROPAGATE, ]))
     initial_ledger_size = lagged_node.domainLedger.size
-    request_couple_json = sdk_send_random_requests(
+    request_couple_json = vdr_send_random_requests(
         looper, sdk_pool_handle, sdk_wallet_client, 1)
     return request_couple_json
 
@@ -55,7 +55,7 @@ def test_req_drop_on_propagate_phase_on_master_primary_and_then_ordered(
         sdk_wallet_client, sdk_pool_handle):
     global initial_ledger_size
     A, B, C, D = txnPoolNodeSet  # type: TestNode
-    sent1 = sdk_json_to_request_object(setup[0][0])
+    sent1 = vdr_json_to_request_object(setup[0][0])
     lagged_node = A
 
     def check_propagates_delayed():

@@ -18,7 +18,7 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, MULTI_SIGNATU
     MULTI_SIGNATURE_PARTICIPANTS, MULTI_SIGNATURE_SIGNATURE, MULTI_SIGNATURE_VALUE
 from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.util import hexToFriendly
-from plenum.test.helper import sdk_send_random_and_check, create_commit_bls_sig
+from plenum.test.helper import vdr_send_random_and_check, create_commit_bls_sig
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import sdk_send_update_node, \
@@ -56,7 +56,7 @@ def sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
     # Using loop to avoid 3pc batching
     state_roots = []
     for i in range(number_of_requests):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_handle, 1)
         waitNodeDataEquality(looper, txnPoolNodeSet[0], *txnPoolNodeSet[:-1])
         state_roots.append(

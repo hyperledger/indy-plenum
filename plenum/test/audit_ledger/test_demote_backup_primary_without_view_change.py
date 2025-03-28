@@ -1,5 +1,5 @@
 from plenum.test.delayers import icDelay
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import demote_node, disconnect_node_and_ensure_disconnected
 from plenum.test.stasher import delay_rules
@@ -14,7 +14,7 @@ def test_demote_backup_primary_without_view_change(looper, txnPoolNodeSet, sdk_p
                                                    sdk_wallet_stewards, tdir, tconf, allPluginsPath):
     assert len(txnPoolNodeSet) > 4
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_stewards[0], 1)
 
     lagging_instance = 1
@@ -47,7 +47,7 @@ def test_demote_backup_primary_without_view_change(looper, txnPoolNodeSet, sdk_p
         looper.run(checkNodesConnected(txnPoolNodeSet))
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                                   sdk_wallet_stewards[0], 1)
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
         for instance_id, r in node_to_restart.replicas.items():

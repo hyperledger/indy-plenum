@@ -3,8 +3,8 @@ import sys
 
 from plenum.server.node import Node
 from plenum.test.delayers import cDelay
-from plenum.test.helper import sdk_send_random_and_check, \
-    sdk_send_random_requests, sdk_get_replies, perf_monitor_disabled
+from plenum.test.helper import vdr_send_random_and_check, \
+    vdr_send_random_requests, vdr_get_replies, perf_monitor_disabled
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.node_request.helper import sdk_ensure_pool_functional
 from plenum.test.stasher import delay_rules
@@ -41,7 +41,7 @@ def test_delay_commits(txnPoolNodeSet, looper,
     Expected result with current view change:
     node X can't finish second transaction
     """
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 1)
     nodes_stashers = [n.nodeIbStasher for n in txnPoolNodeSet
                       if n != txnPoolNodeSet[-1]]
@@ -64,7 +64,7 @@ def do_view_change_with_delayed_commits_on_all_but_one(nodes, nodes_without_one_
     # delay commits for all nodes except node X
     with delay_rules(nodes_without_one_stashers, cDelay(sys.maxsize)):
         # send one  request
-        requests2 = sdk_send_random_requests(looper, sdk_pool_handle,
+        requests2 = vdr_send_random_requests(looper, sdk_pool_handle,
                                              sdk_wallet_client, 1)
 
         def last_ordered(node: Node, last_ordered):
@@ -81,7 +81,7 @@ def do_view_change_with_delayed_commits_on_all_but_one(nodes, nodes_without_one_
         # wait for view change done on all nodes
         looper.run(eventually(view_change_done, nodes, new_view_no))
 
-    sdk_get_replies(looper, requests2)
+    vdr_get_replies(looper, requests2)
     ensure_all_nodes_have_same_data(looper, nodes)
     sdk_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
 

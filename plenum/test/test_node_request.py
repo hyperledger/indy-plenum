@@ -7,7 +7,7 @@ from plenum.common.messages.node_messages import \
     PrePrepare, Prepare, Commit
 from plenum.test import waits
 from plenum.test.greek import genNodeNames
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.test_node import TestNode, TestNodeSet, \
     checkPoolReady, genNodeReg, prepareNodeSet
 
@@ -18,7 +18,7 @@ logger = getlogger()
 def testReqExecWhenReturnedByMaster(looper, txnPoolNodeSet,
                                     sdk_pool_handle,
                                     sdk_wallet_client):
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,
                               1)

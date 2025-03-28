@@ -7,7 +7,7 @@ from plenum.test.helper import countDiscarded
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     checkNodeDataForInequality
 from plenum.test.test_node import getNonPrimaryReplicas, TestReplica
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
@@ -59,7 +59,7 @@ def test_non_primary_recvs_3phase_message_outside_watermarks(
     oldStashCount = slowReplica.stasher.stash_size(STASH_WATERMARKS)
     slowReplica._checkpointer.set_watermarks(slowReplica.h, LOG_SIZE)
     # 1. Send requests more than fit between the watermarks on the slow node
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_for_logsize + 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_for_logsize + 2)
 
     # Verify that the slow node stashes the batches outside of its watermarks
     newStashCount = slowReplica.stasher.stash_size(STASH_WATERMARKS)

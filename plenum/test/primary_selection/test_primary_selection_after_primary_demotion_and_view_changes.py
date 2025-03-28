@@ -4,7 +4,7 @@ from stp_core.common.log import getlogger
 
 from plenum.test.pool_transactions.helper import sdk_send_update_node
 
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change_complete
 
@@ -45,7 +45,7 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert restNodes[0].replicas[0].primaryName != master_node.name
 
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)
 
     logger.info("2. force view change 2 and check final viewNo")
@@ -55,7 +55,7 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert restNodes[0].replicas[0].primaryName != master_node.name
     assert viewNo2 == viewNo1 + 1
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)
 
     logger.info("3. force view change 3 and check final viewNo")
@@ -64,7 +64,7 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert restNodes[0].replicas[0].primaryName != master_node.name
     assert viewNo3 == viewNo2 + 1
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)
 
     logger.info("4. force view change 4 and check final viewNo")
@@ -73,5 +73,5 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert restNodes[0].replicas[0].primaryName != master_node.name
     assert viewNo4 == viewNo3 + 1
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 3)

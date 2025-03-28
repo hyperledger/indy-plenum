@@ -2,7 +2,7 @@ import pytest
 
 from stp_core.common.log import getlogger
 from plenum.common.perf_util import get_size
-from plenum.test.helper import sdk_send_random_requests
+from plenum.test.helper import vdr_send_random_requests
 from plenum.test.pool_transactions.helper import sdk_add_new_nym
 
 logger = getlogger()
@@ -18,7 +18,7 @@ def testRequestsSize(looper, txnPoolNodeSet, sdk_pool_handle,
 
     for (_, nym) in clients:
         logger.debug("{} sending {} requests".format(nym, numRequests))
-        sdk_send_random_requests(looper, sdk_pool_handle,
+        vdr_send_random_requests(looper, sdk_pool_handle,
                                  sdk_wallet_steward, numRequests)
         logger.debug("{} sent {} requests".format(nym, numRequests))
 

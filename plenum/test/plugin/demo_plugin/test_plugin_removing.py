@@ -13,7 +13,7 @@ from plenum.test.pool_transactions.helper import sdk_build_get_txn_request, sdk_
 
 from plenum.common.txn_util import get_seq_no, get_payload_data
 from plenum.test.freshness.helper import check_freshness_updated_for_ledger
-from plenum.test.helper import freshness, sdk_get_and_check_replies, sdk_send_random_and_check
+from plenum.test.helper import freshness, vdr_get_and_check_replies, vdr_send_random_and_check
 from plenum.test.plugin.demo_plugin import AUCTION_LEDGER_ID
 from plenum.test.plugin.demo_plugin.helper import send_auction_txn, send_get_auction_txn, restart_nodes
 from stp_core.loop.eventually import eventually
@@ -41,7 +41,7 @@ def check_get_auction_txn(expected_result,
                                            sdk_wallet_steward,
                                            sdk_pool_handle,
                                            request)
-    result = sdk_get_and_check_replies(looper,
+    result = vdr_get_and_check_replies(looper,
                                        [request_couple])[0][1]['result']
 
     assert expected_result['reqSignature'] == result['data']['reqSignature']
@@ -118,7 +118,7 @@ def test_plugin_removing(looper, tconf, txn_pool_node_set_post_creation,
                        match="invalid type: " + AUCTION_START):
         send_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
 
     # make sure that all node have equal primaries and can order
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)

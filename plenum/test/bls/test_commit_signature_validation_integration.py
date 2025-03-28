@@ -3,8 +3,8 @@ from contextlib import contextmanager
 from orderedset._orderedset import OrderedSet
 
 from plenum.common.constants import STEWARD_STRING
-from plenum.test.helper import sdk_send_random_request, get_key_from_req, sdk_get_and_check_replies, \
-    sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_request, get_key_from_req, vdr_get_and_check_replies, \
+    vdr_send_random_and_check
 from plenum.test.pool_transactions.helper import prepare_node_request, \
     sdk_sign_and_send_prepared_request, sdk_add_new_nym, prepare_new_node_data
 from stp_core.loop.eventually import eventually
@@ -45,7 +45,7 @@ def test_commit_signature_validation_integration(looper,
     fast_nodes = txnPoolNodeSet[:2]
     slow_nodes = txnPoolNodeSet[2:]
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_steward, 1)
 
     # create new steward
@@ -92,7 +92,7 @@ def test_commit_signature_validation_integration(looper,
 
         looper.run(eventually(check_fast_nodes_ordered_request))
 
-        request2 = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+        request2 = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
         looper.run(eventually(check_nodes_receive_pp, first_ordered[0], first_ordered[1] + 2))
 
         def check_nodes_receive_commits(view_no, seq_no):
@@ -100,5 +100,5 @@ def test_commit_signature_validation_integration(looper,
                 assert len(node.master_replica._ordering_service.commits[view_no, seq_no].voters) >= node.f + 1
         looper.run(eventually(check_nodes_receive_commits, first_ordered[0], first_ordered[1] + 2))
 
-    sdk_get_and_check_replies(looper, [request1])
-    sdk_get_and_check_replies(looper, [request2])
+    vdr_get_and_check_replies(looper, [request1])
+    vdr_get_and_check_replies(looper, [request2])

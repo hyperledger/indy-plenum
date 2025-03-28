@@ -4,7 +4,7 @@ from plenum.common.messages.node_messages import CatchupRep
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 
 from stp_core.validators.message_length_validator import MessageLenValidator
@@ -56,7 +56,7 @@ def test_large_catchup(tdir, tconf,
     all_nodes = txnPoolNodeSet
 
     # Check that requests executed well
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 10)
 
     # Stop one node
@@ -68,7 +68,7 @@ def test_large_catchup(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               sdk_wallet_client, 100)
     waitNodeDataEquality(looper, *rest_nodes)
 

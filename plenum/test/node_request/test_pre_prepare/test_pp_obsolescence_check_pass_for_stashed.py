@@ -5,7 +5,7 @@ from plenum.common.constants import LEDGER_STATUS, AUDIT_LEDGER_ID
 from plenum.common.messages.node_messages import MessageRep, MessageReq, CatchupReq
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.test.delayers import DEFAULT_DELAY
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_request.test_timestamp.helper import get_timestamp_suspicion_count
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
@@ -47,7 +47,7 @@ def test_stashed_pp_pass_obsolescence_check(tdir, tconf,
 
     # TODO INDY-2047: fills domain ledger with some requests
     # as a workaround for the issue
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle, sdk_wallet_client, 1)
 
     # Prevent lagging node from catching up domain ledger (and finishing catchup)
@@ -57,7 +57,7 @@ def test_stashed_pp_pass_obsolescence_check(tdir, tconf,
         assert lagging_node_state() == NodeLeecherService.State.SyncingAudit
 
         # Order request on all nodes except lagging one where they goes to stashed state
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
                                   sdk_pool_handle, sdk_wallet_client, 1)
 
         # lagging node is still syncing Audit ledger

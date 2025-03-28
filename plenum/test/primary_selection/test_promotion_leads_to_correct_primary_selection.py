@@ -5,7 +5,7 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
 
-from plenum.test.helper import sdk_send_random_and_check, checkViewNoForNodes, waitForViewChange
+from plenum.test.helper import vdr_send_random_and_check, checkViewNoForNodes, waitForViewChange
 from plenum.test.pool_transactions.helper import demote_node, disconnect_node_and_ensure_disconnected, promote_node
 from plenum.test.test_node import ensureElectionsDone, checkNodesConnected
 
@@ -24,7 +24,7 @@ def test_promotion_leads_to_correct_primary_selection(looper,
     # When current primaries getting edited because of promotion/demotion we don't take this into account.
     # That lead us to primary inconsistency on different nodes
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)
     assert txnPoolNodeSet[0].master_replica.isPrimary
     assert txnPoolNodeSet[1].replicas[1].isPrimary
     assert txnPoolNodeSet[2].replicas[2].isPrimary
@@ -47,7 +47,7 @@ def test_promotion_leads_to_correct_primary_selection(looper,
                node_1.replicas.primary_name_by_inst_id
                for node in txnPoolNodeSet)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
     for node in txnPoolNodeSet:
         assert node.f == 1
         assert node.replicas.num_replicas == 2
@@ -78,5 +78,5 @@ def test_promotion_leads_to_correct_primary_selection(looper,
     ensureElectionsDone(looper, txnPoolNodeSet, instances_list=[0, 1, 2])
 
     # Node 3 able to do ordering
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
