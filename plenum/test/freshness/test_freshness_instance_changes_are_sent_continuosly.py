@@ -16,7 +16,7 @@ def tconf(tconf):
 
 
 def test_freshness_instance_changes_are_sent_continuosly(looper, tconf, txnPoolNodeSet,
-                                                         sdk_wallet_client, sdk_pool_handle):
+                                                         vdr_wallet_client, vdr_pool_handle):
     current_view_no = txnPoolNodeSet[0].viewNo
     for node in txnPoolNodeSet:
         assert node.viewNo == current_view_no

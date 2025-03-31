@@ -33,18 +33,18 @@ def tconf(tconf, request):
 
 
 @pytest.fixture(scope="module")
-def pre_check(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def pre_check(tconf, looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     # TODO: Maybe this needs to be extracted in another fixture
 
     for i in range(tconf.ProcessedBatchMapsToKeep - 1):
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_client, 1)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                  vdr_wallet_client, 1)
 
     # All node maintain the same map from txn range to 3PC
     looper.run(eventually(chk_if_equal_txn_to_3pc, txnPoolNodeSet))
     for i in range(3):
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_client, 1)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                  vdr_wallet_client, 1)
 
     # All node maintain the same map from txn range to 3PC and its equal to
     # `tconf.ProcessedBatchMapsToKeep` even after sending more batches than
@@ -56,9 +56,9 @@ def pre_check(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client)
 
 @pytest.mark.skip('Functionality removed in INDY-1946')
 def test_nodes_maintain_master_txn_3PC_map(looper, txnPoolNodeSet, pre_check,
-                                           sdk_node_created_after_some_txns):
+                                           vdr_node_created_after_some_txns):
     _, new_node, sdk_pool_handle, new_steward_wallet_handle = \
-        sdk_node_created_after_some_txns
+        vdr_node_created_after_some_txns
     txnPoolNodeSet.append(new_node)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],

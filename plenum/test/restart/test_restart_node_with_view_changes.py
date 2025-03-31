@@ -18,8 +18,8 @@ from stp_core.loop.eventually import eventually
 def test_restart_node_with_view_changes(tdir, tconf,
                                         looper,
                                         txnPoolNodeSet,
-                                        sdk_pool_handle,
-                                        sdk_wallet_client,
+                                        vdr_pool_handle,
+                                        vdr_wallet_client,
                                         allPluginsPath):
     '''
     1. Stop the node Delta
@@ -48,8 +48,8 @@ def test_restart_node_with_view_changes(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, len(rest_nodes) * 3)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, len(rest_nodes) * 3)
     waitNodeDataEquality(looper, *rest_nodes)
 
     # Restart stopped node
@@ -114,6 +114,6 @@ def test_restart_node_with_view_changes(tdir, tconf,
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
                         instances_list=range(txnPoolNodeSet[0].requiredNumberOfInstances))
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
     waitNodeDataEquality(looper, *txnPoolNodeSet)

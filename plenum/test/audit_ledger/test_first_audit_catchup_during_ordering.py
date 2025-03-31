@@ -26,7 +26,7 @@ def delay_domain_ledger_catchup():
     return delay
 
 
-def test_first_audit_catchup_during_ordering(tdir, tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def test_first_audit_catchup_during_ordering(tdir, tconf, looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     lagging_node = txnPoolNodeSet[-1]
     other_nodes = txnPoolNodeSet[:-1]
     other_stashers = [node.nodeIbStasher for node in other_nodes]
@@ -49,7 +49,7 @@ def test_first_audit_catchup_during_ordering(tdir, tconf, looper, txnPoolNodeSet
 
         # Order request on all nodes except lagging one where they goes to stashed state
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client, 1)
+                                  vdr_pool_handle, vdr_wallet_client, 1)
 
     # Now catchup should end and lagging node starts processing stashed PPs
     # and resumes ordering

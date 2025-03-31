@@ -31,7 +31,7 @@ def tconf(tconf):
 
 
 def test_node_requests_missing_preprepares_prepares_and_commits(
-        looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle,
+        looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle,
         tdir, allPluginsPath):
     """
     1 of 4 nodes goes down ((simulate this by dropping requests)). A new request comes in and is ordered by
@@ -50,8 +50,8 @@ def test_node_requests_missing_preprepares_prepares_and_commits(
 
     vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               INIT_REQS_CNT)
     init_ledger_size = txnPoolNodeSet[0].domainLedger.size
 
@@ -59,8 +59,8 @@ def test_node_requests_missing_preprepares_prepares_and_commits(
         last_ordered_key = txnPoolNodeSet[0].master_replica.last_ordered_3pc
         vdr_send_random_and_check(looper,
                                   txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   MISSING_REQS_CNT)
         looper.run(eventually(check_pp_out_of_sync,
                               alive_nodes,
@@ -84,8 +84,8 @@ def test_node_requests_missing_preprepares_prepares_and_commits(
 
     vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               REQS_AFTER_RECONNECT_CNT)
     waitNodeDataEquality(looper, disconnected_node, *alive_nodes)
 

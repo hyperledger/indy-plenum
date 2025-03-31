@@ -16,14 +16,14 @@ from plenum.test.view_change.helper import start_stopped_node
 
 def test_fill_ts_store_after_catchup(txnPoolNodeSet,
                                      looper,
-                                     sdk_pool_handle,
-                                     sdk_wallet_steward,
+                                     vdr_pool_handle,
+                                     vdr_wallet_steward,
                                      tconf,
                                      tdir,
                                      allPluginsPath
                                      ):
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+                              vdr_pool_handle, vdr_wallet_steward, 5)
     node_to_disconnect = txnPoolNodeSet[-1]
 
     disconnect_node_and_ensure_disconnected(looper,
@@ -31,7 +31,7 @@ def test_fill_ts_store_after_catchup(txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
     sdk_replies = vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                            sdk_pool_handle, sdk_wallet_steward, 2)
+                                            vdr_pool_handle, vdr_wallet_steward, 2)
 
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,
                                             tdir, allPluginsPath)
@@ -59,13 +59,13 @@ def create_random_taa():
 
 def test_fill_ts_store_for_config_after_catchup(txnPoolNodeSet,
                                                 looper,
-                                                sdk_pool_handle,
-                                                sdk_wallet_trustee,
+                                                vdr_pool_handle,
+                                                vdr_wallet_trustee,
                                                 tconf,
                                                 tdir,
                                                 allPluginsPath,
                                                 set_txn_author_agreement_aml):
-    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa(),
+    sdk_send_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_trustee, *create_random_taa(),
                                   ratified=get_utc_epoch() - 600)
     node_to_disconnect = txnPoolNodeSet[-1]
 
@@ -73,7 +73,7 @@ def test_fill_ts_store_for_config_after_catchup(txnPoolNodeSet,
                                             txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
-    sdk_reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, *create_random_taa(),
+    sdk_reply = sdk_send_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_trustee, *create_random_taa(),
                                               ratified=get_utc_epoch() - 600)
 
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,

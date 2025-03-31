@@ -17,7 +17,7 @@ txnCount = 5
 # TODO: Refactor tests to minimize module-scoped fixtures.They make tests
 # depend on each other
 @pytest.mark.skip(reason="INDY-1297. Node does not catch up on reconnection anymore.")
-def testNodeCatchupAfterDisconnect(sdk_new_node_caught_up, txnPoolNodeSet,
+def testNodeCatchupAfterDisconnect(vdr_new_node_caught_up, txnPoolNodeSet,
                                    sdk_node_set_with_node_added_after_some_txns):
     """
     A node that disconnects after some transactions should eventually get the

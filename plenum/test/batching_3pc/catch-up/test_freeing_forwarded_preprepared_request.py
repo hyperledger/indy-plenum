@@ -33,19 +33,19 @@ def tconf(tconf):
 
 def test_freeing_forwarded_preprepared_request(
         looper, chkFreqPatched, reqs_for_checkpoint, txnPoolNodeSet,
-        sdk_pool_handle, sdk_wallet_steward):
+        vdr_pool_handle, vdr_wallet_steward):
     # Case, when both backup and primary had problems
     behind_node = txnPoolNodeSet[-1]
 
-    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                         sdk_wallet_steward, CHK_FREQ, CHK_FREQ)
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                         vdr_wallet_steward, CHK_FREQ, CHK_FREQ)
     with delay_rules(behind_node.nodeIbStasher,
                      pDelay(delay=sys.maxsize),
                      cDelay(delay=sys.maxsize), ):
         count = behind_node.spylog.count(behind_node.allLedgersCaughtUp)
 
-        vdr_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool_handle,
-                                   sdk_wallet_steward, req_num, req_num)
+        vdr_send_batches_of_random(looper, txnPoolNodeSet, vdr_pool_handle,
+                                   vdr_wallet_steward, req_num, req_num)
 
         looper.run(eventually(node_caughtup, behind_node, count, retryWait=1))
 
@@ -56,8 +56,8 @@ def test_freeing_forwarded_preprepared_request(
     assert all(r.executed for r in behind_node.requests.values() if behind_node.seqNoDB.
                get_by_full_digest(r.request.key)[1])
 
-    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                         sdk_wallet_steward, CHK_FREQ, CHK_FREQ)
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                         vdr_wallet_steward, CHK_FREQ, CHK_FREQ)
 
     # Master and backup replicas do not stash new requests and successfully order them
     assert len(behind_node.requests) == 0

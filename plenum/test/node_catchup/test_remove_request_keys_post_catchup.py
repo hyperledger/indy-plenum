@@ -27,8 +27,8 @@ def setup(request, looper, txnPoolNodeSet):
 
 
 def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
-                                                sdk_pool_handle,
-                                                sdk_wallet_client):
+                                                vdr_pool_handle,
+                                                vdr_wallet_client):
     """
     A node does not order requests since it is missing some 3PC messages,
     gets them from catchup. It then clears them from its request queues
@@ -38,8 +38,8 @@ def test_nodes_removes_request_keys_for_ordered(setup, looper, txnPoolNodeSet,
     reqs = vdr_json_couples_to_request_list(
         send_reqs_batches_and_get_suff_replies(
             looper, txnPoolNodeSet,
-            sdk_pool_handle,
-            sdk_wallet_client,
+            vdr_pool_handle,
+            vdr_wallet_client,
             10,
             5))
     ensure_all_nodes_have_same_data(looper, fast_nodes)

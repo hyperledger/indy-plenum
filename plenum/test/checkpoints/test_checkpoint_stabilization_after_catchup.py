@@ -11,17 +11,17 @@ LOG_SIZE = 3 * CHK_FREQ
 
 
 def test_second_checkpoint_after_catchup_can_be_stabilized(
-        chkFreqPatched, looper, txnPoolNodeSet, sdk_wallet_steward,
-        sdk_wallet_client, sdk_pool_handle, tdir, tconf,
+        chkFreqPatched, looper, txnPoolNodeSet, vdr_wallet_steward,
+        vdr_wallet_client, vdr_pool_handle, tdir, tconf,
         allPluginsPath):
     lagging_node = txnPoolNodeSet[-1]
     with delay_rules_without_processing(lagging_node.nodeIbStasher, cDelay()):
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_client, tconf.Max3PCBatchSize * CHK_FREQ * 2)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                  vdr_wallet_client, tconf.Max3PCBatchSize * CHK_FREQ * 2)
     waitNodeDataEquality(looper, lagging_node, *txnPoolNodeSet[:-1])
     # Epsilon got lost transactions via catch-up.
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 2)
+                              vdr_pool_handle, vdr_wallet_client, 2)
 
     master_replica = lagging_node.master_replica
 
@@ -32,14 +32,14 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
     assert master_replica.H == 25
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
 
     for replica in lagging_node.replicas.values():
         assert replica.h == 10
         assert replica.H == 25
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 6)
+                              vdr_pool_handle, vdr_wallet_client, 6)
     stabilization_timeout = \
         waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))
     looper.runFor(stabilization_timeout)
@@ -55,7 +55,7 @@ def test_second_checkpoint_after_catchup_can_be_stabilized(
         assert replica.H == 30
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
     looper.runFor(stabilization_timeout)
 
     for replica in lagging_node.replicas.values():

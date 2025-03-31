@@ -2,7 +2,7 @@ import pytest
 
 from plenum.test import waits
 from plenum.test.helper import vdr_send_random_and_check, waitForViewChange, view_change_timeout
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.restart.helper import restart_nodes
 from plenum.test.test_node import ensureElectionsDone, ensure_node_disconnected
 
@@ -21,7 +21,7 @@ def tconf(tconf):
 
 
 def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf, tdir, allPluginsPath,
-                                                  sdk_pool_handle, sdk_wallet_client):
+                                                  vdr_pool_handle, vdr_wallet_client):
     restart_timeout = tconf.ToleratePrimaryDisconnection + \
                       waits.expectedPoolElectionTimeout(len(txnPoolNodeSet))
 
@@ -39,7 +39,7 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     ensureElectionsDone(looper, alive_nodes, instances_list=range(3))
 
     # Add transaction to ledger
-    vdr_send_random_and_check(looper, alive_nodes, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, alive_nodes, vdr_pool_handle, vdr_wallet_client, 1)
 
     # Restart majority group
     majority_before_restart = majority.copy()
@@ -66,4 +66,4 @@ def test_restart_to_same_view_with_killed_primary(looper, txnPoolNodeSet, tconf,
     ensureElectionsDone(looper, alive_nodes, instances_list=range(3))
 
     # Check that all nodes are still functional
-    sdk_ensure_pool_functional(looper, alive_nodes, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, alive_nodes, vdr_wallet_client, vdr_pool_handle)

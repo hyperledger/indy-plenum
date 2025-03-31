@@ -37,9 +37,9 @@ def tconf(tconf):
 
 
 @pytest.fixture()
-def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
+def setup(looper, tconf, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle):
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 5)
+                              vdr_pool_handle, vdr_wallet_client, 5)
     P = getPrimaryReplica(txnPoolNodeSet)
 
     # set LAMBDA smaller than the production config to make the test faster
@@ -66,7 +66,7 @@ def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
     P.outBoxTestStasher.delay(specificPrePrepare)
     # TODO select or create a timeout for this case in 'waits'
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 5,
+                              vdr_pool_handle, vdr_wallet_client, 5,
                               customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
 
     return adict(nodes=txnPoolNodeSet, old_view_no=old_view_no)

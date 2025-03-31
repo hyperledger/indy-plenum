@@ -4,8 +4,8 @@ from plenum.server.suspicion_codes import Suspicions
 from plenum.test.delayers import cDelay, ppDelay, msg_rep_delay, old_view_pp_reply_delay, nv_delay
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_add_new_node
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
+from plenum.test.pool_transactions.helper import vdr_add_new_nym, vdr_add_new_node
 from plenum.test.stasher import delay_rules_without_processing, delay_rules
 from plenum.test.test_node import ensureElectionsDone, getNonPrimaryReplicas, checkNodesConnected, TestNode
 from stp_core.loop.eventually import eventually
@@ -52,7 +52,7 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
 
     # add a new Steward before delaying. Otherwise the slow node may reject NODE client reqs
     # as it can not authenticate it due to lack of Steward txn applied
-    new_steward_wallet_handle = sdk_add_new_nym(looper,
+    new_steward_wallet_handle = vdr_add_new_nym(looper,
                                                 sdk_pool_handle,
                                                 sdk_wallet_steward,
                                                 alias='New_Steward',
@@ -63,7 +63,7 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
     with delay_rules(all_stashers, nv_delay()):
         with delay_rules_without_processing(slow_stashers, *delayers):
             # Add Node5
-            new_node = sdk_add_new_node(
+            new_node = vdr_add_new_node(
                 looper,
                 sdk_pool_handle,
                 new_steward_wallet_handle,
@@ -87,7 +87,7 @@ def check_view_change_adding_new_node(looper, tdir, tconf, allPluginsPath,
             waitForViewChange(looper, old_set, 4)
     ensureElectionsDone(looper, old_set)
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
 
 
 def check_has_commits(nodes):
@@ -132,5 +132,5 @@ def check_view_change_one_slow_node(looper, txnPoolNodeSet, sdk_pool_handle, sdk
 
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

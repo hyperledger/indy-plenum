@@ -1,15 +1,15 @@
 from plenum.test.delayers import cDelay, icDelay
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.stasher import delay_rules, start_delaying
 from plenum.test.view_change.helper import add_new_node
 
 
 def test_audit_multiple_uncommitted_node_regs(looper, tdir, tconf, allPluginsPath,
                                               txnPoolNodeSet,
-                                              sdk_pool_handle,
-                                              sdk_wallet_client,
-                                              sdk_wallet_steward):
+                                              vdr_pool_handle,
+                                              vdr_wallet_client,
+                                              vdr_wallet_steward):
     '''
     - Delay COMMITS on 1 Node
     - Add 2 more nodes (so that the slow node hs multiple uncommitted node txns)
@@ -26,8 +26,8 @@ def test_audit_multiple_uncommitted_node_regs(looper, tdir, tconf, allPluginsPat
         # Add Node5
         new_node = add_new_node(looper,
                                 fast_nodes,
-                                sdk_pool_handle,
-                                sdk_wallet_steward,
+                                vdr_pool_handle,
+                                vdr_wallet_steward,
                                 tdir,
                                 tconf,
                                 allPluginsPath,
@@ -39,8 +39,8 @@ def test_audit_multiple_uncommitted_node_regs(looper, tdir, tconf, allPluginsPat
         # Add Node6
         new_node = add_new_node(looper,
                                 fast_nodes,
-                                sdk_pool_handle,
-                                sdk_wallet_steward,
+                                vdr_pool_handle,
+                                vdr_wallet_steward,
                                 tdir,
                                 tconf,
                                 allPluginsPath,
@@ -50,4 +50,4 @@ def test_audit_multiple_uncommitted_node_regs(looper, tdir, tconf, allPluginsPat
         start_delaying(new_node.nodeIbStasher, icDelay())
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=20)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle)

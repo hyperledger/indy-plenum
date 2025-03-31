@@ -17,14 +17,14 @@ nodes_wth_bls = 0
 
 
 def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
-                                            looper, sdk_wallet_stewards, sdk_pool_handle):
+                                            looper, vdr_wallet_stewards, vdr_pool_handle):
     request_count = 5
     demoted_node = txnPoolNodeSet[2]
     alive_pool = list(txnPoolNodeSet)
     alive_pool.remove(demoted_node)
 
-    demote_node(looper, sdk_wallet_stewards[2], sdk_pool_handle, demoted_node)
-    demote_node(looper, sdk_wallet_stewards[2], sdk_pool_handle, demoted_node)
+    demote_node(looper, vdr_wallet_stewards[2], vdr_pool_handle, demoted_node)
+    demote_node(looper, vdr_wallet_stewards[2], vdr_pool_handle, demoted_node)
 
     demoted_nym = None
     for _, txn in txnPoolNodeSet[0].poolManager.ledger.getAllTxn():
@@ -37,8 +37,8 @@ def test_twice_demoted_node_dont_write_txns(txnPoolNodeSet,
     assert all(node.write_manager.get_node_data(demoted_nym)[SERVICES] == []
                for node in alive_pool)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_stewards[0], request_count)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_stewards[0], request_count)
 
     looper.run(
         eventually(
@@ -60,8 +60,8 @@ def test_get_nym_by_name_not_in_registry(txnPoolNodeSet, pool_node_txns):
 
 
 def test_get_nym_by_name_demoted(txnPoolNodeSet, pool_node_txns,
-                                 looper, sdk_wallet_stewards, sdk_pool_handle):
-    demote_node(looper, sdk_wallet_stewards[0], sdk_pool_handle,
+                                 looper, vdr_wallet_stewards, vdr_pool_handle):
+    demote_node(looper, vdr_wallet_stewards[0], vdr_pool_handle,
                 txnPoolNodeSet[0])
     check_get_nym_by_name(txnPoolNodeSet, pool_node_txns)
 

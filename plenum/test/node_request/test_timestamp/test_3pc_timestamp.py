@@ -22,7 +22,7 @@ def tconf(tconf):
     tconf.Max3PCBatchSize = oldMax3PCBatchSize
 
 
-def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def test_replicas_prepare_time(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     last_domain_seq_no = txnPoolNodeSet[0].domainLedger.size + 1
 
     # Check that each replica's PREPARE time is same as the PRE-PREPARE time
@@ -30,8 +30,8 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
     for i in range(sent_batches):
         vdr_send_random_and_check(looper,
                                   txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   count=2)
         looper.runFor(1)
 
@@ -65,15 +65,15 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
 
 
 def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet,
-                                              sdk_wallet_client, sdk_pool_handle):
+                                              vdr_wallet_client, vdr_pool_handle):
     """
     One of the non-primary has an in-correct clock so it thinks PRE-PREPARE
     has incorrect time
     """
     vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               count=2)
     # send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
     # The replica having the bad clock
@@ -86,8 +86,8 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet,
     old_susp_count = get_timestamp_suspicion_count(confused_npr.node)
     vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               count=2)
 
     assert get_timestamp_suspicion_count(confused_npr.node) > old_susp_count

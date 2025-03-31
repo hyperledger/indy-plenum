@@ -1,7 +1,7 @@
 import pytest
 from plenum.common.constants import VALIDATOR
 
-from plenum.test.pool_transactions.helper import sdk_send_update_node, sdk_pool_refresh
+from plenum.test.pool_transactions.helper import vdr_send_update_node, vdr_pool_refresh
 from stp_core.common.log import getlogger
 from plenum.common.util import hexToFriendly
 from plenum.test import waits
@@ -40,7 +40,7 @@ def changeNodeHa(looper, txnPoolNodeSet,
     # change HA
     sdk_wallet_steward = sdk_wallet_stewards[node_index]
     node_dest = hexToFriendly(subjectedNode.nodestack.verhex)
-    sdk_send_update_node(looper, sdk_wallet_steward,
+    vdr_send_update_node(looper, sdk_wallet_steward,
                          sdk_pool_handle,
                          node_dest, subjectedNode.name,
                          nodeStackNewHA[0], nodeStackNewHA[1],
@@ -70,7 +70,7 @@ def changeNodeHa(looper, txnPoolNodeSet,
                         retryWait=1,
                         customTimeout=electionTimeout)
 
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    vdr_pool_refresh(looper, sdk_pool_handle)
     vdr_send_random_and_check(looper, txnPoolNodeSet,
                               sdk_pool_handle,
                               sdk_wallet_client,

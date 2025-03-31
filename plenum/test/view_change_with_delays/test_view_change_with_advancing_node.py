@@ -6,7 +6,7 @@ from plenum.test.delayers import cDelay
 from plenum.test.helper import vdr_send_random_and_check, \
     vdr_send_random_requests, vdr_get_replies, perf_monitor_disabled
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
@@ -19,8 +19,8 @@ def tconf(tconf):
 
 
 def test_delay_commits(txnPoolNodeSet, looper,
-                       sdk_pool_handle,
-                       sdk_wallet_client,
+                       vdr_pool_handle,
+                       vdr_wallet_client,
                        tconf):
     """
     #3
@@ -41,8 +41,8 @@ def test_delay_commits(txnPoolNodeSet, looper,
     Expected result with current view change:
     node X can't finish second transaction
     """
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
     nodes_stashers = [n.nodeIbStasher for n in txnPoolNodeSet
                       if n != txnPoolNodeSet[-1]]
     for _ in range(2):
@@ -50,8 +50,8 @@ def test_delay_commits(txnPoolNodeSet, looper,
                                               nodes_stashers,
                                               txnPoolNodeSet[-1],
                                               looper,
-                                              sdk_pool_handle,
-                                              sdk_wallet_client)
+                                              vdr_pool_handle,
+                                              vdr_wallet_client)
 
 
 def do_view_change_with_delayed_commits_on_all_but_one(nodes, nodes_without_one_stashers,
@@ -83,7 +83,7 @@ def do_view_change_with_delayed_commits_on_all_but_one(nodes, nodes_without_one_
 
     vdr_get_replies(looper, requests2)
     ensure_all_nodes_have_same_data(looper, nodes)
-    sdk_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
 
 
 def last_prepared_certificate(nodes, num):

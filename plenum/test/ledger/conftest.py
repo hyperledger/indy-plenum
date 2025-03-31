@@ -14,10 +14,10 @@ def create_txns(looper, sdk_wallet_client, count=TXNS_IN_BATCH):
 
 
 @pytest.fixture(scope='module')
-def created_txns(ledger, looper, sdk_wallet_client):
+def created_txns(ledger, looper, vdr_wallet_client):
     txns = []
     for i in range(NUM_BATCHES):
-        txns.append(create_txns(looper, sdk_wallet_client, TXNS_IN_BATCH))
+        txns.append(create_txns(looper, vdr_wallet_client, TXNS_IN_BATCH))
     return txns
 
 

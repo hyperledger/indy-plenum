@@ -21,8 +21,8 @@ def tconf(tconf):
 
 def test_catchup_with_reask_ls(txnPoolNodeSet,
                                looper,
-                               sdk_pool_handle,
-                               sdk_wallet_steward,
+                               vdr_pool_handle,
+                               vdr_wallet_steward,
                                tconf,
                                tdir,
                                allPluginsPath):
@@ -33,13 +33,13 @@ def test_catchup_with_reask_ls(txnPoolNodeSet,
     '''
     lagged_node = txnPoolNodeSet[-1]
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+                              vdr_pool_handle, vdr_wallet_steward, 5)
     lagged_node.nodeIbStasher.delay(msg_rep_delay(types_to_delay=[COMMIT]))
 
     with delay_rules_without_processing(lagged_node.nodeIbStasher, delay_3pc(),
                                         msg_rep_delay(types_to_delay=[COMMIT])):
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_steward,
+                                  vdr_pool_handle, vdr_wallet_steward,
                                   2)
         lagged_node.nodeIbStasher.drop_delayeds()
     with delay_rules_without_processing(lagged_node.nodeIbStasher,
@@ -62,8 +62,8 @@ def test_catchup_with_reask_ls(txnPoolNodeSet,
 
 def test_catchup_with_reask_cp(txnPoolNodeSet,
                                looper,
-                               sdk_pool_handle,
-                               sdk_wallet_steward,
+                               vdr_pool_handle,
+                               vdr_wallet_steward,
                                tconf,
                                tdir,
                                allPluginsPath):
@@ -74,11 +74,11 @@ def test_catchup_with_reask_cp(txnPoolNodeSet,
     '''
     lagged_node = txnPoolNodeSet[-1]
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+                              vdr_pool_handle, vdr_wallet_steward, 5)
     with delay_rules_without_processing(lagged_node.nodeIbStasher, delay_3pc(),
                                         msg_rep_delay(types_to_delay=[COMMIT])):
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_steward,
+                                  vdr_pool_handle, vdr_wallet_steward,
                                   2)
         lagged_node.nodeIbStasher.drop_delayeds()
 

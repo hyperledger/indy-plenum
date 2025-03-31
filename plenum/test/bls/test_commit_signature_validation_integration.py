@@ -5,8 +5,8 @@ from orderedset._orderedset import OrderedSet
 from plenum.common.constants import STEWARD_STRING
 from plenum.test.helper import vdr_send_random_request, get_key_from_req, vdr_get_and_check_replies, \
     vdr_send_random_and_check
-from plenum.test.pool_transactions.helper import prepare_node_request, \
-    sdk_sign_and_send_prepared_request, sdk_add_new_nym, prepare_new_node_data
+from plenum.test.pool_transactions.helper import vdr_prepare_node_request, \
+    vdr_sign_and_send_prepared_request, vdr_add_new_nym, prepare_new_node_data
 from stp_core.loop.eventually import eventually
 
 
@@ -29,9 +29,9 @@ def ord_delay(nodes):
 
 def test_commit_signature_validation_integration(looper,
                                                  txnPoolNodeSet,
-                                                 sdk_pool_handle,
-                                                 sdk_wallet_steward,
-                                                 sdk_wallet_client,
+                                                 vdr_pool_handle,
+                                                 vdr_wallet_steward,
+                                                 vdr_wallet_client,
                                                  tconf,
                                                  tdir):
     '''
@@ -45,13 +45,13 @@ def test_commit_signature_validation_integration(looper,
     fast_nodes = txnPoolNodeSet[:2]
     slow_nodes = txnPoolNodeSet[2:]
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 1)
 
     # create new steward
-    new_steward_wallet_handle = sdk_add_new_nym(looper,
-                                                sdk_pool_handle,
-                                                sdk_wallet_steward,
+    new_steward_wallet_handle = vdr_add_new_nym(looper,
+                                                vdr_pool_handle,
+                                                vdr_wallet_steward,
                                                 alias="testClientSteward945",
                                                 role=STEWARD_STRING)
 
@@ -60,7 +60,7 @@ def test_commit_signature_validation_integration(looper,
 
     # create node request to add new demote node
     _, steward_did = new_steward_wallet_handle
-    node_request = prepare_node_request(steward_did,
+    node_request = vdr_prepare_node_request(steward_did,
                              new_node_name="new_node",
                              clientIp=clientIp,
                              clientPort=clientPort,
@@ -73,8 +73,8 @@ def test_commit_signature_validation_integration(looper,
 
     first_ordered = txnPoolNodeSet[0].master_last_ordered_3PC
     with ord_delay(slow_nodes):
-        request1 = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
-                                                      sdk_pool_handle, node_request)
+        request1 = vdr_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
+                                                      vdr_pool_handle, node_request)
 
         key1 = get_key_from_req(request1[0])
 
@@ -92,7 +92,7 @@ def test_commit_signature_validation_integration(looper,
 
         looper.run(eventually(check_fast_nodes_ordered_request))
 
-        request2 = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+        request2 = vdr_send_random_request(looper, vdr_pool_handle, vdr_wallet_client)
         looper.run(eventually(check_nodes_receive_pp, first_ordered[0], first_ordered[1] + 2))
 
         def check_nodes_receive_commits(view_no, seq_no):

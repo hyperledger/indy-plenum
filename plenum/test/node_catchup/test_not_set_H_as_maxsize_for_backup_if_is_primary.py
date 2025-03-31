@@ -31,8 +31,8 @@ def tconf(tconf):
 
 def test_set_H_as_maxsize_for_backup_if_is_primary(looper,
                                                    txnPoolNodeSet,
-                                                   sdk_pool_handle,
-                                                   sdk_wallet_steward,
+                                                   vdr_pool_handle,
+                                                   vdr_wallet_steward,
                                                    tconf,
                                                    tdir,
                                                    allPluginsPath):
@@ -57,8 +57,8 @@ def test_set_H_as_maxsize_for_backup_if_is_primary(looper,
 
         vdr_send_random_and_check(looper,
                                   txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_steward,
+                                  vdr_pool_handle,
+                                  vdr_wallet_steward,
                                   LOG_SIZE)
 
         # Check restored state

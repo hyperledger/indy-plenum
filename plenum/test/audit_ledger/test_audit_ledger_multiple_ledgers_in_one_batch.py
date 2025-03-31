@@ -6,7 +6,7 @@ from plenum.common.ledger import Ledger
 from plenum.common.transactions import PlenumTransactions
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
 from plenum.test.helper import vdr_gen_request, gen_request_plenum
-from plenum.test.wallet_helper import create_and_store_did
+from plenum.test.wallet_helper import vdr_create_and_store_did
 from indy_vdr.ledger import build_nym_request, build_pool_config_request
 
 

@@ -26,22 +26,22 @@ TIMESTAMP_V2 = None  # type: Optional[int]
 
 
 @pytest.fixture(scope='module')
-def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml, looper, sdk_pool_handle,
-                                   sdk_wallet_trustee):
+def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, set_txn_author_agreement_aml, looper, vdr_pool_handle,
+                                   vdr_wallet_trustee):
     global RATIFIED_V1, RATIFIED_V2
     global TIMESTAMP_V1, TIMESTAMP_V2
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
     RATIFIED_V1 = get_utc_epoch() - 30
-    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, V1, TEXT_V1, RATIFIED_V1)
+    reply = sdk_send_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_trustee, V1, TEXT_V1, RATIFIED_V1)
     TIMESTAMP_V1 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
     RATIFIED_V2 = get_utc_epoch() - 30
-    reply = sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, V2, TEXT_V2, RATIFIED_V2)
+    reply = sdk_send_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_trustee, V2, TEXT_V2, RATIFIED_V2)
     TIMESTAMP_V2 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
-    sdk_send_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, V1, retired=TIMESTAMP_V1)
+    sdk_send_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_trustee, V1, retired=TIMESTAMP_V1)
     return txnPoolNodeSet
 
 
@@ -74,8 +74,8 @@ def taa_value(result, text, version, digest, retired=None, ratified=None):
 
 
 def test_get_txn_author_agreement_returns_latest_taa_by_default(looper, set_txn_author_agreement_aml, nodeSetWithTaa,
-                                                                sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client)[1]
+                                                                vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client)[1]
     assert reply['op'] == REPLY
 
     result = reply['result']
@@ -86,8 +86,8 @@ def test_get_txn_author_agreement_returns_latest_taa_by_default(looper, set_txn_
 
 
 def test_get_txn_author_agreement_can_return_taa_for_old_version(looper, nodeSetWithTaa,
-                                                                 sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
+                                                                 vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client,
                                          version=V1)[1]
     assert reply['op'] == REPLY
 
@@ -99,8 +99,8 @@ def test_get_txn_author_agreement_can_return_taa_for_old_version(looper, nodeSet
 
 
 def test_get_txn_author_agreement_can_return_taa_for_current_version(looper, nodeSetWithTaa,
-                                                                     sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
+                                                                     vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client,
                                          version=V2)[1]
     assert reply['op'] == REPLY
 
@@ -111,9 +111,9 @@ def test_get_txn_author_agreement_can_return_taa_for_current_version(looper, nod
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_version(looper, nodeSetWithTaa,
-                                                                            sdk_pool_handle, sdk_wallet_client):
+                                                                            vdr_pool_handle, vdr_wallet_client):
     invalid_version = randomString(16)
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client,
                                          version=invalid_version)[1]
     assert reply['op'] == REPLY
 
@@ -123,8 +123,8 @@ def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_version(loop
 
 
 def test_get_txn_author_agreement_can_return_taa_for_old_digest(looper, nodeSetWithTaa,
-                                                                sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
+                                                                vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client,
                                          digest=DIGEST_V1)[1]
     assert reply['op'] == REPLY
 
@@ -139,8 +139,8 @@ def test_get_txn_author_agreement_can_return_taa_for_old_digest(looper, nodeSetW
 
 
 def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, nodeSetWithTaa,
-                                                                    sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
+                                                                    vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client,
                                          digest=DIGEST_V2)[1]
     assert reply['op'] == REPLY
 
@@ -153,9 +153,9 @@ def test_get_txn_author_agreement_can_return_taa_for_current_digest(looper, node
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_digest(looper, nodeSetWithTaa,
-                                                                           sdk_pool_handle, sdk_wallet_client):
+                                                                           vdr_pool_handle, vdr_wallet_client):
     invalid_digest = randomString(16)
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client,
                                          digest=invalid_digest)[1]
     assert reply['op'] == REPLY
 
@@ -165,8 +165,8 @@ def test_get_txn_author_agreement_doesnt_return_taa_for_nonexistent_digest(loope
 
 
 def test_get_txn_author_agreement_can_return_taa_for_old_ts(looper, nodeSetWithTaa,
-                                                            sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
+                                                            vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client,
                                          timestamp=TIMESTAMP_V2 - 2)[1]
     assert reply['op'] == REPLY
 
@@ -178,8 +178,8 @@ def test_get_txn_author_agreement_can_return_taa_for_old_ts(looper, nodeSetWithT
 
 
 def test_get_txn_author_agreement_can_return_taa_for_fresh_ts(looper, nodeSetWithTaa,
-                                                              sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
+                                                              vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client,
                                          timestamp=TIMESTAMP_V2 + 2)[1]
     assert reply['op'] == REPLY
 
@@ -191,8 +191,8 @@ def test_get_txn_author_agreement_can_return_taa_for_fresh_ts(looper, nodeSetWit
 
 
 def test_get_txn_author_agreement_doesnt_return_taa_when_it_didnt_exist(looper, nodeSetWithTaa,
-                                                                        sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client,
+                                                                        vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client,
                                          timestamp=TIMESTAMP_V1 - 2)[1]
     assert reply['op'] == REPLY
 

@@ -16,7 +16,7 @@ def tconf(tconf):
 
 
 def test_vc_started_in_different_time(looper, txnPoolNodeSet,
-                                                   sdk_wallet_client, sdk_pool_handle,
+                                                   vdr_wallet_client, vdr_pool_handle,
                                                    tconf, tdir, allPluginsPath):
 
     alpha, beta, gamma, delta = txnPoolNodeSet
@@ -37,7 +37,7 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
 
     # Ensure that pool is still functional
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
 
     # Restart Alpha, Beta
     for i, node in enumerate([alpha, beta]):
@@ -51,5 +51,5 @@ def test_vc_started_in_different_time(looper, txnPoolNodeSet,
 
     # Ensure that pool is still functional
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

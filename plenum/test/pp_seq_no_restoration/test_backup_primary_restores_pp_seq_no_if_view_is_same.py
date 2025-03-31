@@ -21,7 +21,7 @@ num_batches = 7
 
 
 def test_backup_primary_restores_pp_seq_no_if_view_is_same(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
         tconf, tdir, allPluginsPath, chkFreqPatched, view_no):
     # Get a node with a backup primary replica
     replica = getPrimaryReplica(txnPoolNodeSet, instId=backup_inst_id)
@@ -29,7 +29,7 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
     node = replica.node
     # Send some 3PC-batches and wait until the replica orders the 3PC-batches
     vdr_send_batches_of_random(looper, txnPoolNodeSet,
-                               sdk_pool_handle, sdk_wallet_client,
+                               vdr_pool_handle, vdr_wallet_client,
                                num_reqs=7, num_batches=num_batches,
                                timeout=tconf.Max3PCBatchWait)
     batches_count += num_batches
@@ -83,7 +83,7 @@ def test_backup_primary_restores_pp_seq_no_if_view_is_same(
 
     # Send a 3PC-batch and ensure that the replica orders it
     vdr_send_batches_of_random(looper, txnPoolNodeSet,
-                               sdk_pool_handle, sdk_wallet_client,
+                               vdr_pool_handle, vdr_wallet_client,
                                num_reqs=1, num_batches=1,
                                timeout=tconf.Max3PCBatchWait)
     batches_count += 1

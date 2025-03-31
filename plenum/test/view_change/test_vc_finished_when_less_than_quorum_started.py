@@ -17,7 +17,7 @@ def tconf(tconf):
 
 
 def test_vc_finished_when_less_than_quorum_started(looper, txnPoolNodeSet,
-                                                   sdk_wallet_client, sdk_pool_handle,
+                                                   vdr_wallet_client, vdr_pool_handle,
                                                    tconf, tdir, allPluginsPath):
 
     alpha, beta, gamma, delta = txnPoolNodeSet
@@ -38,7 +38,7 @@ def test_vc_finished_when_less_than_quorum_started(looper, txnPoolNodeSet,
 
     # Ensure that pool is still functional
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
 
     # Alpha and Gamma send InstanceChange for all nodes.
     for node in [gamma, alpha]:
@@ -50,5 +50,5 @@ def test_vc_finished_when_less_than_quorum_started(looper, txnPoolNodeSet,
 
     # Ensure that pool is still functional
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

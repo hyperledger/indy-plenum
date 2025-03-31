@@ -5,7 +5,7 @@ from plenum.common.constants import TRUSTEE_STRING
 from plenum.common.exceptions import RequestRejectedException
 from plenum.test.helper import vdr_get_and_check_replies, assertExp, vdr_send_random_requests
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
-from plenum.test.pool_transactions.helper import sdk_add_new_nym, sdk_add_new_steward_and_node, sdk_pool_refresh
+from plenum.test.pool_transactions.helper import vdr_add_new_nym, vdr_add_new_steward_and_node, vdr_pool_refresh
 from plenum.test.test_node import checkNodesConnected
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -15,9 +15,9 @@ logger = getlogger()
 
 def test_resending_pending_client_msgs(looper,
                                        txnPoolNodeSet,
-                                       sdk_pool_handle,
-                                       sdk_wallet_client,
-                                       sdk_wallet_steward,
+                                       vdr_pool_handle,
+                                       vdr_wallet_client,
+                                       vdr_wallet_steward,
                                        tdir, tconf, allPluginsPath,
                                        monkeypatch):
     problem_node = txnPoolNodeSet[1]
@@ -34,9 +34,9 @@ def test_resending_pending_client_msgs(looper,
 
     start_master_last_ordered_3pc = txnPoolNodeSet[0].master_last_ordered_3PC[1]
     # Send the first request. Nodes should reject it.
-    resp_task = sdk_add_new_nym(looper,
-                                sdk_pool_handle,
-                                sdk_wallet_client,
+    resp_task = vdr_add_new_nym(looper,
+                                vdr_pool_handle,
+                                vdr_wallet_client,
                                 role=TRUSTEE_STRING,
                                 no_wait=True)
     looper.run(
@@ -47,7 +47,7 @@ def test_resending_pending_client_msgs(looper,
     monkeypatch.delattr(problem_node.clientstack.listener, 'send_multipart', raising=True)
 
     # Send the second request.
-    sdk_reqs = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    sdk_reqs = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
 
     # Waiting reject for the first request, which will sent with a reply for the second request.
     with pytest.raises(RequestRejectedException, match="Only Steward is allowed to do these transactions"):

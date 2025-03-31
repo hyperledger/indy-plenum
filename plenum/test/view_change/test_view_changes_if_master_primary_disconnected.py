@@ -8,8 +8,8 @@ from plenum.test.test_node import get_master_primary_node, ensure_node_disconnec
 from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check, waitForViewChange
 
 
-def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, sdk_pool_handle,
-                                                     sdk_wallet_client, tdir, tconf, allPluginsPath):
+def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, vdr_pool_handle,
+                                                     vdr_wallet_client, tdir, tconf, allPluginsPath):
     """
     View change occurs when master's primary is disconnected
     """
@@ -40,7 +40,7 @@ def test_view_changes_if_master_primary_disconnected(txnPoolNodeSet, looper, sdk
     new_pr_node = get_master_primary_node(remaining_nodes)
     assert old_pr_node != new_pr_node
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 5)
 
     # Check if old primary can join the pool and still functions
     old_pr_node = start_stopped_node(old_pr_node, looper, tconf,

@@ -4,9 +4,7 @@ import json
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION
 from plenum.test.delayers import ppDelay, req_delay
-from plenum.test.helper import vdr_json_to_request_object, \
-    vdr_send_random_requests, vdr_random_request_objects, vdr_multisign_request_object, vdr_send_signed_requests, \
-    vdr_get_and_check_replies, vdr_get_replies
+from plenum.test.helper import vdr_send_random_requests, vdr_get_replies, sdk_random_request_objects, sdk_multisign_request_object, sdk_send_signed_requests, sdk_get_and_check_replies
 from plenum.test.node_request.test_reply_from_ledger_for_request import deserialize_req
 from stp_core.loop.eventually import eventually
 from plenum.common.exceptions import InsufficientCorrectSignatures, RequestNackedException
@@ -32,8 +30,8 @@ faultyNodes = 1
 def testOneNodeAltersAClientRequest(looper,
                                     txnPoolNodeSet,
                                     evilAlpha,
-                                    sdk_pool_handle,
-                                    sdk_wallet_client):
+                                    vdr_pool_handle,
+                                    vdr_wallet_client):
     """Malicious Alpha node sends incorrect propagate. This test check that
     nodes raise InsufficientCorrectSignatures in validate this propagate"""
 
@@ -52,7 +50,7 @@ def testOneNodeAltersAClientRequest(looper,
         n.nodeIbStasher.delay(req_delay(0.250))
     pastNodes = []
 
-    sent1 = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    sent1 = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
     sent1 = vdr_get_replies(looper, sent1)
     #sent1 = sdk_json_to_request_object(request_couple_json[0][0])
     checkPropagated(looper, txnPoolNodeSet, sent1, faultyNodes)
@@ -83,20 +81,20 @@ def testOneNodeAltersAClientRequest(looper,
     looper.run(eventually(check, retryWait=1, timeout=timeout))
 
 #indy-sdk request manipulation test (invalid in vdr)
-def test_request_with_incorrect_multisig_signatures(looper, sdk_pool_handle, sdk_wallet_client, sdk_wallet_client2):
-    req = vdr_random_request_objects(1, identifier=sdk_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
+def test_request_with_incorrect_multisig_signatures(looper, vdr_pool_handle, vdr_wallet_client, vdr_wallet_client2):
+    req = sdk_random_request_objects(1, identifier=vdr_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
 
-    req = vdr_multisign_request_object(looper, sdk_wallet_client, json.dumps(req.as_dict))
+    req = sdk_multisign_request_object(looper, vdr_wallet_client, json.dumps(req.as_dict))
     req = deserialize_req(req)
     req.signatures[req.identifier] = 'garbage'
 
-    multisig_req = vdr_multisign_request_object(looper, sdk_wallet_client2, json.dumps(req.as_dict))
+    multisig_req = sdk_multisign_request_object(looper, vdr_wallet_client2, json.dumps(req.as_dict))
 
-    rep1 = vdr_send_signed_requests(sdk_pool_handle, [multisig_req], looper)
+    rep1 = sdk_send_signed_requests(vdr_pool_handle, [multisig_req])
 
     invalid_signatures = 'did={}, signature={}'.format(req.identifier, req.signatures[req.identifier])
     expected_error_message = 'Reason: client request invalid: {}'.\
         format(InsufficientCorrectSignatures.reason.format(2, 1, 1, invalid_signatures))
 
     with pytest.raises(RequestNackedException, match=expected_error_message):
-        vdr_get_and_check_replies(looper, rep1)
+        sdk_get_and_check_replies(looper, rep1)

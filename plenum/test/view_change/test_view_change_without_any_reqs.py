@@ -42,7 +42,7 @@ def tconf(tconf):
 
 
 def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
-                              sdk_pool_handle, sdk_wallet_client):
+                              vdr_pool_handle, vdr_wallet_client):
     """
     Do view change on a without any requests
     """
@@ -52,7 +52,7 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
     delay_3pc = 10
     delay_3pc_messages(txnPoolNodeSet, 0, delay_3pc)
     sent_batches = 2
-    vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client,
                              sent_batches * tconf.Max3PCBatchSize)
 
     def chk1():
@@ -70,6 +70,6 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
     check_uncommitteds_equal(txnPoolNodeSet)
 
     reset_delays_and_process_delayeds(txnPoolNodeSet)
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                               2 * Max3PCBatchSize, add_delay_to_timeout=delay_3pc)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

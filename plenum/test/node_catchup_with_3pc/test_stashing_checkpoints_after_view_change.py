@@ -36,8 +36,8 @@ def test_checkpoints_after_view_change(tconf,
                                        chkFreqPatched,
                                        reqs_for_checkpoint,
                                        txnPoolNodeSet,
-                                       sdk_pool_handle,
-                                       sdk_wallet_client):
+                                       vdr_pool_handle,
+                                       vdr_wallet_client):
     '''
     Tests that there is no infinite catchups if there is
     a quorum of stashed checkpoints received during the view change
@@ -68,8 +68,8 @@ def test_checkpoints_after_view_change(tconf,
             # stash enough stable checkpoints for starting a catch-up
             num_checkpoints = Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1
             num_reqs = reqs_for_checkpoint * num_checkpoints + 1
-            vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                      sdk_wallet_client,
+            vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                      vdr_wallet_client,
                                       num_reqs)
             looper.run(
                 eventually(check_last_ordered_3pc_on_master, rest_nodes,

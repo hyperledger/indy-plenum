@@ -21,7 +21,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     """
     Replicas should not accept PRE-PREPARE for view "v" and prepare sequence
     number "n" if it has already accepted a request with view number "v" and
@@ -41,8 +41,8 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
         node.nodeIbStasher.delay(cDelay(delay=c_delay, instId=1))
 
     req1 = vdr_send_random_requests(looper,
-                                    sdk_pool_handle,
-                                    sdk_wallet_client,
+                                    vdr_pool_handle,
+                                    vdr_wallet_client,
                                     1)[0]
     request1 = vdr_json_to_request_object(req1[0])
     for npr in nonPrimaryReplicas:
@@ -74,8 +74,8 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     view_no = primaryRepl.viewNo
     request2 = vdr_json_to_request_object(
         vdr_send_random_requests(looper,
-                                 sdk_pool_handle,
-                                 sdk_wallet_client,
+                                 vdr_pool_handle,
+                                 vdr_wallet_client,
                                  1)[0][0])
     timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet))
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,

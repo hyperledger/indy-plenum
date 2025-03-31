@@ -3,7 +3,7 @@ import pytest
 from plenum.test.delayers import icDelay, delay_for_view, vc_delay
 from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkProtocolInstanceSetup, ensureElectionsDone
 from plenum.test.view_change_service.helper import trigger_view_change
@@ -12,7 +12,7 @@ nodeCount = 7
 
 
 def test_catchup_to_next_view_during_view_change_0_to_1_then_1_to_2(txnPoolNodeSet, looper,
-                                                                    sdk_pool_handle, sdk_wallet_steward):
+                                                                    vdr_pool_handle, vdr_wallet_steward):
     '''
     1) Lagging node is not a primary for new views
     2) All nodes except the lagging one go to view=1
@@ -40,7 +40,7 @@ def test_catchup_to_next_view_during_view_change_0_to_1_then_1_to_2(txnPoolNodeS
 
             # order some txns
             vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                      sdk_pool_handle, sdk_wallet_steward, 5)
+                                      vdr_pool_handle, vdr_wallet_steward, 5)
 
             # view change to viewNo=2
             trigger_view_change(txnPoolNodeSet)
@@ -52,7 +52,7 @@ def test_catchup_to_next_view_during_view_change_0_to_1_then_1_to_2(txnPoolNodeS
 
             # order some txns
             vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                      sdk_pool_handle, sdk_wallet_steward, 5)
+                                      vdr_pool_handle, vdr_wallet_steward, 5)
 
             assert initial_view_no == lagging_node.viewNo
             assert initial_last_ordered == lagging_node.master_last_ordered_3PC
@@ -69,12 +69,12 @@ def test_catchup_to_next_view_during_view_change_0_to_1_then_1_to_2(txnPoolNodeS
     ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
     # make sure that the pool is functional
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)
 
 
 @pytest.mark.skip("INDY-2044")
 def test_catchup_to_next_view_during_view_change_0_to_2(txnPoolNodeSet, looper,
-                                                        sdk_pool_handle, sdk_wallet_steward):
+                                                        vdr_pool_handle, vdr_wallet_steward):
     '''
     1) Lagging node is not a primary for new views
     2) All nodes except the lagging one go to view=1
@@ -101,7 +101,7 @@ def test_catchup_to_next_view_during_view_change_0_to_2(txnPoolNodeSet, looper,
 
         # order some txns
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_steward, 5)
+                                  vdr_pool_handle, vdr_wallet_steward, 5)
 
         # view change to viewNo=2
         trigger_view_change(txnPoolNodeSet)
@@ -113,7 +113,7 @@ def test_catchup_to_next_view_during_view_change_0_to_2(txnPoolNodeSet, looper,
 
         # order some txns
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_steward, 5)
+                                  vdr_pool_handle, vdr_wallet_steward, 5)
 
         assert initial_view_no == lagging_node.viewNo
         assert initial_last_ordered == lagging_node.master_last_ordered_3PC
@@ -125,4 +125,4 @@ def test_catchup_to_next_view_during_view_change_0_to_2(txnPoolNodeSet, looper,
     ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
     # make sure that the pool is functional
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)

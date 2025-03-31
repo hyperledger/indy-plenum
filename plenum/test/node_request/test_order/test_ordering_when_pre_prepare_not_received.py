@@ -9,7 +9,7 @@ from plenum.test.test_node import getNonPrimaryReplicas
 
 
 def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
-                                          sdk_wallet_client, sdk_pool_handle):
+                                          vdr_wallet_client, vdr_pool_handle):
     """
     Send commits but delay pre-prepare and prepares such that enough
     commits are received, now the request should not be ordered until
@@ -42,7 +42,7 @@ def testOrderingWhenPrePrepareNotReceived(looper, txnPoolNodeSet,
     def chk1():
         assert len(slow_rep._ordering_service.commitsWaitingForPrepare) > 0
 
-    vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+    vdr_send_random_request(looper, vdr_pool_handle, vdr_wallet_client)
     timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet)) + delay
     looper.run(eventually(chk1, retryWait=1, timeout=timeout))
 

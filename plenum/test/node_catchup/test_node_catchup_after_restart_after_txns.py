@@ -36,7 +36,7 @@ def tconf(tconf):
 # and after prepares, respectively. Here is the pivotal link
 # https://www.pivotaltracker.com/story/show/127897273
 def test_node_catchup_after_restart_with_txns(
-        sdk_new_node_caught_up,
+        vdr_new_node_caught_up,
         txnPoolNodeSet,
         tdir,
         tconf,

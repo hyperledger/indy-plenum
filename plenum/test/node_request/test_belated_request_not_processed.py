@@ -7,14 +7,14 @@ from plenum.test.view_change.helper import ensure_view_change
 
 
 def test_repeated_request_not_processed_if_already_ordered(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
 
-    one_req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
-    vdr_send_and_check(one_req, looper, txnPoolNodeSet, sdk_pool_handle)
+    one_req = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
+    vdr_send_and_check(one_req, looper, txnPoolNodeSet, vdr_pool_handle)
 
-    vdr_send_signed_requests(sdk_pool_handle, one_req, looper)
+    vdr_send_signed_requests(vdr_pool_handle, one_req, looper)
     looper.runFor(waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)))
 
     for node in txnPoolNodeSet:
@@ -22,13 +22,13 @@ def test_repeated_request_not_processed_if_already_ordered(
 
 
 def test_belated_request_not_processed_if_already_ordered(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.clientIbStasher.delay(req_delay(300))
 
-    one_req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
-    vdr_send_and_check(one_req, looper, txnPoolNodeSet, sdk_pool_handle)
+    one_req = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
+    vdr_send_and_check(one_req, looper, txnPoolNodeSet, vdr_pool_handle)
 
     delta.clientIbStasher.reset_delays_and_process_delayeds()
     looper.runFor(waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)))
@@ -38,13 +38,13 @@ def test_belated_request_not_processed_if_already_ordered(
 
 
 def test_belated_propagate_not_processed_if_already_ordered(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.nodeIbStasher.delay(ppgDelay(300, 'Gamma'))
 
-    one_req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
-    vdr_send_and_check(one_req, looper, txnPoolNodeSet, sdk_pool_handle)
+    one_req = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
+    vdr_send_and_check(one_req, looper, txnPoolNodeSet, vdr_pool_handle)
 
     delta.nodeIbStasher.reset_delays_and_process_delayeds()
     looper.runFor(waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)))
@@ -54,20 +54,20 @@ def test_belated_propagate_not_processed_if_already_ordered(
 
 
 def test_repeated_request_not_processed_if_already_in_3pc_process(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(cDelay(300))
 
-    one_req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
-    vdr_send_signed_requests(sdk_pool_handle, one_req, looper)
+    one_req = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
+    vdr_send_signed_requests(vdr_pool_handle, one_req, looper)
     looper.runFor(waits.expectedPropagateTime(len(txnPoolNodeSet)) +
                   waits.expectedPrePrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedPrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedCommittedTime(len(txnPoolNodeSet)))
 
-    vdr_send_signed_requests(sdk_pool_handle, one_req, looper)
+    vdr_send_signed_requests(vdr_pool_handle, one_req, looper)
     looper.runFor(waits.expectedPropagateTime(len(txnPoolNodeSet)) +
                   waits.expectedPrePrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedPrepareTime(len(txnPoolNodeSet)) +
@@ -82,15 +82,15 @@ def test_repeated_request_not_processed_if_already_in_3pc_process(
 
 
 def test_belated_request_not_processed_if_already_in_3pc_process(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.clientIbStasher.delay(req_delay(300))
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(cDelay(300))
 
-    one_req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
-    vdr_send_signed_requests(sdk_pool_handle, one_req, looper)
+    one_req = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
+    vdr_send_signed_requests(vdr_pool_handle, one_req, looper)
     looper.runFor(waits.expectedPropagateTime(len(txnPoolNodeSet)) +
                   waits.expectedPrePrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedPrepareTime(len(txnPoolNodeSet)) +
@@ -111,15 +111,15 @@ def test_belated_request_not_processed_if_already_in_3pc_process(
 
 
 def test_belated_propagate_not_processed_if_already_in_3pc_process(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.nodeIbStasher.delay(ppgDelay(300, 'Gamma'))
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(cDelay(300))
 
-    one_req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
-    vdr_send_signed_requests(sdk_pool_handle, one_req, looper)
+    one_req = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
+    vdr_send_signed_requests(vdr_pool_handle, one_req, looper)
     looper.runFor(waits.expectedPropagateTime(len(txnPoolNodeSet)) +
                   waits.expectedPrePrepareTime(len(txnPoolNodeSet)) +
                   waits.expectedPrepareTime(len(txnPoolNodeSet)) +
@@ -140,17 +140,17 @@ def test_belated_propagate_not_processed_if_already_in_3pc_process(
 
 
 def test_repeated_request_not_processed_after_view_change(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
 
-    one_req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
-    vdr_send_and_check(one_req, looper, txnPoolNodeSet, sdk_pool_handle)
+    one_req = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
+    vdr_send_and_check(one_req, looper, txnPoolNodeSet, vdr_pool_handle)
 
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
 
-    vdr_send_signed_requests(sdk_pool_handle, one_req, looper)
+    vdr_send_signed_requests(vdr_pool_handle, one_req, looper)
     looper.runFor(waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)))
 
     for node in txnPoolNodeSet:
@@ -158,13 +158,13 @@ def test_repeated_request_not_processed_after_view_change(
 
 
 def test_belated_request_not_processed_after_view_change(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.clientIbStasher.delay(req_delay(300))
 
-    one_req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
-    vdr_send_and_check(one_req, looper, txnPoolNodeSet, sdk_pool_handle)
+    one_req = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
+    vdr_send_and_check(one_req, looper, txnPoolNodeSet, vdr_pool_handle)
 
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)
@@ -177,13 +177,13 @@ def test_belated_request_not_processed_after_view_change(
 
 
 def test_belated_propagate_not_processed_after_view_change(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     delta = txnPoolNodeSet[3]
     initial_ledger_size = delta.domainLedger.size
     delta.nodeIbStasher.delay(ppgDelay(300, 'Gamma'))
 
-    one_req = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
-    vdr_send_and_check(one_req, looper, txnPoolNodeSet, sdk_pool_handle)
+    one_req = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
+    vdr_send_and_check(one_req, looper, txnPoolNodeSet, vdr_pool_handle)
 
     ensure_view_change(looper, txnPoolNodeSet)
     ensureElectionsDone(looper, txnPoolNodeSet)

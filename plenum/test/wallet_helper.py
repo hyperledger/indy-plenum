@@ -67,7 +67,7 @@ async def key_insert_helper(wallet_handle, keypair, did, verkey):
         )
 
 
-async def create_and_store_did(wallet_handle, seed=None):
+async def vdr_create_and_store_did(wallet_handle, seed=None):
     '''
     Create a new DID and store it in the wallet
     '''
@@ -75,7 +75,7 @@ async def create_and_store_did(wallet_handle, seed=None):
     await key_insert_helper(wallet_handle, keypair, did, verkey)
     return did, verkey
 
-async def wallet_helper(wallet_key='', wallet_key_derivation_method='kdf:argon2i:mod'):
+async def vdr_wallet_helper(wallet_key='', wallet_key_derivation_method='kdf:argon2i:mod'):
     wuri = "sqlite://:memory:"
     wallet_h = await Store.provision(wuri, wallet_key_derivation_method, wallet_key, recreate=False)
     session_handle = await wallet_h.session()
@@ -84,32 +84,32 @@ async def wallet_helper(wallet_key='', wallet_key_derivation_method='kdf:argon2i
 
     return session_handle, wallet_config, wallet_credentials
 
-async def pool_helper(path_to_genesis=POOL_GENESIS_PATH):
+async def vdr_pool_helper(path_to_genesis=POOL_GENESIS_PATH):
     set_protocol_version(2)
     pool_handle = await open_pool(transactions_path=path_to_genesis)
     return pool_handle, "default_pool_name"
 
-async def get_did_signing_key(wallet_handle, did):
+async def vdr_get_did_signing_key(wallet_handle, did):
     item = await wallet_handle.fetch("did", did, for_update=False)
     if item:
         kp = await wallet_handle.fetch_key(item.value_json.get("verkey"))
         return kp.key
     return None
 
-async def sign_request(wallet_handle, submitter_did, req):
-    key = await get_did_signing_key(wallet_handle, submitter_did)
+async def vdr_sign_request(wallet_handle, submitter_did, req):
+    key = await vdr_get_did_signing_key(wallet_handle, submitter_did)
     if not key:
         raise Exception(f"Key for DID {submitter_did} is empty")
     req.set_signature(key.sign_message(req.signature_input))
     return req
 
-async def sign_and_submit_request(pool_handle, wallet_handle, submitter_did, req):
-    sreq = await sign_request(wallet_handle, submitter_did, req)
+async def vdr_sign_and_submit_request(pool_handle, wallet_handle, submitter_did, req):
+    sreq = await vdr_sign_request(wallet_handle, submitter_did, req)
     request_result = await pool_handle.submit_request(sreq)
     return request_result
 
-async def multi_sign_request(wallet_handle, submitter_did, req):
-    key = await get_did_signing_key(wallet_handle, submitter_did)
+async def vdr_multi_sign_request(wallet_handle, submitter_did, req):
+    key = await vdr_get_did_signing_key(wallet_handle, submitter_did)
     if not key:
         raise Exception(f"Key for DID {submitter_did} is empty")
     req.set_multi_signature(submitter_did, key.sign_message(req.signature_input))

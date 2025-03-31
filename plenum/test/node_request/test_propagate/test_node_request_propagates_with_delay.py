@@ -15,7 +15,7 @@ def setup(txnPoolNodeSet):
 
 
 def test_node_request_propagates_with_delay(looper, setup, txnPoolNodeSet,
-                                            sdk_wallet_client, sdk_pool_handle, tconf):
+                                            vdr_wallet_client, vdr_pool_handle, tconf):
     """
     One of node lacks sufficient propagates
     """
@@ -27,8 +27,8 @@ def test_node_request_propagates_with_delay(looper, setup, txnPoolNodeSet,
     sent_reqs = 5
     vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               sent_reqs)
 
     looper.runFor(delay / 4)

@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.test.helper import freshness, waitForViewChange
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.restart.helper import restart_nodes
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change_service.helper import send_test_instance_change
@@ -17,8 +17,8 @@ def tconf(tconf):
 
 
 def test_view_change_with_instance_change_lost_due_to_restarts(looper, txnPoolNodeSet,
-                                                               sdk_pool_handle,
-                                                               sdk_wallet_client,
+                                                               vdr_pool_handle,
+                                                               vdr_wallet_client,
                                                                tconf, tdir, allPluginsPath):
     """
     1. some_nodes (Beta and Gamma) send InstanceChange for all nodes.
@@ -50,4 +50,4 @@ def test_view_change_with_instance_change_lost_due_to_restarts(looper, txnPoolNo
     waitForViewChange(looper, txnPoolNodeSet, current_view_no + 1, customTimeout=3 * FRESHNESS_TIMEOUT)
 
     ensureElectionsDone(looper, txnPoolNodeSet)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle)

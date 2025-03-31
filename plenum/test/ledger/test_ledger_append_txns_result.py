@@ -10,16 +10,16 @@ def test_append_empty(ledger):
 
 
 def test_append_result(ledger,
-                       looper, sdk_wallet_client):
+                       looper, vdr_wallet_client):
     size = ledger.seqNo
-    txns1 = create_txns(looper, sdk_wallet_client)
+    txns1 = create_txns(looper, vdr_wallet_client)
     ledger.append_txns_metadata(txns1)
     (start, end), appended_txns = ledger.appendTxns(txns1)
     assert start == size + 1
     assert end == size + TXNS_IN_BATCH
     assert len(appended_txns) == TXNS_IN_BATCH
 
-    txns2 = create_txns(looper, sdk_wallet_client)
+    txns2 = create_txns(looper, vdr_wallet_client)
     ledger.append_txns_metadata(txns2)
     (start, end), appended_txns = ledger.appendTxns(txns2)
     assert start == size + 1 + TXNS_IN_BATCH

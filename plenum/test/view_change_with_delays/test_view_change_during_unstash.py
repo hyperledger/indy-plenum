@@ -9,7 +9,7 @@ from plenum.test.delayers import icDelay, cr_delay, delay_3pc
 from plenum.test.helper import max_3pc_batch_limits, vdr_send_random_and_check, \
     vdr_send_random_requests, vdr_get_replies, vdr_check_reply
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.stasher import start_delaying, stop_delaying_and_process, delay_rules
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change_service.helper import trigger_view_change
@@ -35,7 +35,7 @@ def check_catchup_is_finished(node):
     assert node.ledgerManager._node_leecher._state == NodeLeecherService.State.Idle
 
 
-def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf):
+def test_view_change_during_unstash(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, tconf):
     slow_node = txnPoolNodeSet[-1]
     other_nodes = txnPoolNodeSet[:-1]
 
@@ -44,7 +44,7 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
     all_stashers = [n.nodeIbStasher for n in txnPoolNodeSet]
 
     # Preload nodes with some transactions
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
     for node in txnPoolNodeSet:
         assert node.master_replica.last_ordered_3pc == (0, 1)
 
@@ -54,7 +54,7 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
     # Stop ordering on slow node and send requests
     slow_node_after_5 = start_delaying(slow_stasher, delay_3pc(view_no=0, after=5, msgs=Commit))
     slow_node_until_5 = start_delaying(slow_stasher, delay_3pc(view_no=0, after=0))
-    reqs_view_0 = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 8)
+    reqs_view_0 = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 8)
 
     # Make pool order first 2 batches and pause
     pool_after_3 = start_delaying(other_stashers, delay_3pc(view_no=0, after=3))
@@ -86,4 +86,4 @@ def test_view_change_during_unstash(looper, txnPoolNodeSet, sdk_pool_handle, sdk
     # Ensure that everything is ok
     ensureElectionsDone(looper, txnPoolNodeSet)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle)

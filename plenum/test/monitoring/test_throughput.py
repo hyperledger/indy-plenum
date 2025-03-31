@@ -11,12 +11,12 @@ logger = getlogger()
 
 # noinspection PyIncorrectDocstring
 @pytest.mark.skip(reason="Duplicated in testThroughputThreshold")
-def testThroughput(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
+def testThroughput(looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle):
     """
     Checking if the throughput is being set
     """
     for i in range(5):
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
 
     for node in txnPoolNodeSet:
         masterThroughput, avgBackupThroughput = node.monitor.getThroughputs(

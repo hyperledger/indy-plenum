@@ -4,7 +4,7 @@ from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.helper import vdr_send_random_requests
 
 
-def test_sdk_no_ordering_during_syncup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def test_sdk_no_ordering_during_syncup(tconf, looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     non_primary_replica = getNonPrimaryReplicas(txnPoolNodeSet, instId=0)[0]
 
     # Put non-primary Node to syncing state once first Prepare is recieved
@@ -15,5 +15,5 @@ def test_sdk_no_ordering_during_syncup(tconf, looper, txnPoolNodeSet, sdk_pool_h
 
     # Send requests. The non-primary Node should not fail since no ordering is
     # called while syncing
-    vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, tconf.Max3PCBatchSize)
     looper.runFor(5)

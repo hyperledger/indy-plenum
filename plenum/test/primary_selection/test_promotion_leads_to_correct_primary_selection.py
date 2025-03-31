@@ -17,14 +17,14 @@ def test_promotion_leads_to_correct_primary_selection(looper,
                                                       tdir,
                                                       tconf,
                                                       allPluginsPath,
-                                                      sdk_wallet_stewards,
-                                                      sdk_pool_handle):
+                                                      vdr_wallet_stewards,
+                                                      vdr_pool_handle):
     # We are saving pool state at moment of last view_change to send it
     # to newly connected nodes so they could restore primaries basing on this node set.
     # When current primaries getting edited because of promotion/demotion we don't take this into account.
     # That lead us to primary inconsistency on different nodes
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_stewards[0], 1)
     assert txnPoolNodeSet[0].master_replica.isPrimary
     assert txnPoolNodeSet[1].replicas[1].isPrimary
     assert txnPoolNodeSet[2].replicas[2].isPrimary
@@ -34,8 +34,8 @@ def test_promotion_leads_to_correct_primary_selection(looper,
     node_3 = txnPoolNodeSet[2]
 
     # Demote node 3
-    steward_3 = sdk_wallet_stewards[2]
-    demote_node(looper, steward_3, sdk_pool_handle, node_3)
+    steward_3 = vdr_wallet_stewards[2]
+    demote_node(looper, steward_3, vdr_pool_handle, node_3)
     disconnect_node_and_ensure_disconnected(looper, txnPoolNodeSet, node_3)
     looper.removeProdable(node_3)
     txnPoolNodeSet.remove(node_3)
@@ -47,7 +47,7 @@ def test_promotion_leads_to_correct_primary_selection(looper,
                node_1.replicas.primary_name_by_inst_id
                for node in txnPoolNodeSet)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_stewards[0], 2)
     for node in txnPoolNodeSet:
         assert node.f == 1
         assert node.replicas.num_replicas == 2
@@ -69,7 +69,7 @@ def test_promotion_leads_to_correct_primary_selection(looper,
 
     # Promoting node 3, increasing replica count
     node_3 = start_stopped_node(node_3, looper, tconf, tdir, allPluginsPath)
-    promote_node(looper, steward_3, sdk_pool_handle, node_3)
+    promote_node(looper, steward_3, vdr_pool_handle, node_3)
     txnPoolNodeSet.append(node_3)
     looper.run(checkNodesConnected(txnPoolNodeSet))
 
@@ -78,5 +78,5 @@ def test_promotion_leads_to_correct_primary_selection(looper,
     ensureElectionsDone(looper, txnPoolNodeSet, instances_list=[0, 1, 2])
 
     # Node 3 able to do ordering
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_stewards[0], 2)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

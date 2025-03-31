@@ -20,7 +20,7 @@ def tconf(tconf):
 
 
 def test_two_view_changes_with_propagate_primary_on_one_delayed_node(
-        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
+        txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client, tconf):
     """
     Perform two view changes in such a way that a view change is performed on
     all the nodes except for one slow node and then propagate primary is
@@ -30,10 +30,10 @@ def test_two_view_changes_with_propagate_primary_on_one_delayed_node(
     be ordered.
     """
     do_view_change_with_propagate_primary_on_one_delayed_node(
-        txnPoolNodeSet[-1], txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client)
+        txnPoolNodeSet[-1], txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client)
 
     do_view_change_with_propagate_primary_on_one_delayed_node(
-        txnPoolNodeSet[0], txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client)
+        txnPoolNodeSet[0], txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

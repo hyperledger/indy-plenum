@@ -17,8 +17,8 @@ CHK_FREQ = 2
 def test_checkpoints_removed_in_view_change(chkFreqPatched,
                                             txnPoolNodeSet,
                                             looper,
-                                            sdk_pool_handle,
-                                            sdk_wallet_client):
+                                            vdr_pool_handle,
+                                            vdr_wallet_client):
     '''
     Check that checkpoint finalize in view change before catchup doesn't clean
     necessary data from requests and 3pc queues.
@@ -28,14 +28,14 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     # delay checkpoints processing for slow_nodes
     delay_msg(slow_nodes, chk_delay)
     # send txns for finalizing current checkpoint
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, CHK_FREQ)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, CHK_FREQ)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     # delay commits processing for slow_nodes
     delay_msg(slow_nodes, cDelay)
 
-    requests = vdr_send_random_requests(looper, sdk_pool_handle,
-                                        sdk_wallet_client, 1)
+    requests = vdr_send_random_requests(looper, vdr_pool_handle,
+                                        vdr_wallet_client, 1)
     # check that slow nodes have prepared certificate with new txn
     looper.run(eventually(last_prepared_certificate,
                           slow_nodes,
@@ -80,8 +80,8 @@ def test_checkpoints_removed_in_view_change(chkFreqPatched,
     for n in slow_nodes:
         assert (1, CHK_FREQ) not in n.master_replica._checkpointer._checkpoint_state
     # check that all nodes have same data after new txns ordering
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, CHK_FREQ)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, CHK_FREQ)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
 

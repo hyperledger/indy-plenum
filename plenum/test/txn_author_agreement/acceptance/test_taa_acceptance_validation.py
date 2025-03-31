@@ -267,17 +267,17 @@ def test_taa_acceptance_valid(
 
 def test_taa_acceptance_valid_on_uncommitted(
         validate_taa_acceptance_func_api,
-        txnPoolNodeSet, looper, sdk_wallet_trustee, sdk_pool_handle,
+        txnPoolNodeSet, looper, vdr_wallet_trustee, vdr_pool_handle,
         add_taa_acceptance
 ):
     text, version = gen_random_txn_author_agreement()
     old_pp_seq_no = txnPoolNodeSet[0].master_replica.last_ordered_3pc[1]
 
     with delay_rules([n.nodeIbStasher for n in txnPoolNodeSet], cDelay()):
-        req = looper.loop.run_until_complete(build_txn_author_agreement_request(sdk_wallet_trustee[1],
+        req = looper.loop.run_until_complete(build_txn_author_agreement_request(vdr_wallet_trustee[1],
                                                                                 text, version,
                                                                                 ratification_ts=get_utc_epoch() - 600))
-        req = vdr_sign_and_submit_req(looper, sdk_pool_handle, sdk_wallet_trustee, req)
+        req = vdr_sign_and_submit_req(looper, vdr_pool_handle, vdr_wallet_trustee, req)
 
         def check():
             assert old_pp_seq_no + 1 == txnPoolNodeSet[0].master_replica._consensus_data.preprepared[-1].pp_seq_no
@@ -296,7 +296,7 @@ def test_taa_acceptance_allowed_when_disabled(
     validate_taa_acceptance,
     validation_error,
     set_txn_author_agreement,
-    add_taa_acceptance, looper, sdk_pool_handle, sdk_wallet_trustee
+    add_taa_acceptance, looper, vdr_pool_handle, vdr_wallet_trustee
 ):
     taa_data = set_txn_author_agreement()
     request_json = add_taa_acceptance(
@@ -309,7 +309,7 @@ def test_taa_acceptance_allowed_when_disabled(
     validate_taa_acceptance(request_dict)
 
     # disable TAA acceptance
-    sdk_send_txn_author_agreement_disable(looper, sdk_pool_handle, sdk_wallet_trustee)
+    sdk_send_txn_author_agreement_disable(looper, vdr_pool_handle, vdr_wallet_trustee)
 
     # formally valid TAA acceptance
     request_json = add_taa_acceptance(
@@ -337,7 +337,7 @@ def test_taa_acceptance_retired(
         validate_taa_acceptance, validation_error,
         turn_off_freshness_state_update,
         request_dict, latest_taa,
-        looper, sdk_pool_handle, sdk_wallet_trustee, set_txn_author_agreement
+        looper, vdr_pool_handle, vdr_wallet_trustee, set_txn_author_agreement
 ):
     # Create new txn author agreement
     set_txn_author_agreement()

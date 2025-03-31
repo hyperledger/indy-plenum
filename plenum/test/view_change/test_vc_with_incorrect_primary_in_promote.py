@@ -3,8 +3,8 @@ import pytest
 from plenum.test.delayers import cDelay, ppDelay, pDelay, icDelay, msg_rep_delay, vc_delay, nv_delay
 from plenum.test.helper import waitForViewChange, checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
+from plenum.test.pool_transactions.helper import vdr_add_new_steward_and_node
 from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
 from plenum.test.view_change_service.helper import trigger_view_change
@@ -33,8 +33,8 @@ def tconf(tconf):
     tconf.LOG_SIZE = old_log_size
 
 
-def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet, sdk_pool_handle,
-                                                          sdk_wallet_steward, tdir, tconf, allPluginsPath):
+def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet, vdr_pool_handle,
+                                                          vdr_wallet_steward, tdir, tconf, allPluginsPath):
     """
     This test imitates situation when one of nodes is lagged.
     It missed txn for adding new node and view_change after this.
@@ -70,7 +70,7 @@ def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet
                                         pDelay()):
 
         # Add new node and this action should starts view_change because of NODE txn ordered
-        _, theta = sdk_add_new_steward_and_node(looper, sdk_pool_handle, sdk_wallet_steward,
+        _, theta = vdr_add_new_steward_and_node(looper, vdr_pool_handle, vdr_wallet_steward,
                                                 'Theta_Steward', 'Theta',
                                                 tdir, tconf, allPluginsPath=allPluginsPath)
         txnPoolNodeSet.append(theta)
@@ -96,6 +96,6 @@ def test_finish_view_change_with_incorrect_primaries_list(looper, txnPoolNodeSet
 
     # We assume that after 2 Checkpoints receiving lagged node will start catchup and elect right primaries
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 2 * CHK_SIZE)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward, 2 * CHK_SIZE)
     ensureElectionsDone(looper, txnPoolNodeSet)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)

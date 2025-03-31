@@ -30,8 +30,8 @@ def delay_domain_ledger_catchup():
 def test_slow_catchup_while_ordering(tdir, tconf,
                                      looper,
                                      txnPoolNodeSet,
-                                     sdk_pool_handle,
-                                     sdk_wallet_client):
+                                     vdr_pool_handle,
+                                     vdr_wallet_client):
     lagging_node = txnPoolNodeSet[-1]
     other_lagging_node = txnPoolNodeSet[-2]
     other_nodes = txnPoolNodeSet[:-1]
@@ -47,7 +47,7 @@ def test_slow_catchup_while_ordering(tdir, tconf,
     with delay_rules(lagging_node.nodeIbStasher, ppDelay(), pDelay(), cDelay()):
         # Order request on all nodes except lagging one
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client, 1)
+                                  vdr_pool_handle, vdr_wallet_client, 1)
 
         # Prevent lagging node from catching up domain ledger (and finishing catchup)
         with delay_rules(other_stashers, delay_domain_ledger_catchup()):
@@ -61,7 +61,7 @@ def test_slow_catchup_while_ordering(tdir, tconf,
 
             # Order one more request on all nodes except lagging one
             vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                      sdk_pool_handle, sdk_wallet_client, 1)
+                                      vdr_pool_handle, vdr_wallet_client, 1)
 
         # Now lagging node can catch up domain ledger which contains more transactions
         # than it was when audit ledger was caught up
@@ -74,7 +74,7 @@ def test_slow_catchup_while_ordering(tdir, tconf,
     # (it won't be the case if old lagging node is nonfunctional)
     with delay_rules(other_lagging_node.nodeIbStasher, ppDelay(), pDelay(), cDelay()):
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client, 1)
+                                  vdr_pool_handle, vdr_wallet_client, 1)
 
     # Ensure that all nodes will eventually have same data
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

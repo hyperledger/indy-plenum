@@ -18,8 +18,8 @@ def tconf(tconf):
 
 def test_1_node_got_no_preprepare(looper,
                                   txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   tconf,
                                   chkFreqPatched):
     master_node = txnPoolNodeSet[0]
@@ -29,7 +29,7 @@ def test_1_node_got_no_preprepare(looper,
 
     # Nodes order batches
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
     assert behind_node.master_last_ordered_3PC == \
            master_node.master_last_ordered_3PC
 
@@ -38,7 +38,7 @@ def test_1_node_got_no_preprepare(looper,
 
     # Send some txns and behind_node cant order them while pool is working
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
     with pytest.raises(AssertionError):
         nodes_last_ordered_equal(behind_node, master_node)
 
@@ -50,7 +50,7 @@ def test_1_node_got_no_preprepare(looper,
 
     # Send txns
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
 
     # behind_node stashing new 3pc messages and not ordering and not participating in consensus
     assert len(behind_node.master_replica._ordering_service.prePreparesPendingPrevPP) == 1
@@ -59,7 +59,7 @@ def test_1_node_got_no_preprepare(looper,
 
     # After achieving stable checkpoint, behind_node start ordering
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, delta, delta)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, delta, delta)
 
     # Pool is working
     looper.run(eventually(nodes_last_ordered_equal, behind_node, master_node))
@@ -67,8 +67,8 @@ def test_1_node_got_no_preprepare(looper,
 
 def test_2_node_got_no_preprepare(looper,
                                   txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   tconf,
                                   chkFreqPatched):
     master_node = txnPoolNodeSet[0]
@@ -78,7 +78,7 @@ def test_2_node_got_no_preprepare(looper,
 
     # Nodes order batches
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
     nodes_last_ordered_equal(*behind_nodes, master_node)
 
     # Emulate connection problems, behind_node doesnt receive pre-prepares
@@ -86,7 +86,7 @@ def test_2_node_got_no_preprepare(looper,
 
     # Send some txns and behind_node cant order them while pool is working
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
 
     with pytest.raises(AssertionError):
         nodes_last_ordered_equal(behind_nodes[0], master_node)
@@ -99,7 +99,7 @@ def test_2_node_got_no_preprepare(looper,
 
     # Send txns
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
 
     # behind_node stashing new 3pc messages and not ordering and not participating in consensus
     assert len(behind_nodes[0].master_replica._ordering_service.prePreparesPendingPrevPP) == 1
@@ -111,7 +111,7 @@ def test_2_node_got_no_preprepare(looper,
 
     # Send some txns and behind_node cant order them while pool is working
     vdr_send_batches_of_random(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
 
     # Remove connection problems
     reset_router_accepting(behind_nodes[1])
@@ -121,11 +121,11 @@ def test_2_node_got_no_preprepare(looper,
 
     # Send txns
     vdr_send_batches_of_random(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
 
     # After achieving stable checkpoint, behind_node start ordering
     vdr_send_batches_of_random(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, delta, delta)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, delta, delta)
 
     # Pool is working
     looper.run(eventually(nodes_last_ordered_equal, *behind_nodes, master_node))

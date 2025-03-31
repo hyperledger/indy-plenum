@@ -25,8 +25,8 @@ def tconf(tconf):
 def test_max_3pc_batches_in_flight(tdir, tconf,
                                    looper,
                                    txnPoolNodeSet,
-                                   sdk_pool_handle,
-                                   sdk_wallet_client):
+                                   vdr_pool_handle,
+                                   vdr_wallet_client):
     # Check pool initial state
     initial_3pc = txnPoolNodeSet[0].master_replica.last_ordered_3pc
     for node in txnPoolNodeSet[1:]:
@@ -49,7 +49,7 @@ def test_max_3pc_batches_in_flight(tdir, tconf,
         delayers.append((pp_seq_no, delayer))
 
     # Send a number of requests
-    reqs = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, BATCHES_TO_ORDER)
+    reqs = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, BATCHES_TO_ORDER)
 
     # Continuously check number of batches in flight
     for pp_seq_no, delayer in delayers:

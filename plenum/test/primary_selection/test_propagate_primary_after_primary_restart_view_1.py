@@ -1,5 +1,5 @@
 from plenum.test.delayers import icDelay
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.helper import checkViewNoForNodes
 from plenum.test.view_change.helper import start_stopped_node, ensure_view_change
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
@@ -29,7 +29,7 @@ IC_DELAY_SEC = 100
 
 
 def test_propagate_primary_after_primary_restart_view_1(
-        looper, txnPoolNodeSet, tconf, sdk_pool_handle, sdk_wallet_steward, tdir, allPluginsPath):
+        looper, txnPoolNodeSet, tconf, vdr_pool_handle, vdr_wallet_steward, tdir, allPluginsPath):
     """
     Delay instance change msgs to prevent view change during primary restart
     to test propagate primary for primary node.
@@ -41,7 +41,7 @@ def test_propagate_primary_after_primary_restart_view_1(
     ensure_view_change(looper, txnPoolNodeSet)
     checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=1)
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)
 
     old_ppseqno = _get_ppseqno(txnPoolNodeSet)
     assert (old_ppseqno > 0)
@@ -76,7 +76,7 @@ def test_propagate_primary_after_primary_restart_view_1(
     # check ppSeqNo the same
     _get_ppseqno(txnPoolNodeSet)
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)
 
     new_ppseqno = _get_ppseqno(txnPoolNodeSet)
     assert (new_ppseqno > old_ppseqno)

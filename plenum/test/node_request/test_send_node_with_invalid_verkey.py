@@ -7,19 +7,19 @@ from plenum.common.constants import STEWARD_STRING, VALIDATOR, VERKEY
 from plenum.common.exceptions import RequestNackedException
 from plenum.common.util import randomString
 from plenum.test.helper import vdr_get_bad_response
-from plenum.test.pool_transactions.helper import sdk_add_new_nym, prepare_new_node_data, prepare_node_request, \
-    sdk_sign_and_send_prepared_request, sdk_change_node_keys
+from plenum.test.pool_transactions.helper import vdr_add_new_nym, prepare_new_node_data, vdr_prepare_node_request, \
+    vdr_sign_and_send_prepared_request, vdr_change_node_keys
 
 invalid_dest = 'a' * 43
 
 
-def test_send_node_with_invalid_dest_verkey(looper, sdk_pool_handle,
-                                            sdk_wallet_steward, tdir, tconf):
+def test_send_node_with_invalid_dest_verkey(looper, vdr_pool_handle,
+                                            vdr_wallet_steward, tdir, tconf):
     node_name = "Psi"
     new_steward_name = "testClientSteward" + randomString(3)
-    new_steward_wallet_handle = sdk_add_new_nym(looper,
-                                                sdk_pool_handle,
-                                                sdk_wallet_steward,
+    new_steward_wallet_handle = vdr_add_new_nym(looper,
+                                                vdr_pool_handle,
+                                                vdr_wallet_steward,
                                                 alias=new_steward_name,
                                                 role=STEWARD_STRING)
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
@@ -30,7 +30,7 @@ def test_send_node_with_invalid_dest_verkey(looper, sdk_pool_handle,
 
     _, steward_did = new_steward_wallet_handle
     node_request = looper.loop.run_until_complete(
-        prepare_node_request(steward_did,
+        vdr_prepare_node_request(steward_did,
                              new_node_name=node_name,
                              clientIp=clientIp,
                              clientPort=clientPort,
@@ -41,13 +41,13 @@ def test_send_node_with_invalid_dest_verkey(looper, sdk_pool_handle,
                              services=[VALIDATOR],
                              key_proof=key_proof))
 
-    request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
-                                                        sdk_pool_handle, node_request)
+    request_couple = vdr_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
+                                                        vdr_pool_handle, node_request)
     vdr_get_bad_response(looper, [request_couple], RequestNackedException,
                          'Node\'s dest is not correct Ed25519 key.')
 
     node_request = looper.loop.run_until_complete(
-        prepare_node_request(steward_did,
+        vdr_prepare_node_request(steward_did,
                              new_node_name=node_name,
                              clientIp=clientIp,
                              clientPort=clientPort,
@@ -62,13 +62,13 @@ def test_send_node_with_invalid_dest_verkey(looper, sdk_pool_handle,
     node_request['operation'][VERKEY] = invalid_dest
     node_request = json.dumps(node_request)
 
-    request_couple = sdk_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
-                                                        sdk_pool_handle, node_request)
+    request_couple = vdr_sign_and_send_prepared_request(looper, new_steward_wallet_handle,
+                                                        vdr_pool_handle, node_request)
     vdr_get_bad_response(looper, [request_couple], RequestNackedException,
                          'Node\'s verkey is not correct Ed25519 key.')
 
 
-def test_edit_node_with_invalid_verkey(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward):
+def test_edit_node_with_invalid_verkey(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward):
     with pytest.raises(RequestNackedException) as e:
-        sdk_change_node_keys(looper, txnPoolNodeSet[0], sdk_wallet_steward, sdk_pool_handle, invalid_dest)
+        vdr_change_node_keys(looper, txnPoolNodeSet[0], vdr_wallet_steward, vdr_pool_handle, invalid_dest)
     e.match('Node\'s verkey is not correct Ed25519 key.')

@@ -19,8 +19,8 @@ def check_count_connected_node(nodes, expected_count):
 
 def test_reconnect_primary_and_not_primary(looper,
                                         txnPoolNodeSet,
-                                        sdk_wallet_steward,
-                                        sdk_pool_handle,
+                                        vdr_wallet_steward,
+                                        vdr_pool_handle,
                                         tconf):
     """
     Test steps:
@@ -38,7 +38,7 @@ def test_reconnect_primary_and_not_primary(looper,
     10. Send some requests and check, that pool works.
     """
     restNodes = set(txnPoolNodeSet)
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward, 5)
     assert txnPoolNodeSet[0].master_replica.isPrimary
     node_after_all_primary = txnPoolNodeSet[3]
     # Disconnect node after all primaries (after all backup primaries)
@@ -51,7 +51,7 @@ def test_reconnect_primary_and_not_primary(looper,
     looper.run(eventually(partial(check_count_connected_node, restNodes, 6),
                           timeout=5,
                           acceptableExceptions=[AssertionError]))
-    vdr_send_random_and_check(looper, restNodes, sdk_pool_handle, sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, restNodes, vdr_pool_handle, vdr_wallet_steward, 5)
     # Get primary node for backup replica
     primary_node = txnPoolNodeSet[0]
     assert primary_node.master_replica.isPrimary
@@ -68,7 +68,7 @@ def test_reconnect_primary_and_not_primary(looper,
                           acceptableExceptions=[AssertionError]))
     looper.run(eventually(partial(checkViewNoForNodes, restNodes, expectedViewNo=old_view_no + 1),
                           timeout=tconf.NEW_VIEW_TIMEOUT))
-    vdr_send_random_and_check(looper, restNodes, sdk_pool_handle, sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, restNodes, vdr_pool_handle, vdr_wallet_steward, 5)
     logger.debug("restNodes: {}".format(restNodes))
     restNodes.add(node_after_all_primary)
     # Return back node after all primary
@@ -79,12 +79,12 @@ def test_reconnect_primary_and_not_primary(looper,
                           timeout=5,
                           acceptableExceptions=[AssertionError]))
     assert len(set([len(n.replicas) for n in restNodes])) == 1
-    vdr_send_random_and_check(looper, restNodes, sdk_pool_handle, sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, restNodes, vdr_pool_handle, vdr_wallet_steward, 5)
     # Return back primary node
     restNodes.add(primary_node)
     reconnect_node_and_ensure_connected(looper, restNodes, primary_node)
     looper.run(checkNodesConnected(restNodes,
                                    customTimeout=5*tconf.RETRY_TIMEOUT_RESTRICTED))
-    vdr_send_random_and_check(looper, restNodes, sdk_pool_handle, sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, restNodes, vdr_pool_handle, vdr_wallet_steward, 5)
 
 

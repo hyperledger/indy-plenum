@@ -1,6 +1,6 @@
 import json
 
-from plenum.test.wallet_helper import create_and_store_did
+from plenum.test.wallet_helper import vdr_create_and_store_did
 from indy_vdr.ledger import build_node_request, build_nym_request, \
     build_get_txn_request
 
@@ -17,7 +17,7 @@ from plenum.test.helper import vdr_sign_request_objects, \
     vdr_send_signed_requests, vdr_json_to_request_object, \
     vdr_get_and_check_replies, vdr_sign_request_strings
 
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.test_node import TestNode, \
     ensure_node_disconnected, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
@@ -29,16 +29,16 @@ logger = getlogger()
 REFRESH_TRY_COUNT = 4
 
 
-def new_client_request(role, name, looper, sdk_wallet):
-    wh, did = sdk_wallet
+def vdr_new_client_request(role, name, looper, vdr_wallet):
+    wh, did = vdr_wallet
     seed = randomString(32)
     (named_did, named_verkey) = looper.loop.run_until_complete(
-        create_and_store_did(wh, seed))
+        vdr_create_and_store_did(wh, seed))
     nym_request = looper.loop.run_until_complete(
         build_nym_request(did, named_did, named_verkey,
                           name, role))
 
-    return vdr_sign_request_strings(looper, sdk_wallet,
+    return vdr_sign_request_strings(looper, vdr_wallet,
                                     [json.loads(nym_request)])[0]
 
 
@@ -74,8 +74,8 @@ def add_started_node(looper,
                      node_ha,
                      client_ha,
                      txnPoolNodeSet,
-                     sdk_pool_handle,
-                     sdk_wallet_steward,
+                     vdr_pool_handle,
+                     vdr_wallet_steward,
                      bls_key,
                      key_proof):
     '''
@@ -83,14 +83,14 @@ def add_started_node(looper,
     that is sends NODE txn.
     Makes sure that node is actually added and connected to all otehr nodes.
     '''
-    new_steward_wallet_handle = sdk_add_new_nym(looper, sdk_pool_handle,
-                                                sdk_wallet_steward,
+    new_steward_wallet_handle = vdr_add_new_nym(looper, vdr_pool_handle,
+                                                vdr_wallet_steward,
                                                 "Steward" + new_node.name,
                                                 role=STEWARD_STRING)
     node_name = new_node.name
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    sdk_send_update_node(looper, new_steward_wallet_handle,
-                         sdk_pool_handle, node_dest, node_name,
+    vdr_send_update_node(looper, new_steward_wallet_handle,
+                         vdr_pool_handle, node_dest, node_name,
                          node_ha[0], node_ha[1],
                          client_ha[0], client_ha[1],
                          services=[VALIDATOR],
@@ -99,10 +99,10 @@ def add_started_node(looper,
 
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
-                               sdk_wallet_steward,
-                               sdk_pool_handle)
+    vdr_pool_refresh(looper, vdr_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet,
+                               vdr_wallet_steward,
+                               vdr_pool_handle)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1])
 
@@ -153,9 +153,9 @@ def new_node(
     return node
 
 
-def sdk_add_new_steward_and_node(looper,
-                                 sdk_pool_handle,
-                                 sdk_wallet_steward,
+def vdr_add_new_steward_and_node(looper,
+                                 vdr_pool_handle,
+                                 vdr_wallet_steward,
                                  new_steward_name,
                                  new_node_name,
                                  tdir,
@@ -167,14 +167,14 @@ def sdk_add_new_steward_and_node(looper,
                                  do_post_node_creation: Callable = None,
                                  services=[VALIDATOR],
                                  wait_till_added=True):
-    new_steward_wallet_handle = sdk_add_new_nym(looper,
-                                                sdk_pool_handle,
-                                                sdk_wallet_steward,
+    new_steward_wallet_handle = vdr_add_new_nym(looper,
+                                                vdr_pool_handle,
+                                                vdr_wallet_steward,
                                                 alias=new_steward_name,
                                                 role=STEWARD_STRING)
-    new_node = sdk_add_new_node(
+    new_node = vdr_add_new_node(
         looper,
-        sdk_pool_handle,
+        vdr_pool_handle,
         new_steward_wallet_handle,
         new_node_name,
         tdir,
@@ -188,7 +188,7 @@ def sdk_add_new_steward_and_node(looper,
     return new_steward_wallet_handle, new_node
 
 
-def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
+def vdr_add_new_nym(looper, vdr_pool_handle, creators_wallet,
                     alias=None, role=None, seed=None,
                     dest=None, verkey=None, skipverkey=False, no_wait=False):
     seed = seed or randomString(32)
@@ -197,12 +197,12 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
 
     # filling nym request and getting steward did
     # if role == None, we are adding client
-    nym_request, new_did = looper.loop.run_until_complete(prepare_nym_request(creators_wallet, seed,
+    nym_request, new_did = looper.loop.run_until_complete(vdr_prepare_nym_request(creators_wallet, seed,
                             alias, role, dest, verkey, skipverkey))
 
-    # sending request using 'sdk_' functions
-    request_couple = sdk_sign_and_send_prepared_request(looper, creators_wallet,
-                                                        sdk_pool_handle, nym_request)
+    # sending request using 'vdr_' functions
+    request_couple = vdr_sign_and_send_prepared_request(looper, creators_wallet,
+                                                        vdr_pool_handle, nym_request)
     if no_wait:
         return request_couple
     # waitng for replies
@@ -210,8 +210,8 @@ def sdk_add_new_nym(looper, sdk_pool_handle, creators_wallet,
     return wh, new_did
 
 
-def sdk_add_new_node(looper,
-                     sdk_pool_handle,
+def vdr_add_new_node(looper,
+                     vdr_pool_handle,
                      steward_wallet_handle,
                      new_node_name,
                      tdir, tconf,
@@ -225,7 +225,7 @@ def sdk_add_new_node(looper,
 
     # filling node request
     _, steward_did = steward_wallet_handle
-    node_request = prepare_node_request(steward_did,
+    node_request = vdr_prepare_node_request(steward_did,
                              new_node_name=new_node_name,
                              clientIp=clientIp,
                              clientPort=clientPort,
@@ -237,8 +237,8 @@ def sdk_add_new_node(looper,
                              key_proof=key_proof)
 
     # sending request using 'sdk_' functions
-    request_couple = sdk_sign_and_send_prepared_request(looper, steward_wallet_handle,
-                                                        sdk_pool_handle, node_request)
+    request_couple = vdr_sign_and_send_prepared_request(looper, steward_wallet_handle,
+                                                        vdr_pool_handle, node_request)
 
     if wait_till_added:
         # waiting for replies
@@ -256,10 +256,10 @@ async def prepare_schema_request(wallet, named_seed, alias, role):
     pass
 
 
-async def prepare_nym_request(wallet, named_seed, alias,
+async def vdr_prepare_nym_request(wallet, named_seed, alias,
                               role, dest=None, verkey=None, skipverkey=False):
     wh, submitter_did = wallet
-    (named_did, named_verkey) = await create_and_store_did(wh,  named_seed)
+    (named_did, named_verkey) = await vdr_create_and_store_did(wh,  named_seed)
     named_did = dest or named_did
     named_verkey = verkey or named_verkey
     named_verkey = None if skipverkey else named_verkey
@@ -268,7 +268,7 @@ async def prepare_nym_request(wallet, named_seed, alias,
     return nym_request, named_did
 
 
-def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
+def vdr_prepare_node_request(steward_did, new_node_name=None, clientIp=None,
                                clientPort=None, nodeIp=None, nodePort=None, bls_key=None,
                                sigseed=None, destination=None, services=[VALIDATOR],
                                key_proof=None):
@@ -302,14 +302,14 @@ def prepare_node_request(steward_did, new_node_name=None, clientIp=None,
     return node_request
 
 
-def sdk_sign_and_send_prepared_request(looper, sdk_wallet, sdk_pool_handle, req_obj):
-    signed_reqs = vdr_sign_request_objects(looper, sdk_wallet,[req_obj])
-    request_couple = vdr_send_signed_requests(sdk_pool_handle, signed_reqs, looper)[0]
+def vdr_sign_and_send_prepared_request(looper, vdr_wallet, vdr_pool_handle, req_obj):
+    signed_reqs = vdr_sign_request_objects(looper, vdr_wallet,[req_obj])
+    request_couple = vdr_send_signed_requests(vdr_pool_handle, signed_reqs, looper)[0]
     return request_couple
 
 
-def sdk_send_update_node(looper, sdk_submitter_wallet,
-                         sdk_pool_handle,
+def vdr_send_update_node(looper, vdr_submitter_wallet,
+                         vdr_pool_handle,
                          destination, alias,
                          node_ip, node_port,
                          client_ip, client_port,
@@ -317,9 +317,9 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                          bls_key=None,
                          key_proof=None,
                          pool_refresh=True):
-    _, submitter_did = sdk_submitter_wallet
+    _, submitter_did = vdr_submitter_wallet
     # filling node request
-    node_request = prepare_node_request(submitter_did,
+    node_request = vdr_prepare_node_request(submitter_did,
                              new_node_name=alias,
                              clientIp=client_ip,
                              clientPort=client_port,
@@ -330,22 +330,22 @@ def sdk_send_update_node(looper, sdk_submitter_wallet,
                              services=services,
                              key_proof=key_proof)
 
-    # sending request using 'sdk_' functions
-    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_submitter_wallet,
-                                                        sdk_pool_handle, node_request)
+    # sending request using 'vdr_' functions
+    request_couple = vdr_sign_and_send_prepared_request(looper, vdr_submitter_wallet,
+                                                        vdr_pool_handle, node_request)
 
     # waitng for replies
     reply = vdr_get_and_check_replies(looper, [request_couple])[0][1]
     if pool_refresh:
-        sdk_pool_refresh(looper, sdk_pool_handle)
+        vdr_pool_refresh(looper, vdr_pool_handle)
     return reply
 
 
-def sdk_pool_refresh(looper, sdk_pool_handle):
-    looper.loop.run_until_complete(sdk_pool_handle.refresh())
+def vdr_pool_refresh(looper, vdr_pool_handle):
+    looper.loop.run_until_complete(vdr_pool_handle.refresh())
 
 
-def sdk_build_get_txn_request(looper, steward_did, seq_no, ledger_type=None):
+def vdr_build_get_txn_request(looper, steward_did, seq_no, ledger_type=None):
     request = looper.loop.run_until_complete(
         build_get_txn_request(steward_did, ledger_type, seq_no))
     return request
@@ -353,7 +353,7 @@ def sdk_build_get_txn_request(looper, steward_did, seq_no, ledger_type=None):
 
 def update_node_data_and_reconnect(looper, txnPoolNodeSet,
                                    steward_wallet,
-                                   sdk_pool_handle,
+                                   vdr_pool_handle,
                                    node,
                                    new_node_ip, new_node_port,
                                    new_client_ip, new_client_port,
@@ -361,7 +361,7 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     node_ha = node.nodestack.ha
     cli_ha = node.clientstack.ha
     node_dest = hexToFriendly(node.nodestack.verhex)
-    sdk_send_update_node(looper, steward_wallet, sdk_pool_handle,
+    vdr_send_update_node(looper, steward_wallet, vdr_pool_handle,
                          node_dest, node.name,
                          new_node_ip, new_node_port,
                          new_client_ip, new_client_port)
@@ -387,17 +387,17 @@ def update_node_data_and_reconnect(looper, txnPoolNodeSet,
     txnPoolNodeSet[idx] = restartedNode
 
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
-                               steward_wallet, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet,
+                               steward_wallet, vdr_pool_handle)
     return restartedNode
 
 
-def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle,
+def vdr_change_node_keys(looper, node, vdr_wallet_steward, vdr_pool_handle,
                          verkey):
-    _, steward_did = sdk_wallet_steward
+    _, steward_did = vdr_wallet_steward
     node_dest = hexToFriendly(node.nodestack.verhex)
     node_request = looper.loop.run_until_complete(
-        prepare_node_request(steward_did,
+        vdr_prepare_node_request(steward_did,
                              new_node_name=node.name,
                              destination=node_dest))
 
@@ -405,8 +405,8 @@ def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle,
     request_json['operation'][VERKEY] = verkey
     node_request1 = json.dumps(request_json)
 
-    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward,
-                                                        sdk_pool_handle, node_request1)
+    request_couple = vdr_sign_and_send_prepared_request(looper, vdr_wallet_steward,
+                                                        vdr_pool_handle, node_request1)
     vdr_get_and_check_replies(looper, [request_couple])
 
     node.nodestack.clearLocalRoleKeep()
@@ -417,21 +417,21 @@ def sdk_change_node_keys(looper, node, sdk_wallet_steward, sdk_pool_handle,
     node.clientstack.clearAllDir()
 
 
-def demote_node(looper, steward_wallet, sdk_pool_handle,
+def demote_node(looper, steward_wallet, vdr_pool_handle,
                 node):
     node_nym = hexToFriendly(node.nodestack.verhex)
-    sdk_send_update_node(looper, steward_wallet,
-                         sdk_pool_handle, node_nym, node.name,
+    vdr_send_update_node(looper, steward_wallet,
+                         vdr_pool_handle, node_nym, node.name,
                          None, None,
                          None, None,
                          services=[])
 
 
-def promote_node(looper, steward_wallet, sdk_pool_handle,
+def promote_node(looper, steward_wallet, vdr_pool_handle,
                  node):
     node_nym = hexToFriendly(node.nodestack.verhex)
-    sdk_send_update_node(looper, steward_wallet,
-                         sdk_pool_handle, node_nym, node.name,
+    vdr_send_update_node(looper, steward_wallet,
+                         vdr_pool_handle, node_nym, node.name,
                          None, None,
                          None, None,
                          services=[VALIDATOR])
@@ -512,17 +512,17 @@ def reconnect_node_and_ensure_connected(looper: Looper,
     looper.run(checkNodesConnected(poolNodes, customTimeout=timeout))
 
 
-def sdk_add_2_nodes(looper, txnPoolNodeSet,
-                    sdk_pool_handle, sdk_wallet_steward,
+def vdr_add_2_nodes(looper, txnPoolNodeSet,
+                    vdr_pool_handle, vdr_wallet_steward,
                     tdir, tconf, allPluginsPath):
     names = ("Zeta", "Eta")
     new_nodes = []
     for node_name in names:
         new_steward_name = "testClientSteward" + randomString(3)
         new_steward_wallet, new_node = \
-            sdk_add_new_steward_and_node(looper,
-                                         sdk_pool_handle,
-                                         sdk_wallet_steward,
+            vdr_add_new_steward_and_node(looper,
+                                         vdr_pool_handle,
+                                         vdr_wallet_steward,
                                          new_steward_name,
                                          node_name,
                                          tdir,
@@ -532,12 +532,12 @@ def sdk_add_2_nodes(looper, txnPoolNodeSet,
         looper.run(checkNodesConnected(txnPoolNodeSet))
         waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
                              exclude_from_check=['check_last_ordered_3pc_backup'])
-        sdk_pool_refresh(looper, sdk_pool_handle)
+        vdr_pool_refresh(looper, vdr_pool_handle)
         new_nodes.append(new_node)
     return new_nodes
 
 
-def sdk_add_new_nym_without_waiting(looper, sdk_pool_handle, creators_wallet,
+def vdr_add_new_nym_without_waiting(looper, vdr_pool_handle, creators_wallet,
                                     alias=None, role=None, seed=None,
                                     dest=None, verkey=None, skipverkey=False):
     seed = seed or randomString(32)
@@ -545,7 +545,7 @@ def sdk_add_new_nym_without_waiting(looper, sdk_pool_handle, creators_wallet,
     wh, _ = creators_wallet
 
     nym_request, new_did = looper.loop.run_until_complete(
-        prepare_nym_request(creators_wallet, seed,
+        vdr_prepare_nym_request(creators_wallet, seed,
                             alias, role, dest, verkey, skipverkey))
-    sdk_sign_and_send_prepared_request(looper, creators_wallet,
-                                       sdk_pool_handle, nym_request)
+    vdr_sign_and_send_prepared_request(looper, creators_wallet,
+                                       vdr_pool_handle, nym_request)

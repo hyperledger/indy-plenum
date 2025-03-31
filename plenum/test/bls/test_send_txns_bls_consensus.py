@@ -12,7 +12,7 @@ def test_each_node_has_bls(txnPoolNodeSet):
 
 
 def test_send_txns_bls_consensus(looper, txnPoolNodeSet,
-                                 sdk_pool_handle, sdk_wallet_client):
+                                 vdr_pool_handle, vdr_wallet_client):
     # make sure that we have commits from all nodes, and have 5 of 7 (n-f) BLS sigs there is enough
     # otherwise we may have 3 commits, but 1 of them may be without BLS, so we will Order this txn, but without multi-sig
     for node in txnPoolNodeSet:
@@ -22,5 +22,5 @@ def test_send_txns_bls_consensus(looper, txnPoolNodeSet,
     # we expect that although not all nodes can sign with BLS (because not all nodes have BLS keys),
     # we get multi-sig on all nodes (since all nodes can verify signatures)
     sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
-                                       sdk_pool_handle, sdk_wallet_client,
+                                       vdr_pool_handle, vdr_wallet_client,
                                        saved_multi_sigs_count=nodeCount)

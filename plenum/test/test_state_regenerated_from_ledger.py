@@ -15,8 +15,8 @@ TestRunningTimeLimitSec = 200
 def test_state_regenerated_from_ledger(
         looper,
         txnPoolNodeSet,
-        sdk_pool_handle,
-        sdk_wallet_client,
+        vdr_pool_handle,
+        vdr_wallet_client,
         tdir,
         tconf,
         allPluginsPath):
@@ -25,8 +25,8 @@ def test_state_regenerated_from_ledger(
     """
     sent_batches = 10
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
-                                           sdk_pool_handle,
-                                           sdk_wallet_client,
+                                           vdr_pool_handle,
+                                           vdr_wallet_client,
                                            5 * sent_batches,
                                            sent_batches)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

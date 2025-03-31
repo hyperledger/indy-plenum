@@ -29,8 +29,8 @@ def tconf(tconf):
 def test_pp_obsolescence_check_fail_for_delayed(tdir, tconf,
                                      looper,
                                      txnPoolNodeSet,
-                                     sdk_pool_handle,
-                                     sdk_wallet_client):
+                                     vdr_pool_handle,
+                                     vdr_wallet_client):
 
     delay = PATCHED_ACCEPTABLE_DEVIATION_PREPREPARE_SECS + 1
     lagging_node = txnPoolNodeSet[-1]
@@ -41,7 +41,7 @@ def test_pp_obsolescence_check_fail_for_delayed(tdir, tconf,
     ):
         # Order request on all nodes except lagging one
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client, 1)
+                                  vdr_pool_handle, vdr_wallet_client, 1)
         looper.run(asyncio.sleep(delay))
 
     # Now delayed 3PC messages reach lagging node, so any delayed transactions

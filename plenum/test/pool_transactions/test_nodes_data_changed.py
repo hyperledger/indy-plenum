@@ -3,12 +3,12 @@ import pytest
 from plenum.common.exceptions import RequestRejectedException, \
     RequestNackedException
 from plenum.common.keygen_utils import init_bls_keys
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 
 from plenum.common.constants import CLIENT_STACK_SUFFIX
 from plenum.common.util import randomString, hexToFriendly
-from plenum.test.pool_transactions.helper import sdk_send_update_node, \
-    sdk_add_new_steward_and_node, sdk_pool_refresh, \
+from plenum.test.pool_transactions.helper import vdr_send_update_node, \
+    vdr_add_new_steward_and_node, vdr_pool_refresh, \
     update_node_data_and_reconnect, demote_node
 from plenum.test.test_node import checkNodesConnected
 
@@ -24,7 +24,7 @@ logger = getlogger()
 
 
 def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
-                                      sdk_pool_handle,
+                                      vdr_pool_handle,
                                       sdk_node_theta_added):
     """
     The node alias cannot be changed.
@@ -32,17 +32,17 @@ def test_node_alias_cannot_be_changed(looper, txnPoolNodeSet,
     new_steward_wallet, new_node = sdk_node_theta_added
     node_dest = hexToFriendly(new_node.nodestack.verhex)
     with pytest.raises(RequestRejectedException) as e:
-        sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+        vdr_send_update_node(looper, new_steward_wallet, vdr_pool_handle,
                              node_dest, 'foo',
                              None, None,
                              None, None)
     assert 'data has conflicts with request data' in e._excinfo[1].args[0]
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    vdr_pool_refresh(looper, vdr_pool_handle)
 
 
 def testNodePortChanged(looper, txnPoolNodeSet,
-                        sdk_wallet_steward,
-                        sdk_pool_handle,
+                        vdr_wallet_steward,
+                        vdr_pool_handle,
                         sdk_node_theta_added,
                         tdir, tconf):
     """
@@ -58,19 +58,19 @@ def testNodePortChanged(looper, txnPoolNodeSet,
 
     update_node_data_and_reconnect(looper, txnPoolNodeSet,
                                    new_steward_wallet,
-                                   sdk_pool_handle,
+                                   vdr_pool_handle,
                                    new_node,
                                    node_ha.host, new_port,
                                    cli_ha.host, cli_ha.port,
                                    tdir, tconf)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, new_steward_wallet, vdr_pool_handle)
 
     # Make sure that no additional view changes happened
     assert all(n.viewNo == orig_view_no for n in txnPoolNodeSet)
 
 
 def test_fail_node_bls_key_validation(looper,
-                                      sdk_pool_handle,
+                                      vdr_pool_handle,
                                       sdk_node_theta_added):
     """
     Test request for change node bls key with incorrect
@@ -82,7 +82,7 @@ def test_fail_node_bls_key_validation(looper,
     # change key_proof
     key_proof = 'AAAAA' + key_proof[5:]
     with pytest.raises(RequestNackedException) as e:
-        sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+        vdr_send_update_node(looper, new_steward_wallet, vdr_pool_handle,
                              node_dest, new_node.name,
                              None, None,
                              None, None,

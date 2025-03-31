@@ -18,7 +18,7 @@ whitelist = ['received an incorrect digest', 'Consensus for ReqId:']
 
 
 def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFreqPatched, looper, txnPoolNodeSet,
-                                                         sdk_pool_handle, sdk_wallet_client, reqs_for_logsize):
+                                                         vdr_pool_handle, vdr_wallet_client, reqs_for_logsize):
     """
     One of the primary starts getting lot of requests, more than his log size
     and queues up requests since they will go beyond its watermarks. This
@@ -47,5 +47,5 @@ def test_primary_recvs_3phase_message_outside_watermarks(perf_chk_patched, chkFr
     def chk():
         assert orderedCount + batch_count == pr._ordering_service.spylog.count(pr._ordering_service._order_3pc_key)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, reqs_to_send)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, reqs_to_send)
     looper.run(eventually(chk, retryWait=1, timeout=total_timeout))

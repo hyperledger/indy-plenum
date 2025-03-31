@@ -10,8 +10,8 @@ from stp_core.loop.eventually import eventually
 
 
 def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper, tconf,
-                                                         sdk_pool_handle,
-                                                         sdk_wallet_steward):
+                                                         vdr_pool_handle,
+                                                         vdr_wallet_steward):
     """
     1. Delay ViewChangeDone messages for the slow_node.
     2. Start view change on all nodes.
@@ -37,8 +37,8 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
                                 instances_list=range(fast_nodes[0].requiredNumberOfInstances))
             vdr_send_random_and_check(looper,
                                       txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_steward,
+                                      vdr_pool_handle,
+                                      vdr_wallet_steward,
                                       1)
             assert slow_node.view_change_in_progress
             # 1 - pre-prepare msg

@@ -3,7 +3,7 @@ import pytest
 from plenum.common.util import compare_3PC_keys
 from plenum.test.helper import vdr_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import vdr_add_new_steward_and_node
 from plenum.test.spy_helpers import get_count
 from plenum.test.test_node import checkNodesConnected
 from stp_core.common.log import getlogger
@@ -27,15 +27,15 @@ def backup_replicas_synced(nodes, last_ordered):
 
 
 def test_integration_setup_last_ordered_after_catchup(looper, txnPoolNodeSet,
-                                                sdk_wallet_steward,
-                                                sdk_wallet_client,
-                                                sdk_pool_handle, tdir,
+                                                vdr_wallet_steward,
+                                                vdr_wallet_client,
+                                                vdr_pool_handle, tdir,
                                                 tconf, allPluginsPath):
     start_view_no = txnPoolNodeSet[0].viewNo
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
-    _, new_node = sdk_add_new_steward_and_node(
-        looper, sdk_pool_handle, sdk_wallet_steward,
+                              vdr_pool_handle, vdr_wallet_client, 1)
+    _, new_node = vdr_add_new_steward_and_node(
+        looper, vdr_pool_handle, vdr_wallet_steward,
         'EpsilonSteward', 'Epsilon', tdir, tconf,
         allPluginsPath=allPluginsPath)
     txnPoolNodeSet.append(new_node)
@@ -44,7 +44,7 @@ def test_integration_setup_last_ordered_after_catchup(looper, txnPoolNodeSet,
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1],
                          exclude_from_check=['check_last_ordered_3pc_backup'])
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
     looper.run(eventually(backup_replicas_synced, txnPoolNodeSet, (start_view_no + 1, 2)))
     for node in txnPoolNodeSet:
         for replica in node.replicas.values():

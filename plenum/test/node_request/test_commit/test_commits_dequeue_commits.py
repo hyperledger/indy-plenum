@@ -8,7 +8,7 @@ from plenum.test.helper import vdr_send_batches_of_random_and_check
 
 
 def test_dequeue_and_validate_commits(looper, txnPoolNodeSet,
-                                      sdk_wallet_client, sdk_pool_handle):
+                                      vdr_wallet_client, vdr_pool_handle):
     slow_node = [r.node for r in getNonPrimaryReplicas(txnPoolNodeSet, 0)][-1]
     other_nodes = [n for n in txnPoolNodeSet if n != slow_node]
     delay = 50
@@ -19,8 +19,8 @@ def test_dequeue_and_validate_commits(looper, txnPoolNodeSet,
 
             vdr_send_batches_of_random_and_check(looper,
                                                  txnPoolNodeSet,
-                                                 sdk_pool_handle,
-                                                 sdk_wallet_client,
+                                                 vdr_pool_handle,
+                                                 vdr_wallet_client,
                                                  num_reqs=1,
                                                  num_batches=1)
 

@@ -16,7 +16,7 @@ def tconf(tconf):
         yield tconf
 
 
-def test_catchup_during_3pc(tconf, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
+def test_catchup_during_3pc(tconf, looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle):
     '''
     1) Send 1 3PC batch + 2 reqs
     2) Delay commits on one node
@@ -31,8 +31,8 @@ def test_catchup_during_3pc(tconf, looper, txnPoolNodeSet, sdk_wallet_client, sd
     rest_nodes = txnPoolNodeSet[:-1]
 
     with delay_rules(lagging_node.nodeIbStasher, cDelay()):
-        sdk_reqs = vdr_send_random_requests(looper, sdk_pool_handle,
-                                            sdk_wallet_client, tconf.Max3PCBatchSize + 2)
+        sdk_reqs = vdr_send_random_requests(looper, vdr_pool_handle,
+                                            vdr_wallet_client, tconf.Max3PCBatchSize + 2)
 
         looper.run(
             eventually(check_last_ordered_3pc_on_master, rest_nodes, (0, 1))
@@ -51,7 +51,7 @@ def test_catchup_during_3pc(tconf, looper, txnPoolNodeSet, sdk_wallet_client, sd
 
     vdr_get_replies(looper, sdk_reqs)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 2 * tconf.Max3PCBatchSize - 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 2 * tconf.Max3PCBatchSize - 2)
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

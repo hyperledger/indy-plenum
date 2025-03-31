@@ -13,8 +13,8 @@ LOG_SIZE = CHK_FREQ
 
 def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
                                                                  looper,
-                                                                 sdk_pool_handle,
-                                                                 sdk_wallet_client,
+                                                                 vdr_pool_handle,
+                                                                 vdr_wallet_client,
                                                                  chkFreqPatched):
     """
     1. Delay checkpoints processing on the slow_node. That is checkpoint on this node
@@ -44,8 +44,8 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
         with delay_rules([slow_node.nodeIbStasher, ], chk_delay()):
             vdr_send_batches_of_random_and_check(looper,
                                                  txnPoolNodeSet,
-                                                 sdk_pool_handle,
-                                                 sdk_wallet_client,
+                                                 vdr_pool_handle,
+                                                 vdr_wallet_client,
                                                  num_reqs=1 * CHK_FREQ,
                                                  num_batches=CHK_FREQ)
             ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
@@ -54,8 +54,8 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
                                   CHK_FREQ))
             vdr_send_random_and_check(looper,
                                       txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_client,
+                                      vdr_pool_handle,
+                                      vdr_wallet_client,
                                       1)
 
             stashed_messages = incoming_3pc_msgs_count(len(txnPoolNodeSet))

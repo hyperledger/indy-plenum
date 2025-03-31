@@ -3,7 +3,7 @@ import pytest
 from plenum.test.delayers import nv_delay
 from plenum.test.stasher import delay_rules
 from plenum.test.helper import waitForViewChange, perf_monitor_disabled, view_change_timeout
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import get_master_primary_node, \
@@ -74,7 +74,7 @@ def setup(txnPoolNodeSet, looper):
 
 @pytest.mark.skip(reason="INDY-2244 will be fixed in the scope clean-up work")
 def test_view_change_retry_by_timeout(
-        txnPoolNodeSet, looper, tconf, setup, sdk_pool_handle, sdk_wallet_client):
+        txnPoolNodeSet, looper, tconf, setup, vdr_pool_handle, vdr_wallet_client):
     """
     Verifies that a view change is restarted if it is not completed in time
     """
@@ -104,15 +104,15 @@ def test_view_change_retry_by_timeout(
     for node in txnPoolNodeSet:
         assert node.viewNo - initial_view_no == 2
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
-                               sdk_wallet_client,
-                               sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet,
+                               vdr_wallet_client,
+                               vdr_pool_handle)
 
 
 @pytest.mark.skip(reason="INDY-2244 will be fixed in the scope clean-up work")
 def test_multiple_view_change_retries_by_timeouts(
         txnPoolNodeSet, looper, tconf, setup,
-        sdk_pool_handle, sdk_wallet_client):
+        vdr_pool_handle, vdr_wallet_client):
     """
     Verifies that a view change is restarted each time
     when the previous one is timed out
@@ -141,9 +141,9 @@ def test_multiple_view_change_retries_by_timeouts(
     for node in txnPoolNodeSet:
         assert node.viewNo - initial_view_no == 4
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
-                               sdk_wallet_client,
-                               sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet,
+                               vdr_wallet_client,
+                               vdr_pool_handle)
 
 
 @pytest.mark.skip(reason="INDY-2244 will be fixed in the scope clean-up work")

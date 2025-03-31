@@ -2,7 +2,7 @@ import json
 import types
 
 import pytest
-from plenum.test.wallet_helper import create_and_store_did
+from plenum.test.wallet_helper import vdr_create_and_store_did
 from indy_vdr.ledger import build_nym_request
 
 from plenum.common.constants import NYM, STEWARD, ROLE, VERKEY
@@ -11,7 +11,7 @@ from plenum.common.txn_util import get_request_data
 from plenum.common.util import randomString
 from plenum.server.request_handlers.utils import get_nym_details
 from plenum.test.helper import vdr_get_and_check_replies
-from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
+from plenum.test.pool_transactions.helper import vdr_sign_and_send_prepared_request
 
 NEW_ROLE = None
 
@@ -40,20 +40,20 @@ def patch_nym_validation(txnPoolNodeSet):
 
 
 @pytest.fixture(scope='function')
-def nym_txn_data(looper, sdk_wallet_client):
+def nym_txn_data(looper, vdr_wallet_client):
     seed = randomString(32)
 
-    wh, _ = sdk_wallet_client
+    wh, _ = vdr_wallet_client
     sender_did, sender_verkey = \
-        looper.loop.run_until_complete(create_and_store_did(wh, seed))
+        looper.loop.run_until_complete(vdr_create_and_store_did(wh, seed))
     return wh, randomString(5), sender_did, sender_verkey
 
 
-def test_create_did_without_endorser(looper, txnPoolNodeSet, nym_txn_data, sdk_pool_handle, patch_nym_validation):
+def test_create_did_without_endorser(looper, txnPoolNodeSet, nym_txn_data, vdr_pool_handle, patch_nym_validation):
     wh, alias, sender_did, sender_verkey = nym_txn_data
     nym_request = build_nym_request(sender_did, sender_did, sender_verkey, alias, NEW_ROLE)
 
-    request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
+    request_couple = vdr_sign_and_send_prepared_request(looper, (wh, sender_did), vdr_pool_handle, nym_request)
     vdr_get_and_check_replies(looper, [request_couple])
 
     details = get_nym_details(txnPoolNodeSet[0].states[1], sender_did, is_committed=True)
@@ -61,25 +61,25 @@ def test_create_did_without_endorser(looper, txnPoolNodeSet, nym_txn_data, sdk_p
     assert details[VERKEY] == sender_verkey
 
 
-def test_create_did_without_endorser_empty_verkey(looper, nym_txn_data, sdk_wallet_client, sdk_pool_handle,
+def test_create_did_without_endorser_empty_verkey(looper, nym_txn_data, vdr_wallet_client, vdr_pool_handle,
                                             patch_nym_validation):
     wh, alias, sender_did, sender_verkey = nym_txn_data
 
     nym_request = build_nym_request(sender_did, sender_did, None, alias, NEW_ROLE)
 
-    request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
+    request_couple = vdr_sign_and_send_prepared_request(looper, (wh, sender_did), vdr_pool_handle, nym_request)
 
     with pytest.raises(RequestNackedException, match=CouldNotAuthenticate.reason.format(sender_did)):
         vdr_get_and_check_replies(looper, [request_couple])
 
 
-def test_create_did_without_endorser_different_dest(looper, nym_txn_data, sdk_wallet_client, sdk_pool_handle,
+def test_create_did_without_endorser_different_dest(looper, nym_txn_data, vdr_wallet_client, vdr_pool_handle,
                                                     patch_nym_validation):
     wh, alias, sender_did, sender_verkey = nym_txn_data
 
-    nym_request = build_nym_request(sender_did, sdk_wallet_client[1], sender_verkey, alias, NEW_ROLE)
+    nym_request = build_nym_request(sender_did, vdr_wallet_client[1], sender_verkey, alias, NEW_ROLE)
 
-    request_couple = sdk_sign_and_send_prepared_request(looper, (wh, sender_did), sdk_pool_handle, nym_request)
+    request_couple = vdr_sign_and_send_prepared_request(looper, (wh, sender_did), vdr_pool_handle, nym_request)
 
     with pytest.raises(RequestNackedException, match=CouldNotAuthenticate.reason.format(sender_did)):
         vdr_get_and_check_replies(looper, [request_couple])

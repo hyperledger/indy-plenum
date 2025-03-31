@@ -46,8 +46,8 @@ CHK_FREQ = 5
 LOG_SIZE = 3 * CHK_FREQ
 
 
-def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
-                                       sdk_wallet_client, monkeypatch,
+def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, vdr_pool_handle,
+                                       vdr_wallet_client, monkeypatch,
                                        chkFreqPatched, reqs_for_checkpoint):
     """
     Checks that transactions received by catchup do not
@@ -66,7 +66,7 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
 
     # Send some requests and check that all replicas except master executed it
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client,
+                              vdr_pool_handle, vdr_wallet_client,
                               reqs_for_checkpoint - max_batch_size)
     waitNodeDataInequality(looper, lagging_node, *rest_nodes)
     looper.run(eventually(backup_replicas_run_forward, lagging_node))
@@ -74,7 +74,7 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
     assert not lagging_node.monitor.isMasterDegraded()
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client,
+                              vdr_pool_handle, vdr_wallet_client,
                               reqs_for_checkpoint + max_batch_size)
     # Check that catchup done
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
@@ -84,7 +84,7 @@ def test_node_catchup_causes_no_desync(looper, txnPoolNodeSet, sdk_pool_handle,
     # Send some more requests to ensure that backup and master replicas
     # are in the same state
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client,
+                              vdr_pool_handle, vdr_wallet_client,
                               reqs_for_checkpoint - max_batch_size)
     looper.run(eventually(replicas_synced, lagging_node))
 

@@ -28,7 +28,7 @@ def check_nodes_requests_size(nodes, size):
 
 
 def test_view_change_gc_in_between_3pc_all_nodes_delays(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     """
     Test that garbage collector compares the whole 3PC key (viewNo, ppSeqNo)
     and does not remove messages from node's queues that have higher
@@ -45,10 +45,10 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     #       for master instances only cause non-master ones have
     #       specific logic of its management which we don't care in
     #       the test, see Replica::_setup_for_non_master)
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
     batches_count = get_pp_seq_no(txnPoolNodeSet)
     last_ordered_3pc = (viewNo, batches_count)
     check_nodes_last_ordered_3pc(txnPoolNodeSet, last_ordered_3pc)
@@ -76,7 +76,7 @@ def test_view_change_gc_in_between_3pc_all_nodes_delays(
     delay_3pc_messages(txnPoolNodeSet,
                        1,
                        delay=propagationTimeout * 2)
-    requests = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+    requests = vdr_send_random_request(looper, vdr_pool_handle, vdr_wallet_client)
 
     def checkPrePrepareSentAtLeastByPrimary():
         for node in txnPoolNodeSet:

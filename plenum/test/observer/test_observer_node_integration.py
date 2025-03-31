@@ -25,7 +25,7 @@ def exclude_from_consensus(node):
 
 def test_observer_node(txnPoolNodeSet,
                        looper,
-                       sdk_pool_handle, sdk_wallet_client):
+                       vdr_pool_handle, vdr_wallet_client):
     '''
     Integration tests checking the full workflow between a real Node Observer and real Node Observables.
     '''
@@ -40,7 +40,7 @@ def test_observer_node(txnPoolNodeSet,
 
     # send requests, so that they will be propagated to Observer (Delta)
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client,
+                              vdr_pool_handle, vdr_wallet_client,
                               10)
 
     # check that Delta is in sync with other Nodes.

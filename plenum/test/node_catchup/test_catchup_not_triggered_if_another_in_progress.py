@@ -27,8 +27,8 @@ def test_catchup_not_triggered_if_another_in_progress(
         chkFreqPatched,
         reqs_for_checkpoint,
         txnPoolNodeSet,
-        sdk_pool_handle,
-        sdk_wallet_client,
+        vdr_pool_handle,
+        vdr_wallet_client,
         broken_node_and_others):
     """
     A node misses 3pc messages and checkpoints during some period but later it
@@ -42,8 +42,8 @@ def test_catchup_not_triggered_if_another_in_progress(
     logger.info("Step 1: The node misses quite a lot of 3PC-messages and checkpoints")
 
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
-                                           sdk_pool_handle,
-                                           sdk_wallet_client,
+                                           vdr_pool_handle,
+                                           vdr_wallet_client,
                                            reqs_for_checkpoint + max_batch_size)
 
     waitNodeDataInequality(looper, broken_node, *other_nodes)
@@ -59,8 +59,8 @@ def test_catchup_not_triggered_if_another_in_progress(
 
     with delay_rules(repaired_node.nodeIbStasher, cr_delay()):
         send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
-                                               sdk_pool_handle,
-                                               sdk_wallet_client,
+                                               vdr_pool_handle,
+                                               vdr_wallet_client,
                                                (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
                                                reqs_for_checkpoint - max_batch_size)
 
@@ -81,8 +81,8 @@ def test_catchup_not_triggered_if_another_in_progress(
             repaired_node.master_replica._checkpointer.spylog.count(CheckpointService.process_checkpoint)
 
         send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
-                                               sdk_pool_handle,
-                                               sdk_wallet_client,
+                                               vdr_pool_handle,
+                                               vdr_wallet_client,
                                                (Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1) *
                                                reqs_for_checkpoint)
 

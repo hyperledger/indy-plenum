@@ -5,7 +5,7 @@ from plenum.common.txn_util import get_type
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected, TestNode
 from plenum.test.pool_transactions.helper import \
-    sdk_add_new_steward_and_node, sdk_pool_refresh
+    vdr_add_new_steward_and_node, vdr_pool_refresh
 
 
 
@@ -31,7 +31,7 @@ def sdk_node_theta_added(looper,
     new_steward_name = "testClientSteward" + randomString(3)
     new_node_name = name or "Theta"
     new_steward_wallet, new_node = \
-        sdk_add_new_steward_and_node(looper,
+        vdr_add_new_steward_and_node(looper,
                                      sdk_pool_handle,
                                      sdk_wallet_steward,
                                      new_steward_name,
@@ -42,7 +42,7 @@ def sdk_node_theta_added(looper,
                                      nodeClass=testNodeClass)
     txnPoolNodeSet.append(new_node)
     looper.run(checkNodesConnected(txnPoolNodeSet))
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    vdr_pool_refresh(looper, sdk_pool_handle)
     return new_steward_wallet, new_node
 
 
@@ -51,12 +51,12 @@ def sdk_node_theta_added_fixture(looper,
                                  txnPoolNodeSet,
                                  tdir,
                                  tconf,
-                                 sdk_pool_handle,
-                                 sdk_wallet_steward,
+                                 vdr_pool_handle,
+                                 vdr_wallet_steward,
                                  allPluginsPath,
                                  testNodeClass=TestNode,
                                  name=None):
-    return sdk_node_theta_added(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_handle, sdk_wallet_steward,
+    return sdk_node_theta_added(looper, txnPoolNodeSet, tdir, tconf, vdr_pool_handle, vdr_wallet_steward,
                                 allPluginsPath, testNodeClass, name)
 
 

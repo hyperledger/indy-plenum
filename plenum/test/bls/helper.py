@@ -19,10 +19,10 @@ from plenum.common.constants import DOMAIN_LEDGER_ID, STATE_PROOF, MULTI_SIGNATU
 from plenum.common.keygen_utils import init_bls_keys
 from plenum.common.util import hexToFriendly
 from plenum.test.helper import vdr_send_random_and_check, create_commit_bls_sig
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import sdk_send_update_node, \
-    sdk_pool_refresh
+from plenum.test.pool_transactions.helper import vdr_send_update_node, \
+    vdr_pool_refresh
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -134,7 +134,7 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     key_in_txn = new_bls or new_blspk
     bls_key_proof = new_key_proof or key_proof
     node_dest = hexToFriendly(node.nodestack.verhex)
-    sdk_send_update_node(looper, sdk_wallet_steward,
+    vdr_send_update_node(looper, sdk_wallet_steward,
                          sdk_pool_handle,
                          node_dest, node.name,
                          None, None,
@@ -147,9 +147,9 @@ def sdk_change_bls_key(looper, txnPoolNodeSet,
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
     if pool_refresh:
-        sdk_pool_refresh(looper, sdk_pool_handle)
+        vdr_pool_refresh(looper, sdk_pool_handle)
     if check_functional:
-        sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+        vdr_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
     return new_blspk
 
 
@@ -289,7 +289,7 @@ def update_bls_keys_no_proof(node_index, sdk_wallet_stewards, sdk_pool_handle, l
     sdk_wallet_steward = sdk_wallet_stewards[node_index]
     new_blspk, key_proof = init_bls_keys(node.keys_dir, node.name)
     node_dest = hexToFriendly(node.nodestack.verhex)
-    sdk_send_update_node(looper, sdk_wallet_steward,
+    vdr_send_update_node(looper, sdk_wallet_steward,
                          sdk_pool_handle,
                          node_dest, node.name,
                          None, None,
@@ -300,7 +300,7 @@ def update_bls_keys_no_proof(node_index, sdk_wallet_stewards, sdk_pool_handle, l
     poolSetExceptOne = list(txnPoolNodeSet)
     poolSetExceptOne.remove(node)
     waitNodeDataEquality(looper, node, *poolSetExceptOne)
-    sdk_pool_refresh(looper, sdk_pool_handle)
+    vdr_pool_refresh(looper, sdk_pool_handle)
     return new_blspk
 
 

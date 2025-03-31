@@ -26,10 +26,10 @@ def configNodeSet(txnPoolNodeSet):
 
 
 def testMsgFromInstanceDelay(configNodeSet, looper,
-                             sdk_pool_handle, sdk_wallet_client):
+                             vdr_pool_handle, vdr_wallet_client):
     A, B, C, D = configNodeSet
 
-    vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+    vdr_send_random_request(looper, vdr_pool_handle, vdr_wallet_client)
 
     def getCommits(node: TestNode, instId: int):
         replica = node.replicas[instId]  # type: Replica

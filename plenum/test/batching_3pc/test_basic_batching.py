@@ -9,55 +9,55 @@ from plenum.common.request import Request
 
 
 def testRequestStaticValidation(tconf, looper, txnPoolNodeSet,
-                                sdk_wallet_client):
+                                vdr_wallet_client):
     """
     Check that for requests which fail static validation, REQNACK is sent
     :return:
     """
     node = txnPoolNodeSet[0]
-    req = generate_invalid_unsigned_plenum_request(sdk_wallet_client, {'something': 'nothing'})
+    req = generate_invalid_unsigned_plenum_request(vdr_wallet_client, {'something': 'nothing'})
     with pytest.raises(InvalidClientRequest):
         node.doStaticValidation(req)
 
 
 def test3PCOverBatchWithThresholdReqs(tconf, looper, txnPoolNodeSet,
-                                      sdk_wallet_client, sdk_pool_handle):
+                                      vdr_wallet_client, vdr_pool_handle):
     """
     Check that 3 phase commit happens when threshold number of requests are
     received and propagated.
     :return:
     """
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, tconf.Max3PCBatchSize)
 
 
 def test3PCOverBatchWithLessThanThresholdReqs(tconf, looper, txnPoolNodeSet,
-                                              sdk_wallet_client, sdk_pool_handle):
+                                              vdr_wallet_client, vdr_pool_handle):
     """
     Check that 3 phase commit happens when threshold number of requests are
     not received but threshold time has passed
     :return:
     """
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize - 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, tconf.Max3PCBatchSize - 1)
 
 
 def testTreeRootsCorrectAfterEachBatch(tconf, looper, txnPoolNodeSet,
-                                       sdk_pool_handle, sdk_wallet_client):
+                                       vdr_pool_handle, vdr_wallet_client):
     """
     Check if both state root and txn tree root are correct and same on each
     node after each batch
     :return:
     """
     # Send 1 batch
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # Send 2 batches
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2 * tconf.Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 2 * tconf.Max3PCBatchSize)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
 
 def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
-                                 sdk_pool_handle, sdk_wallet_client):
+                                 vdr_pool_handle, vdr_wallet_client):
     """
     Check that for requests which fail dynamic (state based) validation,
     REJECT is sent to the client
@@ -77,8 +77,8 @@ def testRequestDynamicValidation(tconf, looper, txnPoolNodeSet,
         for replica in node.replicas._replicas.values():
             replica._ordering_service._do_dynamic_validation = types.MethodType(rejectingMethod, replica._ordering_service)
 
-    reqs = vdr_send_random_requests(looper, sdk_pool_handle,
-                                    sdk_wallet_client,
+    reqs = vdr_send_random_requests(looper, vdr_pool_handle,
+                                    vdr_wallet_client,
                                     tconf.Max3PCBatchSize)
     vdr_get_and_check_replies(looper, reqs[:-1])
     with pytest.raises(RequestRejectedException) as e:

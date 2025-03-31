@@ -17,8 +17,8 @@ def _check_taa_time_correct(taa_acceptance):
 
 def test_request_with_invalid_taa_acceptance_time(set_txn_author_agreement,
                                                   add_taa_acceptance,
-                                                  sdk_wallet_new_steward,
-                                                  sdk_pool_handle,
+                                                  vdr_wallet_new_steward,
+                                                  vdr_pool_handle,
                                                   looper):
     taa_data = set_txn_author_agreement()
     request_json = add_taa_acceptance(
@@ -27,7 +27,7 @@ def test_request_with_invalid_taa_acceptance_time(set_txn_author_agreement,
         taa_a_time=taa_data.txn_time + (0 if taa_data.txn_time % SEC_PER_DAY != 0 else 1)
     )
 
-    req = vdr_sign_and_submit_req(looper, sdk_pool_handle, sdk_wallet_new_steward, request_json)
+    req = vdr_sign_and_submit_req(looper, vdr_pool_handle, vdr_wallet_new_steward, request_json)
     resp = vdr_get_and_check_replies(looper, [req])
     _check_taa_time_correct(resp[0][0])
     _check_taa_time_correct(resp[0][1]["result"][TXN_PAYLOAD][TXN_PAYLOAD_METADATA])

@@ -25,7 +25,7 @@ def count_requested_preprepare_req(node):
 
 
 def test_node_request_preprepare(looper, txnPoolNodeSet,
-                                 sdk_wallet_client, sdk_pool_handle,
+                                 vdr_wallet_client, vdr_pool_handle,
                                  teardown):
     """
     Node requests PRE-PREPARE only once after getting PREPAREs.
@@ -38,8 +38,8 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
 
     vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
-                                         sdk_pool_handle,
-                                         sdk_wallet_client,
+                                         vdr_pool_handle,
+                                         vdr_wallet_client,
                                          num_reqs=10,
                                          num_batches=5)
     slow_node.nodeIbStasher.drop_delayeds()
@@ -89,7 +89,7 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
 
 
 def test_no_preprepare_requested(looper, txnPoolNodeSet,
-                                 sdk_wallet_client, sdk_pool_handle,
+                                 vdr_wallet_client, vdr_pool_handle,
                                  teardown):
     """
     Node missing Propagates hence request not finalised, hence stashes
@@ -104,8 +104,8 @@ def test_no_preprepare_requested(looper, txnPoolNodeSet,
 
     vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
-                                         sdk_pool_handle,
-                                         sdk_wallet_client,
+                                         vdr_pool_handle,
+                                         vdr_wallet_client,
                                          num_reqs=4,
                                          num_batches=2)
 

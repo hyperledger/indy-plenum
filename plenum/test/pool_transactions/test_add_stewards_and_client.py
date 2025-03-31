@@ -10,13 +10,13 @@ from plenum.common.signer_simple import SimpleSigner
 from plenum.common.util import randomString
 from plenum.test import waits
 from plenum.test.helper import vdr_get_and_check_replies
-from plenum.test.pool_transactions.helper import prepare_new_node_data, prepare_node_request, \
-    sdk_sign_and_send_prepared_request
+from plenum.test.pool_transactions.helper import prepare_new_node_data, vdr_prepare_node_request, \
+    vdr_sign_and_send_prepared_request
 from stp_core.loop.eventually import eventually
 
 
-def testAddNewClient(looper, txnPoolNodeSet, sdk_wallet_new_client):
-    _, did = sdk_wallet_new_client
+def testAddNewClient(looper, txnPoolNodeSet, vdr_wallet_new_client):
+    _, did = vdr_wallet_new_client
 
     def chk():
         for node in txnPoolNodeSet:
@@ -29,8 +29,8 @@ def testAddNewClient(looper, txnPoolNodeSet, sdk_wallet_new_client):
 
 def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
                                                 txnPoolNodeSet,
-                                                sdk_pool_handle,
-                                                sdk_wallet_new_steward):
+                                                vdr_pool_handle,
+                                                vdr_wallet_new_steward):
     """
     The Case:
         Steward accidentally sends the NODE txn with a non base58 verkey.
@@ -41,9 +41,9 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
 
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
-    _, steward_did = sdk_wallet_new_steward
+    _, steward_did = vdr_wallet_new_steward
     node_request = looper.loop.run_until_complete(
-        prepare_node_request(steward_did,
+        vdr_prepare_node_request(steward_did,
                              new_node_name=new_node_name,
                              clientIp=clientIp,
                              clientPort=clientPort,
@@ -63,9 +63,9 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
     request_json['operation'][TARGET_NYM] = hexVerKey
     node_request = json.dumps(request_json)
 
-    request_couple = sdk_sign_and_send_prepared_request(looper,
-                                                        sdk_wallet_new_steward,
-                                                        sdk_pool_handle,
+    request_couple = vdr_sign_and_send_prepared_request(looper,
+                                                        vdr_wallet_new_steward,
+                                                        vdr_pool_handle,
                                                         node_request)
     with pytest.raises(RequestNackedException) as e:
         vdr_get_and_check_replies(looper, [request_couple])
@@ -74,8 +74,8 @@ def testStewardCannotAddNodeWithNonBase58VerKey(looper, tdir, tconf,
 
 def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
                                           txnPoolNodeSet,
-                                          sdk_wallet_new_steward,
-                                          sdk_pool_handle):
+                                          vdr_wallet_new_steward,
+                                          vdr_pool_handle):
     """
     The case:
         Steward accidentally sends the NODE txn with an invalid HA.
@@ -86,9 +86,9 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
 
     sigseed, verkey, bls_key, nodeIp, nodePort, clientIp, clientPort, key_proof = \
         prepare_new_node_data(tconf, tdir, new_node_name)
-    _, steward_did = sdk_wallet_new_steward
+    _, steward_did = vdr_wallet_new_steward
     node_request = looper.loop.run_until_complete(
-        prepare_node_request(steward_did,
+        vdr_prepare_node_request(steward_did,
                              new_node_name=new_node_name,
                              clientIp=clientIp,
                              clientPort=clientPort,
@@ -113,9 +113,9 @@ def testStewardCannotAddNodeWithInvalidHa(looper, tdir, tconf,
         request_json = json.loads(node_request)
         request_json['operation'][DATA][field] = value
         node_request1 = json.dumps(request_json)
-        request_couple = sdk_sign_and_send_prepared_request(looper,
-                                                            sdk_wallet_new_steward,
-                                                            sdk_pool_handle,
+        request_couple = vdr_sign_and_send_prepared_request(looper,
+                                                            vdr_wallet_new_steward,
+                                                            vdr_pool_handle,
                                                             node_request1)
         # wait NAcks with exact message. it does not works for just 'is invalid'
         # because the 'is invalid' will check only first few cases

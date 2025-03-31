@@ -1,6 +1,6 @@
 from plenum.common.util import hexToFriendly
 
-from plenum.test.pool_transactions.helper import sdk_send_update_node
+from plenum.test.pool_transactions.helper import vdr_send_update_node
 from plenum.test.test_node import TestNode, checkNodesConnected
 from stp_core.network.port_dispenser import genHa
 from plenum.common.config_helper import PNodeConfigHelper
@@ -9,7 +9,7 @@ TestRunningTimeLimitSec = 200
 
 
 def testChangeNodeHaBack(looper, txnPoolNodeSet,
-                         sdk_pool_handle,
+                         vdr_pool_handle,
                          sdk_node_theta_added,
                          tconf, tdir):
     """
@@ -29,20 +29,20 @@ def testChangeNodeHaBack(looper, txnPoolNodeSet,
     correct_node_ha = genHa(1)
 
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+    vdr_send_update_node(looper, new_steward_wallet, vdr_pool_handle,
                          node_dest, new_node.name,
                          correct_node_ha.host, correct_node_ha.port,
                          client_ha.host, client_ha.port)
 
     # step 2: set 'wrong' HA
     wrong_node_ha = genHa(1)
-    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+    vdr_send_update_node(looper, new_steward_wallet, vdr_pool_handle,
                          node_dest, new_node.name,
                          wrong_node_ha.host, wrong_node_ha.port,
                          client_ha.host, client_ha.port)
 
     # step 3: set 'correct' HA back
-    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+    vdr_send_update_node(looper, new_steward_wallet, vdr_pool_handle,
                          node_dest, new_node.name,
                          correct_node_ha.host, correct_node_ha.port,
                          client_ha.host, client_ha.port)

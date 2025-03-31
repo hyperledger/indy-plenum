@@ -26,7 +26,7 @@ def slow_node(request, txnPoolNodeSet):
 
 @pytest.mark.skip(reasone="It's an intermittent test, INDY-722")
 def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, tconf, slow_node):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward, tconf, slow_node):
     """
     Delay 3PC to 1 node and then cause view change so by the time the view
     change happens(each node gets >n-f `INSTANCE_CHANGE`s), the slow node is
@@ -43,8 +43,8 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
     slow_node.nodeIbStasher.delay(cDelay(3 * delay, 0))
     for i in range(2):
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_steward, 20)
+                                  vdr_pool_handle,
+                                  vdr_wallet_steward, 20)
         waitNodeDataInequality(looper, slow_node, *fast_nodes)
 
     catchup_reply_counts = {n.name: n.ledgerManager.spylog.count(
@@ -101,6 +101,6 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
 
     # Make sure pool is functional
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_steward, 5)
+                              vdr_pool_handle,
+                              vdr_wallet_steward, 5)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

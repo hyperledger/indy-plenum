@@ -13,13 +13,13 @@ def patch_node_reg_in_audit(node, monkeypatch):
 
 
 def test_audit_ledger_with_node_reg_feature_added(looper, tconf, txnPoolNodeSet, monkeypatch,
-                                                  sdk_pool_handle, sdk_wallet_client):
+                                                  vdr_pool_handle, vdr_wallet_client):
     # 1. patch audit ledger to not store node reg at all
     for n in txnPoolNodeSet:
         patch_node_reg_in_audit(n, monkeypatch)
 
     # 2. order a txn
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
 
     # 3. check that node reg is not present in the latest audit txn
     for node in txnPoolNodeSet:
@@ -29,7 +29,7 @@ def test_audit_ledger_with_node_reg_feature_added(looper, tconf, txnPoolNodeSet,
     monkeypatch.undo()
 
     # 5. order a txn
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
 
     # 6. check that node reg is present in the latest audit txn
     for node in txnPoolNodeSet:

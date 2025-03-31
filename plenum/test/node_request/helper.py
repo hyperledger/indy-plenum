@@ -10,7 +10,7 @@ def nodes_by_rank(txnPoolNodeSet):
                                  key=operator.itemgetter(0))]
 
 
-def sdk_ensure_pool_functional(looper, nodes, sdk_wallet, sdk_pool,
+def vdr_ensure_pool_functional(looper, nodes, sdk_wallet, sdk_pool,
                                num_reqs=10, num_batches=2):
     vdr_send_batches_of_random_and_check(looper,
                                          nodes,

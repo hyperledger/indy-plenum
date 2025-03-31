@@ -12,13 +12,13 @@ from plenum.test.test_node import getNonPrimaryReplicas, \
 
 
 @pytest.fixture(scope="module")
-def setup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def setup(tconf, looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     # Patch the 3phase request sending method to send incorrect digest and
     pr, otherR = getPrimaryReplica(txnPoolNodeSet, instId=0), \
                  getNonPrimaryReplicas(txnPoolNodeSet, instId=0)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, tconf.Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, tconf.Max3PCBatchSize)
     stateRoot = pr._ordering_service.get_state_root_hash(DOMAIN_LEDGER_ID, to_str=False)
 
     origMethod = pr._ordering_service.create_3pc_batch
@@ -33,7 +33,7 @@ def setup(tconf, looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
         return pp
 
     pr._ordering_service.create_3pc_batch = types.MethodType(badMethod, pr._ordering_service)
-    vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client,
                              tconf.Max3PCBatchSize)
     return pr, otherR, stateRoot
 
@@ -75,11 +75,11 @@ def testViewChangeAfterBatchRejected(viewChanged):
 
 def testMoreBatchesWillBeSentAfterViewChange(reverted, viewChanged,
                                              txnPoolNodeSet,
-                                             sdk_pool_handle, sdk_wallet_client,
+                                             vdr_pool_handle, vdr_wallet_client,
                                              tconf, looper):
     """
     After retrying discarded batches, new batches are sent
     :return:
     """
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, tconf.Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, tconf.Max3PCBatchSize)

@@ -4,8 +4,8 @@ from plenum.common.messages.node_messages import Prepare, Commit, PrePrepare
 from plenum.common.util import get_utc_epoch
 
 
-def test_accept_all_3PC_msgs(create_node_and_not_start, looper):
-    node = create_node_and_not_start
+def test_accept_all_3PC_msgs(vdr_create_node_and_not_start, looper):
+    node = vdr_create_node_and_not_start
     preprepare = PrePrepare(
         0,
         0,

@@ -17,7 +17,7 @@ reqCount = 1
 
 
 @pytest.fixture()
-def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client,):
+def setup(txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client,):
     def _clean(*args):
         pass
 
@@ -30,7 +30,7 @@ def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client,):
     A.requests._clean = types.MethodType(
                             _clean, A.requests)
     request_couple_json = vdr_send_random_requests(
-        looper, sdk_pool_handle, sdk_wallet_client, reqCount)
+        looper, vdr_pool_handle, vdr_wallet_client, reqCount)
     return request_couple_json
 
 

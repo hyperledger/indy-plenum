@@ -35,21 +35,21 @@ def tconf(tconf):
 
 def test_clearing_forwarded_preprepared_request(
         looper, chkFreqPatched, reqs_for_checkpoint, txnPoolNodeSet,
-        sdk_pool_handle, sdk_wallet_steward):
+        vdr_pool_handle, vdr_wallet_steward):
     # Case when backup ordered correctly, but primary had problems.
     # As a result, master will execute caughtup txns and will be removed
     # from requests queues
     behind_node = txnPoolNodeSet[-1]
 
-    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                         sdk_wallet_steward, CHK_FREQ, CHK_FREQ)
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                         vdr_wallet_steward, CHK_FREQ, CHK_FREQ)
     with delay_rules(behind_node.nodeIbStasher,
                      pDelay(delay=sys.maxsize, instId=0),
                      cDelay(delay=sys.maxsize, instId=0)):
         count = behind_node.spylog.count(behind_node.allLedgersCaughtUp)
 
-        vdr_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool_handle,
-                                   sdk_wallet_steward, req_num, req_num)
+        vdr_send_batches_of_random(looper, txnPoolNodeSet, vdr_pool_handle,
+                                   vdr_wallet_steward, req_num, req_num)
 
         looper.run(eventually(node_caughtup, behind_node, count, retryWait=1))
 
@@ -61,13 +61,13 @@ def test_clearing_forwarded_preprepared_request(
 
 def test_deletion_non_forwarded_request(
         looper, chkFreqPatched, reqs_for_checkpoint, txnPoolNodeSet,
-        sdk_pool_handle, sdk_wallet_steward, tconf, tdir, allPluginsPath):
+        vdr_pool_handle, vdr_wallet_steward, tconf, tdir, allPluginsPath):
     behind_node = txnPoolNodeSet[-1]
     [behind_node.replicas.values()[1].discard_req_key(1, key) for key in behind_node.requests]
     behind_node.requests.clear()
 
-    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                         sdk_wallet_steward, CHK_FREQ, CHK_FREQ)
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                         vdr_wallet_steward, CHK_FREQ, CHK_FREQ)
     behind_node.quorums.propagate = Quorum(len(txnPoolNodeSet) + 1)
 
     with delay_rules(behind_node.nodeIbStasher,
@@ -75,8 +75,8 @@ def test_deletion_non_forwarded_request(
                      pDelay(delay=sys.maxsize),
                      cDelay(delay=sys.maxsize)):
         count = behind_node.spylog.count(behind_node.allLedgersCaughtUp)
-        vdr_send_batches_of_random(looper, txnPoolNodeSet, sdk_pool_handle,
-                                   sdk_wallet_steward, req_num, req_num)
+        vdr_send_batches_of_random(looper, txnPoolNodeSet, vdr_pool_handle,
+                                   vdr_wallet_steward, req_num, req_num)
         looper.run(eventually(node_caughtup, behind_node, count, retryWait=1))
 
     # We clear caughtup requests

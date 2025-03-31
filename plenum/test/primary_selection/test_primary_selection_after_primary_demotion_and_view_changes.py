@@ -2,7 +2,7 @@ from plenum.common.util import hexToFriendly
 
 from stp_core.common.log import getlogger
 
-from plenum.test.pool_transactions.helper import sdk_send_update_node
+from plenum.test.pool_transactions.helper import vdr_send_update_node
 
 from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.test_node import ensureElectionsDone
@@ -12,8 +12,8 @@ logger = getlogger()
 
 
 def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPoolNodeSet,
-                                                                   sdk_pool_handle,
-                                                                   sdk_wallet_steward,
+                                                                   vdr_pool_handle,
+                                                                   vdr_wallet_steward,
                                                                    txnPoolMasterNodes):
     """
     Demote primary and do multiple view changes forcing primaries rotation.
@@ -26,8 +26,8 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
                 " this should trigger view change")
     master_node = txnPoolMasterNodes[0]
     node_dest = hexToFriendly(master_node.nodestack.verhex)
-    sdk_send_update_node(looper, sdk_wallet_steward,
-                         sdk_pool_handle,
+    vdr_send_update_node(looper, vdr_wallet_steward,
+                         vdr_pool_handle,
                          node_dest, master_node.name,
                          None, None,
                          None, None,
@@ -45,8 +45,8 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert restNodes[0].replicas[0].primaryName != master_node.name
 
     # ensure pool is working properly
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 3)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 3)
 
     logger.info("2. force view change 2 and check final viewNo")
     ensure_view_change_complete(looper, restNodes)
@@ -55,8 +55,8 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert restNodes[0].replicas[0].primaryName != master_node.name
     assert viewNo2 == viewNo1 + 1
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 3)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 3)
 
     logger.info("3. force view change 3 and check final viewNo")
     ensure_view_change_complete(looper, restNodes)
@@ -64,8 +64,8 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert restNodes[0].replicas[0].primaryName != master_node.name
     assert viewNo3 == viewNo2 + 1
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 3)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 3)
 
     logger.info("4. force view change 4 and check final viewNo")
     ensure_view_change_complete(looper, restNodes)
@@ -73,5 +73,5 @@ def test_primary_selection_after_primary_demotion_and_view_changes(looper, txnPo
     assert restNodes[0].replicas[0].primaryName != master_node.name
     assert viewNo4 == viewNo3 + 1
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 3)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 3)

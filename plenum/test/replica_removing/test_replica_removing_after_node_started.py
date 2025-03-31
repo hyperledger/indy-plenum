@@ -4,7 +4,7 @@ from plenum.test.helper import waitForViewChange
 
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_catchup.test_config_ledger import start_stopped_node
-from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected, vdr_add_new_steward_and_node
 from plenum.test.replica_removing.helper import check_replica_removed
 from plenum.test.view_change_service.helper import trigger_view_change
 from stp_core.loop.eventually import eventually
@@ -30,12 +30,12 @@ def tconf(tconf):
 
 def test_replica_removing_after_node_started(looper,
                                              txnPoolNodeSet,
-                                             sdk_pool_handle,
-                                             sdk_wallet_client,
+                                             vdr_pool_handle,
+                                             vdr_wallet_client,
                                              tconf,
                                              tdir,
                                              allPluginsPath,
-                                             sdk_wallet_steward):
+                                             vdr_wallet_steward):
     """
     1. Remove backup primary node.
     2. Check that replicas with the disconnected primary were removed.
@@ -66,9 +66,9 @@ def test_replica_removing_after_node_started(looper,
     looper.run(eventually(check_replica_removed_on_all_nodes,
                           timeout=tconf.TolerateBackupPrimaryDisconnection * 2))
 
-    new_steward_wallet, new_node = sdk_add_new_steward_and_node(looper,
-                                                                sdk_pool_handle,
-                                                                sdk_wallet_steward,
+    new_steward_wallet, new_node = vdr_add_new_steward_and_node(looper,
+                                                                vdr_pool_handle,
+                                                                vdr_wallet_steward,
                                                                 "test_steward",
                                                                 "test_node",
                                                                 tdir,

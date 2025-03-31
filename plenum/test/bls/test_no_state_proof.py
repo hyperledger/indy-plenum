@@ -11,8 +11,8 @@ nodes_wth_bls = 0
 
 
 def test_make_proof_bls_disabled(looper, txnPoolNodeSet,
-                                 sdk_wallet_client):
-    req = json.loads(vdr_signed_random_requests(looper, sdk_wallet_client, 1)[0].body)
+                                 vdr_wallet_client):
+    req = json.loads(vdr_signed_random_requests(looper, vdr_wallet_client, 1)[0].body)
 
     for node in txnPoolNodeSet:
         req_handler = node.read_manager.request_handlers[GET_BUY]
@@ -22,8 +22,8 @@ def test_make_proof_bls_disabled(looper, txnPoolNodeSet,
 
 
 def test_make_result_bls_disabled(looper, txnPoolNodeSet,
-                                  sdk_wallet_client):
-    req = json.loads(vdr_signed_random_requests(looper, sdk_wallet_client, 1)[0].body)
+                                  vdr_wallet_client):
+    req = json.loads(vdr_signed_random_requests(looper, vdr_wallet_client, 1)[0].body)
 
     for node in txnPoolNodeSet:
         req_handler = node.read_manager.request_handlers[GET_BUY]

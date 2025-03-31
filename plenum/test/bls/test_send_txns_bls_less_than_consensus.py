@@ -12,10 +12,10 @@ def test_each_node_has_bls(txnPoolNodeSet):
 
 
 def test_send_txns_bls_less_than_consensus(looper, txnPoolNodeSet,
-                                           sdk_pool_handle, sdk_wallet_client):
+                                           vdr_pool_handle, vdr_wallet_client):
     # make sure that we have commits from all nodes, and have 4 of 7 ( < n-f) BLS sigs there is not enough
     for node in txnPoolNodeSet:
         node.quorums.commit = Quorum(nodeCount)
     sdk_check_bls_multi_sig_after_send(looper, txnPoolNodeSet,
-                                       sdk_pool_handle, sdk_wallet_client,
+                                       vdr_pool_handle, vdr_wallet_client,
                                        saved_multi_sigs_count=0)

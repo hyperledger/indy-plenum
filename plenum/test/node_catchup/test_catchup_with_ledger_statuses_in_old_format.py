@@ -12,7 +12,7 @@ from plenum.common.types import f
 
 
 def test_catchup_with_ledger_statuses_in_old_format_from_one_node(
-        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_steward,
+        txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_steward,
         tconf, tdir, allPluginsPath):
     """
     A node is restarted and during a catch-up receives ledger statuses
@@ -26,7 +26,7 @@ def test_catchup_with_ledger_statuses_in_old_format_from_one_node(
     old_node = txnPoolNodeSet[0]
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+                              vdr_pool_handle, vdr_wallet_steward, 5)
 
     original_get_ledger_status = old_node.getLedgerStatus
 
@@ -50,7 +50,7 @@ def test_catchup_with_ledger_statuses_in_old_format_from_one_node(
                                             node_to_restart)
     looper.removeProdable(name=node_to_restart.name)
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward,
+                              vdr_pool_handle, vdr_wallet_steward,
                               2)
 
     # add `node_to_restart` to pool
@@ -70,7 +70,7 @@ def test_catchup_with_ledger_statuses_in_old_format_from_one_node(
     # Verify that `node_to_restart` participates in ordering
     # of further transactions
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+                              vdr_pool_handle, vdr_wallet_steward, 5)
     waitNodeDataEquality(looper, node_to_restart, *other_nodes)
 
 

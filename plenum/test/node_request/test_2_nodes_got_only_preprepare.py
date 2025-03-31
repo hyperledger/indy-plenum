@@ -21,8 +21,8 @@ def tconf(tconf):
 
 def test_2_nodes_get_only_preprepare(looper,
                                      txnPoolNodeSet,
-                                     sdk_pool_handle,
-                                     sdk_wallet_client,
+                                     vdr_pool_handle,
+                                     vdr_wallet_client,
                                      tconf,
                                      chkFreqPatched):
     # CHK_FREQ = 2 in this test
@@ -33,7 +33,7 @@ def test_2_nodes_get_only_preprepare(looper,
 
     # Nodes order batches
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
     nodes_last_ordered_equal(*txnPoolNodeSet)
 
     # Emulate connection problems, 1st behind_node receiving only pre-prepares
@@ -41,7 +41,7 @@ def test_2_nodes_get_only_preprepare(looper,
 
     # Send some txns and 1st behind_node cant order them while pool is working
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
     assert behind_nodes[0].master_last_ordered_3PC[1] + 1 == \
            master_node.master_last_ordered_3PC[1]
 
@@ -54,7 +54,7 @@ def test_2_nodes_get_only_preprepare(looper,
 
     # Send txns
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
 
     # 1st behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -66,7 +66,7 @@ def test_2_nodes_get_only_preprepare(looper,
 
     # Send some txns and 2nd behind_node cant order them while pool is working
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
     assert behind_nodes[1].master_last_ordered_3PC[1] + 1 == \
            master_node.master_last_ordered_3PC[1]
 
@@ -83,7 +83,7 @@ def test_2_nodes_get_only_preprepare(looper,
 
     # Send txns
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
 
     # 2nd behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -91,7 +91,7 @@ def test_2_nodes_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC[1]
 
     # After achieving stable checkpoint, behind_node start ordering
-    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                                          1, 1)
     # 2d behind got another stashed checkpoint, so should catch-up now
     waitNodeDataEquality(looper, master_node, behind_nodes[1], customTimeout=60,

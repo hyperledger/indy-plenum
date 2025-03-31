@@ -19,8 +19,8 @@ def tconf(tconf):
 
 def test_1_node_get_only_preprepare(looper,
                                     txnPoolNodeSet,
-                                    sdk_pool_handle,
-                                    sdk_wallet_client,
+                                    vdr_pool_handle,
+                                    vdr_wallet_client,
                                     tconf,
                                     chkFreqPatched):
     master_node = txnPoolNodeSet[0]
@@ -30,7 +30,7 @@ def test_1_node_get_only_preprepare(looper,
 
     # Nodes order batches
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
     assert behind_node.master_last_ordered_3PC == \
            master_node.master_last_ordered_3PC
 
@@ -39,7 +39,7 @@ def test_1_node_get_only_preprepare(looper,
 
     # Send some txns and behind_node cant order them while pool is working
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
     # assert behind_node.master_last_ordered_3PC[1] + num_of_batches == \
     #        master_node.master_last_ordered_3PC[1]
 
@@ -48,11 +48,11 @@ def test_1_node_get_only_preprepare(looper,
 
     # Send txns
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, num_of_batches, num_of_batches)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, num_of_batches, num_of_batches)
 
     # After achieving stable checkpoint, behind_node start ordering
     vdr_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, delta, delta)
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, delta, delta)
 
     # Pool is working
     looper.run(eventually(nodes_last_ordered_equal, behind_node, master_node))

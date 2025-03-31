@@ -8,7 +8,7 @@ def slow_nodes(node_set):
 
 
 def test_view_change_in_between_3pc_2_of_4_nodes_with_old_primary(
-        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
+        txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client):
     """
     - Slow processing 3PC messages for 2 of 4 node (2>f)
     - Slow the current Primary node and the last non-primary node (it will not
@@ -17,11 +17,11 @@ def test_view_change_in_between_3pc_2_of_4_nodes_with_old_primary(
     """
     view_change_in_between_3pc(looper, txnPoolNodeSet,
                                slow_nodes(txnPoolNodeSet),
-                               sdk_pool_handle, sdk_wallet_client)
+                               vdr_pool_handle, vdr_wallet_client)
 
 
 def test_view_change_in_between_3pc_2_of_4_nodes_with_old_primary_long_delay(
-        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
+        txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client):
     """
     - Slow processing 3PC messages for 2 of 4 node (2>f)
     - Slow the current Primary node and the last non-primary node (it will not
@@ -30,5 +30,5 @@ def test_view_change_in_between_3pc_2_of_4_nodes_with_old_primary_long_delay(
     """
     view_change_in_between_3pc(looper, txnPoolNodeSet,
                                slow_nodes(txnPoolNodeSet),
-                               sdk_pool_handle, sdk_wallet_client,
+                               vdr_pool_handle, vdr_wallet_client,
                                slow_delay=20)

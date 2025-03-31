@@ -40,8 +40,8 @@ def patch_stack_restart(node):
 def revert_origin_back(node, orig_restart):
     node.clientstack.restart = types.MethodType(orig_restart, node.clientstack)
 
-def test_clientstack_restart_not_triggered(tconf, create_node_and_not_start):
-    node = create_node_and_not_start
+def test_clientstack_restart_not_triggered(tconf, vdr_create_node_and_not_start):
+    node = vdr_create_node_and_not_start
 
     global is_restarted
     is_restarted = False
@@ -56,8 +56,8 @@ def test_clientstack_restart_not_triggered(tconf, create_node_and_not_start):
 
     revert_origin_back(node, orig_restart)
 
-def test_clientstack_restart_triggered(tconf, create_node_and_not_start):
-    node = create_node_and_not_start
+def test_clientstack_restart_triggered(tconf, vdr_create_node_and_not_start):
+    node = vdr_create_node_and_not_start
 
     global is_restarted
     is_restarted = False
@@ -78,8 +78,8 @@ def test_clientstack_restart_triggered(tconf, create_node_and_not_start):
 
     revert_origin_back(node, orig_restart)
 
-def test_clientstack_restart_trigger_delayed(tconf, looper, create_node_and_not_start):
-    node = create_node_and_not_start
+def test_clientstack_restart_trigger_delayed(tconf, looper, vdr_create_node_and_not_start):
+    node = vdr_create_node_and_not_start
 
     global is_restarted
     is_restarted = False

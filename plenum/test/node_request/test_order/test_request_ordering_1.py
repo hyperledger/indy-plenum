@@ -6,7 +6,7 @@ from plenum.test.malicious_behaviors_node import delaysPrePrepareProcessing
 from plenum.test.test_node import getNonPrimaryReplicas
 
 
-def testOrderingCase1(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
+def testOrderingCase1(looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle):
     """
     Scenario -> PRE-PREPARE not received by the replica, Request not received
     for ordering by the replica, but received enough commits to start ordering.
@@ -31,7 +31,7 @@ def testOrderingCase1(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle
     def chk(n):
         assert replica._ordering_service.spylog.count(replica._ordering_service._do_order.__name__) == n
 
-    vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+    vdr_send_random_request(looper, vdr_pool_handle, vdr_wallet_client)
     timeout = delay - 5
     looper.run(eventually(chk, 0, retryWait=1, timeout=timeout))
     timeout = delay + 5

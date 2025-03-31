@@ -9,7 +9,7 @@ from plenum.common.constants import VALIDATOR
 from plenum.test.helper import vdr_send_random_and_check
 
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, sdk_send_update_node
+    disconnect_node_and_ensure_disconnected, vdr_send_update_node
 from plenum.test.pool_transactions.conftest import sdk_node_theta_added
 
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
@@ -30,7 +30,7 @@ def check_all_nodes_the_same_pool_list(nodes):
 @pytest.mark.skip("Too many sdk_pool_refresh")
 def test_primary_selection_after_demoted_node_promotion(
         looper, txnPoolNodeSet, sdk_node_theta_added,
-        sdk_pool_handle,
+        vdr_pool_handle,
         tconf, tdir, allPluginsPath):
     """
     Demote non-primary node
@@ -53,27 +53,27 @@ def test_primary_selection_after_demoted_node_promotion(
     logger.info("1. Demote node Theta")
 
     node_dest = hexToFriendly(new_node.nodestack.verhex)
-    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+    vdr_send_update_node(looper, new_steward_wallet, vdr_pool_handle,
                          node_dest, new_node.name, None, None, None, None,
                          [])
     remainingNodes = list(set(txnPoolNodeSet) - {new_node})
 
     check_all_nodes_the_same_pool_list(remainingNodes)
     # ensure pool is working properly
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
                               new_steward_wallet, 3)
     # TODO view change might happen unexpectedly by unknown reason
     # checkViewNoForNodes(remainingNodes, expectedViewNo=viewNo0)
 
     logger.info("2. Promote node Theta back")
 
-    sdk_send_update_node(looper, new_steward_wallet, sdk_pool_handle,
+    vdr_send_update_node(looper, new_steward_wallet, vdr_pool_handle,
                          node_dest, new_node.name, None, None, None, None,
                          [VALIDATOR])
 
     check_all_nodes_the_same_pool_list(txnPoolNodeSet)
     # ensure pool is working properly
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
                               new_steward_wallet, 3)
     # checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=viewNo0)
 
@@ -86,7 +86,7 @@ def test_primary_selection_after_demoted_node_promotion(
     remainingNodes = list(set(txnPoolNodeSet) - {stopped_node})
     ensureElectionsDone(looper, remainingNodes)
     # ensure pool is working properly
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
                               new_steward_wallet, 3)
     # checkViewNoForNodes(remainingNodes, expectedViewNo=viewNo0)
 
@@ -96,7 +96,7 @@ def test_primary_selection_after_demoted_node_promotion(
     txnPoolNodeSet = remainingNodes + [restartedNode]
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
     # ensure pool is working properly
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
                               new_steward_wallet, 3)
     # checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=viewNo0)
 
@@ -105,5 +105,5 @@ def test_primary_selection_after_demoted_node_promotion(
     while txnPoolNodeSet[0].viewNo < 4:
         ensure_view_change_complete(looper, txnPoolNodeSet)
         # ensure pool is working properly
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
                                   new_steward_wallet, 3)

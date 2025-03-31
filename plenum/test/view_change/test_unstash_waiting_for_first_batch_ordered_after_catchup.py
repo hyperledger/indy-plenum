@@ -29,13 +29,13 @@ def tconf(tconf):
 
 
 def test_unstash_waiting_for_first_batch_ordered_after_catchup(
-        looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle, tconf):
+        looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle, tconf):
     lagged_node = txnPoolNodeSet[-1]
     other_nodes = list(set(txnPoolNodeSet) - {lagged_node})
     other_stashers = [n.nodeIbStasher for n in other_nodes]
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
 
     last_ordered_lagged_before = lagged_node.master_last_ordered_3PC
     # do not process any message reqs for PrePrepares
@@ -47,12 +47,12 @@ def test_unstash_waiting_for_first_batch_ordered_after_catchup(
                                 instances_list=range(getRequiredInstances(len(txnPoolNodeSet))))
 
             vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                      sdk_pool_handle, sdk_wallet_client, 1)
+                                      vdr_pool_handle, vdr_wallet_client, 1)
 
             # delay Commits on all nodes so that there are some PrePrepares still stashed after catchup
             with delay_rules(other_stashers, cDelay()):
                 pre_prep_before = len(recvdPrePrepareForInstId(lagged_node, 0))
-                vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 2)
+                vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 2)
                 # wait till lagged node recives the new PrePrepares
                 # they will be stashed as WAITING_FIRST_BATCH_IN_VIEW
                 looper.run(
@@ -65,7 +65,7 @@ def test_unstash_waiting_for_first_batch_ordered_after_catchup(
                     eventually(lambda: assertExp(lagged_node.master_last_ordered_3PC > last_ordered_lagged_before)))
 
             vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                      sdk_pool_handle, sdk_wallet_client, 2)
+                                      vdr_pool_handle, vdr_wallet_client, 2)
 
     ensureElectionsDone(looper, txnPoolNodeSet, customTimeout=30)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=30)

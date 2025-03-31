@@ -8,14 +8,14 @@ from plenum.test.test_node import ensureElectionsDone
 nodeCount = 8
 
 
-def test_demote_node_delay_commit_on_one(looper, txnPoolNodeSet, sdk_pool_handle,
-                                         sdk_wallet_stewards, tdir, tconf, allPluginsPath):
+def test_demote_node_delay_commit_on_one(looper, txnPoolNodeSet, vdr_pool_handle,
+                                         vdr_wallet_stewards, tdir, tconf, allPluginsPath):
     view_no = txnPoolNodeSet[-1].viewNo
     slow_node = txnPoolNodeSet[-2]
 
     # Demote Node8 but don't allow Node7 to be aware of it.
     with delay_rules(slow_node.nodeIbStasher, cDelay()):
-        demote_node(looper, sdk_wallet_stewards[-1], sdk_pool_handle,
+        demote_node(looper, vdr_wallet_stewards[-1], vdr_pool_handle,
                     txnPoolNodeSet[-1])
         del txnPoolNodeSet[-1]
 

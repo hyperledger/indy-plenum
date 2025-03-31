@@ -14,8 +14,8 @@ logger = getLogger()
 def test_catchup_with_disconnected_node(tdir, tconf,
                                         looper,
                                         txnPoolNodeSet,
-                                        sdk_pool_handle,
-                                        sdk_wallet_client,
+                                        vdr_pool_handle,
+                                        vdr_wallet_client,
                                         allPluginsPath,
                                         logsearch):
     '''
@@ -41,8 +41,8 @@ def test_catchup_with_disconnected_node(tdir, tconf,
     looper.removeProdable(restarted_node)
 
     # Send more requests to active nodes
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, len(rest_nodes) * 3)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, len(rest_nodes) * 3)
     waitNodeDataEquality(looper, *rest_nodes)
 
     # Stop Gamma

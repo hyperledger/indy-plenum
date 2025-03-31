@@ -11,8 +11,8 @@ def test_all_replicas_hold_request_keys(
         perf_chk_patched,
         looper,
         txnPoolNodeSet,
-        sdk_wallet_client,
-        sdk_pool_handle):
+        vdr_wallet_client,
+        vdr_pool_handle):
     """
     All replicas whether primary or non primary hold request keys of forwarded
     requests. Once requests are ordered, they request keys are removed from replica.
@@ -36,9 +36,9 @@ def test_all_replicas_hold_request_keys(
                     assert len(r._ordering_service.requestQueues[DOMAIN_LEDGER_ID]) == 0
 
     reqs = vdr_signed_random_requests(looper,
-                                      sdk_wallet_client,
+                                      vdr_wallet_client,
                                       tconf.Max3PCBatchSize - 1)
-    req_resps = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    req_resps = vdr_send_signed_requests(vdr_pool_handle, reqs, looper)
     # Only non primary replicas should have all request keys with them
     looper.run(eventually(chk, tconf.Max3PCBatchSize - 1))
     vdr_get_replies(looper, req_resps, timeout=vdr_eval_timeout(

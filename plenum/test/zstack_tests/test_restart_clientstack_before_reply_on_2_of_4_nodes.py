@@ -6,8 +6,8 @@ from plenum.test.test_node import TestNode
 
 def test_restart_clientstack_before_reply_on_2_of_4_nodes(looper,
                                                           txnPoolNodeSet,
-                                                          sdk_pool_handle,
-                                                          sdk_wallet_steward):
+                                                          vdr_pool_handle,
+                                                          vdr_wallet_steward):
     orig_send_reply = TestNode.sendReplyToClient
     def send_after_restart(self, reply, reqKey):
         self.restart_clientstack()
@@ -25,7 +25,7 @@ def test_restart_clientstack_before_reply_on_2_of_4_nodes(looper,
     patch_sendReplyToClient()
     vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_steward,
+                              vdr_pool_handle,
+                              vdr_wallet_steward,
                               1)
     revert_origin_back()

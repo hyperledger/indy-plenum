@@ -6,7 +6,7 @@ from plenum.test import waits
 from plenum.test.delayers import icDelay, cDelay, pDelay, nv_delay
 from plenum.test.helper import vdr_send_random_request, vdr_get_reply, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.stasher import delay_rules, delay_rules_without_processing
 from plenum.test.test_node import getRequiredInstances, ensureElectionsDone, checkNodesConnected
@@ -160,7 +160,7 @@ def do_view_change_with_unaligned_prepare_certificates(
     vdr_get_reply(looper, request)
 
     ensure_all_nodes_have_same_data(looper, nodes)
-    sdk_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
 
 
 def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
@@ -341,4 +341,4 @@ def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes
     ensureElectionsDone(looper=looper, nodes=nodes)
     ensure_all_nodes_have_same_data(looper, nodes)
     vdr_get_reply(looper, request)
-    sdk_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)

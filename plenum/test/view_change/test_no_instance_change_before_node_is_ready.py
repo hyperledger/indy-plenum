@@ -17,7 +17,7 @@ def tconf(tconf):
 
 def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
         looper, txnPoolNodeSet, tdir, tconf,
-        allPluginsPath, sdk_pool_handle, sdk_wallet_steward):
+        allPluginsPath, vdr_pool_handle, vdr_wallet_steward):
     """
     Test steps:
     1. create a new node, but don't add it to the pool (so not send NODE txn), so that the node is not ready.
@@ -48,8 +48,8 @@ def test_no_instance_change_on_primary_disconnection_for_not_ready_node(
                      node_ha,
                      client_ha,
                      txnPoolNodeSet,
-                     sdk_pool_handle,
-                     sdk_wallet_steward,
+                     vdr_pool_handle,
+                     vdr_wallet_steward,
                      bls_key,
                      key_proof)
 

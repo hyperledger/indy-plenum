@@ -3,23 +3,23 @@ import pytest
 from stp_core.common.log import getlogger
 from plenum.common.perf_util import get_size
 from plenum.test.helper import vdr_send_random_requests
-from plenum.test.pool_transactions.helper import sdk_add_new_nym
+from plenum.test.pool_transactions.helper import vdr_add_new_nym
 
 logger = getlogger()
 
 
 @pytest.mark.skip('Unskip if needed')
-def testRequestsSize(looper, txnPoolNodeSet, sdk_pool_handle,
-                     sdk_wallet_steward, noRetryReq):
+def testRequestsSize(looper, txnPoolNodeSet, vdr_pool_handle,
+                     vdr_wallet_steward, noRetryReq):
     clients = []
     for i in range(4):
-        clients.append(sdk_add_new_nym(looper, sdk_pool_handle, sdk_wallet_steward))
+        clients.append(vdr_add_new_nym(looper, vdr_pool_handle, vdr_wallet_steward))
     numRequests = 250
 
     for (_, nym) in clients:
         logger.debug("{} sending {} requests".format(nym, numRequests))
-        vdr_send_random_requests(looper, sdk_pool_handle,
-                                 sdk_wallet_steward, numRequests)
+        vdr_send_random_requests(looper, vdr_pool_handle,
+                                 vdr_wallet_steward, numRequests)
         logger.debug("{} sent {} requests".format(nym, numRequests))
 
     for node in txnPoolNodeSet:

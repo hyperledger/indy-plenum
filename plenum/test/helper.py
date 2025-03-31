@@ -30,8 +30,15 @@ import asyncio
 
 from indy_vdr import ledger
 from indy_vdr import VdrError, VdrErrorCode
-from plenum.test.wallet_helper import sign_and_submit_request, sign_request, multi_sign_request
+from plenum.test.wallet_helper import vdr_sign_and_submit_request, vdr_sign_request, vdr_multi_sign_request
 from indy_vdr import set_protocol_version
+
+from indy.ledger import sign_and_submit_request as sign_and_submit_sdk_request
+from indy.ledger import sign_request as sign_sdk_request
+from indy.ledger import submit_request as submit_sdk_request
+from indy.ledger import build_node_request as build_sdk_node_request
+from indy.ledger import multi_sign_request as multi_sign_sdk_request
+from indy.error import ErrorCode, IndyError
 
 from ledger.genesis_txn.genesis_txn_file_util import genesis_txn_file
 from plenum.common.constants import DOMAIN_LEDGER_ID, OP_FIELD_NAME, REPLY, REQNACK, REJECT, \
@@ -804,7 +811,7 @@ def sdk_gen_pool_request(looper, sdk_wallet_new_steward, node_alias, node_did):
     }
 
     req = looper.loop.run_until_complete(
-        build_node_request(new_steward_did, node_did, json.dumps(data)))
+        build_sdk_node_request(new_steward_did, node_did, json.dumps(data)))
 
     return Request(**json.loads(req))
 
@@ -819,7 +826,7 @@ def sdk_random_request_objects(count, protocol_version, identifier=None,
 def sdk_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
-    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+    reqs = [looper.loop.run_until_complete(sign_sdk_request(wallet_h, did, req))
             for req in reqs_str]
     return reqs
 
@@ -828,7 +835,7 @@ def sdk_multi_sign_request_objects(looper, sdk_wallets, reqs: Sequence):
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
     for sdk_wallet in sdk_wallets:
         wallet_h, did = sdk_wallet
-        reqs_str = [looper.loop.run_until_complete(multi_sign_request(wallet_h, did, req))
+        reqs_str = [looper.loop.run_until_complete(multi_sign_sdk_request(wallet_h, did, req))
                     for req in reqs_str]
     return reqs_str
 
@@ -836,14 +843,14 @@ def sdk_multi_sign_request_objects(looper, sdk_wallets, reqs: Sequence):
 def sdk_sign_request_strings(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req) for req in reqs]
-    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+    reqs = [looper.loop.run_until_complete(sign_sdk_request(wallet_h, did, req))
             for req in reqs_str]
     return reqs
 
 
 def sdk_multisign_request_object(looper, sdk_wallet, req):
     wh, did = sdk_wallet
-    return looper.loop.run_until_complete(multi_sign_request(wh, did, req))
+    return looper.loop.run_until_complete(multi_sign_sdk_request(wh, did, req))
 
 
 def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
@@ -854,7 +861,7 @@ def sdk_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acce
                       taaAcceptance=taa_acceptance,
                       endorser=endorser)
     req_str = json.dumps(request.as_dict)
-    resp = looper.loop.run_until_complete(multi_sign_request(wh, did, req_str))
+    resp = looper.loop.run_until_complete(multi_sign_sdk_request(wh, did, req_str))
     return json.loads(resp)
 
 
@@ -867,7 +874,7 @@ def sdk_signed_random_requests(looper, sdk_wallet, count):
 
 def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
     return [(json.loads(req),
-             asyncio.ensure_future(submit_request(pool_h, req)))
+             asyncio.ensure_future(submit_sdk_request(pool_h, req)))
             for req in signed_reqs]
 
 
@@ -909,7 +916,7 @@ def sdk_send_random_pool_and_domain_requests(looper, pool_h, sdk_wallet_new_stew
 def sdk_sign_and_submit_req(pool_handle, sdk_wallet, req):
     wallet_handle, sender_did = sdk_wallet
     return json.loads(req), asyncio.ensure_future(
-        sign_and_submit_request(pool_handle, wallet_handle, sender_did, req))
+        sign_and_submit_sdk_request(pool_handle, wallet_handle, sender_did, req))
 
 
 def sdk_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
@@ -1099,7 +1106,7 @@ def sdk_sign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptanc
                       taaAcceptance=taa_acceptance,
                       endorser=endorser)
     req_str = json.dumps(request.as_dict)
-    resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req_str))
+    resp = looper.loop.run_until_complete(sign_sdk_request(wallet_h, did, req_str))
     return json.loads(resp)
 
 
@@ -1196,7 +1203,7 @@ def vdr_random_request_objects(count, protocol_version, identifier=None,
 
 def vdr_sign_request_objects(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
-    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+    reqs = [looper.loop.run_until_complete(vdr_sign_request(wallet_h, did, req))
             for req in reqs]
     return reqs
 
@@ -1205,7 +1212,7 @@ def vdr_multi_sign_request_objects(looper, sdk_wallets, reqs: Sequence):
     reqs_str = [json.dumps(req.as_dict) for req in reqs]
     for sdk_wallet in sdk_wallets:
         wallet_h, did = sdk_wallet
-        reqs_str = [looper.loop.run_until_complete(multi_sign_request(wallet_h, did, req))
+        reqs_str = [looper.loop.run_until_complete(vdr_multi_sign_request(wallet_h, did, req))
                     for req in reqs_str]
     return reqs_str
 
@@ -1213,14 +1220,14 @@ def vdr_multi_sign_request_objects(looper, sdk_wallets, reqs: Sequence):
 def vdr_sign_request_strings(looper, sdk_wallet, reqs: Sequence):
     wallet_h, did = sdk_wallet
     reqs_str = [json.dumps(req) for req in reqs]
-    reqs = [looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+    reqs = [looper.loop.run_until_complete(vdr_sign_request(wallet_h, did, req))
             for req in reqs_str]
     return reqs
 
 
 def vdr_multisign_request_object(looper, sdk_wallet, req):
     wh, did = sdk_wallet
-    return looper.loop.run_until_complete(multi_sign_request(wh, did, req))
+    return looper.loop.run_until_complete(vdr_multi_sign_request(wh, did, req))
 
 
 def vdr_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptance=None, endorser=None):
@@ -1231,7 +1238,7 @@ def vdr_multisign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acce
                       taaAcceptance=taa_acceptance,
                       endorser=endorser)
     req_str = json.dumps(request.as_dict)
-    resp = looper.loop.run_until_complete(multi_sign_request(wh, did, req_str))
+    resp = looper.loop.run_until_complete(vdr_multi_sign_request(wh, did, req_str))
     return json.loads(resp)
 
 
@@ -1289,7 +1296,7 @@ def vdr_send_random_pool_and_domain_requests(looper, pool_h, sdk_wallet_new_stew
 def vdr_sign_and_submit_req(looper, pool_handle, sdk_wallet, req):
     wallet_handle, sender_did = sdk_wallet
     return json.loads(req), asyncio.ensure_future(
-        sign_and_submit_request(pool_handle, wallet_handle, sender_did, req), loop=looper.loop)
+        vdr_sign_and_submit_request(pool_handle, wallet_handle, sender_did, req), loop=looper.loop)
 
 
 def vdr_sign_and_submit_req_obj(looper, pool_handle, sdk_wallet, req_obj):
@@ -1494,7 +1501,7 @@ def vdr_sign_request_from_dict(looper, sdk_wallet, op, reqId=None, taa_acceptanc
     request = Request(operation=op, reqId=random.randint(10, 1000000000),
                       protocolVersion=CURRENT_PROTOCOL_VERSION, identifier=did)
     req = ledger.build_custom_request(request.as_dict)
-    resp = looper.loop.run_until_complete(sign_request(wallet_h, did, req))
+    resp = looper.loop.run_until_complete(vdr_sign_request(wallet_h, did, req))
     return resp
 
 def generate_invalid_unsigned_plenum_request(sdk_wallet, op, reqID=None, taa_acceptance=None, endorser=None):

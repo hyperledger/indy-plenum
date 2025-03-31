@@ -19,8 +19,8 @@ def tconf(tconf):
 
 def test_freshness_in_catchup(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_steward,
+                              vdr_pool_handle,
+                              vdr_wallet_steward,
                               tconf, ):
     """
     Check that InstanceChange with reason "State signatures are not updated for too long"
@@ -31,7 +31,7 @@ def test_freshness_in_catchup(looper,
     lagging_node = txnPoolNodeSet[-1]
 
     with delay_rules(lagging_node.nodeIbStasher, cr_delay(), cDelay()):
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward, 1)
         lagging_node.start_catchup()
         looper.runFor(tconf.ACCEPTABLE_FRESHNESS_INTERVALS_COUNT * tconf.STATE_FRESHNESS_UPDATE_INTERVAL + 5)
 

@@ -16,10 +16,10 @@ def tconf(tconf):
 def test_catchup_with_skipped_commits_received_before_catchup_pool(tdir, tconf,
                                                                     looper,
                                                                     txnPoolNodeSet,
-                                                                    sdk_pool_handle,
-                                                                    sdk_wallet_new_steward):
+                                                                    vdr_pool_handle,
+                                                                    vdr_wallet_new_steward):
     check_catchup_with_skipped_commits_received_before_catchup(NodeLeecherService.State.SyncingPool,
                                                                looper,
                                                                txnPoolNodeSet,
-                                                               sdk_pool_handle,
-                                                               sdk_wallet_new_steward)
+                                                               vdr_pool_handle,
+                                                               vdr_wallet_new_steward)

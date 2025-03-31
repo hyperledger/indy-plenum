@@ -21,9 +21,9 @@ def tconf(tconf):
 
 def test_freshness_after_catchup(looper,
                                  txnPoolNodeSet,
-                                 sdk_pool_handle,
-                                 sdk_wallet_client,
-                                 sdk_wallet_steward,
+                                 vdr_pool_handle,
+                                 vdr_wallet_client,
+                                 vdr_wallet_steward,
                                  tconf,
                                  tdir,
                                  allPluginsPath):
@@ -66,6 +66,6 @@ def test_freshness_after_catchup(looper,
     waitNodeDataEquality(looper, *txnPoolNodeSet)
     assert all(n.viewNo == view_no for n in txnPoolNodeSet)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
     waitNodeDataEquality(looper, *txnPoolNodeSet)

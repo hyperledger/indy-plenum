@@ -20,7 +20,7 @@ def tconf(tconf):
 
 
 def test_view_change_with_delay_on_one_node(
-        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
+        txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client, tconf):
     """
     Perform view change on one slow node later than on the other nodes so that
     delayed Commits are processed by the slow node in the old view and by the
@@ -28,6 +28,6 @@ def test_view_change_with_delay_on_one_node(
     same ledgers and state.
     """
     do_view_change_with_delay_on_one_node(txnPoolNodeSet[-1], txnPoolNodeSet, looper,
-                                          sdk_pool_handle, sdk_wallet_client)
+                                          vdr_pool_handle, vdr_wallet_client)
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

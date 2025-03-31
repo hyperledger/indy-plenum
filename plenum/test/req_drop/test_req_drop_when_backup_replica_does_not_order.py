@@ -37,7 +37,7 @@ def tconf(tconf):
 
 def test_req_drop_when_backup_replica_does_not_order(
         tconf, looper, txnPoolNodeSet,
-        sdk_wallet_client, sdk_pool_handle):
+        vdr_wallet_client, vdr_pool_handle):
     assert len(txnPoolNodeSet[0].replicas) == 3
 
     # Stop the primary of backup replica
@@ -48,7 +48,7 @@ def test_req_drop_when_backup_replica_does_not_order(
 
     initial_ledger_size = txnPoolNodeSet[0].domainLedger.size
 
-    vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
 
     def check_request_queue():
         for n in txnPoolNodeSet:

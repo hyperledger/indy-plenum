@@ -37,8 +37,8 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
                                                reqs_for_checkpoint,
                                                testNodeClass,
                                                txnPoolNodeSet,
-                                               sdk_pool_handle,
-                                               sdk_wallet_client,
+                                               vdr_pool_handle,
+                                               vdr_wallet_client,
                                                allPluginsPath):
     '''
     Check that catch-up is not started again even if a quorum of stashed checkpoints
@@ -51,8 +51,8 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
     rest_nodes = txnPoolNodeSet[:-1]
 
     # Check that requests executed well
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
 
     # Stop one node
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
@@ -63,8 +63,8 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
     waitNodeDataEquality(looper, *rest_nodes)
 
     # Restart stopped node and wait for successful catch up
@@ -102,8 +102,8 @@ def test_3pc_while_catchup_with_chkpoints_only(tdir, tconf,
         # stash enough stable checkpoints for starting a catch-up
         num_checkpoints = Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1
         num_reqs = reqs_for_checkpoint * num_checkpoints + 1
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_client,
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                  vdr_wallet_client,
                                   num_reqs)
         looper.run(
             eventually(check_last_ordered_3pc_on_all_replicas, rest_nodes,

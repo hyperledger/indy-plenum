@@ -21,8 +21,8 @@ def tconf(tconf):
         yield tconf
 
 
-def test_freshness_batch_updates_last_ordered(looper, txnPoolNodeSet, sdk_pool_handle,
-                                              sdk_wallet_steward, tconf, tdir, allPluginsPath):
+def test_freshness_batch_updates_last_ordered(looper, txnPoolNodeSet, vdr_pool_handle,
+                                              vdr_wallet_steward, tconf, tdir, allPluginsPath):
     assert txnPoolNodeSet[0].master_replica.isPrimary
 
     looper.run(eventually(
@@ -49,7 +49,7 @@ def test_freshness_batch_updates_last_ordered(looper, txnPoolNodeSet, sdk_pool_h
     old_discard = len(getSpecificDiscardedMsg(txnPoolNodeSet[1], PrePrepare))
 
     # correct ordering
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward, 1)
 
     # domain ledger equeal
     assert txnPoolNodeSet[0].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID) == \
@@ -59,8 +59,8 @@ def test_freshness_batch_updates_last_ordered(looper, txnPoolNodeSet, sdk_pool_h
     assert len(getSpecificDiscardedMsg(txnPoolNodeSet[1], PrePrepare)) == old_discard
 
 
-def test_freshness_batch_updates_last_ordered_non_primary(looper, txnPoolNodeSet, sdk_pool_handle,
-                                                          sdk_wallet_steward, tconf, tdir, allPluginsPath):
+def test_freshness_batch_updates_last_ordered_non_primary(looper, txnPoolNodeSet, vdr_pool_handle,
+                                                          vdr_wallet_steward, tconf, tdir, allPluginsPath):
     looper.run(eventually(
         check_freshness_updated_for_all, txnPoolNodeSet,
         timeout=FRESHNESS_TIMEOUT * 2)
@@ -80,7 +80,7 @@ def test_freshness_batch_updates_last_ordered_non_primary(looper, txnPoolNodeSet
            txnPoolNodeSet[1].master_replica.last_ordered_3pc
 
     # correct ordering
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward, 1)
 
     # domain ledger equeal
     assert txnPoolNodeSet[0].db_manager.get_txn_root_hash(DOMAIN_LEDGER_ID) == \

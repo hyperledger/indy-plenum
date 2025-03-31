@@ -7,7 +7,7 @@ from indy_vdr.ledger import build_acceptance_mechanisms_request
 from plenum.common.exceptions import RequestNackedException
 
 from plenum.common.types import OPERATION, f
-from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
+from plenum.test.pool_transactions.helper import vdr_sign_and_send_prepared_request
 
 from common.serializers.json_serializer import JsonSerializer
 
@@ -36,25 +36,25 @@ def send_aml_request(looper, sdk_wallet_trustee, sdk_pool_handle, version, aml, 
         sdk_wallet_trustee[1],
         aml,
         version, context))
-    req = sdk_sign_and_send_prepared_request(looper, sdk_wallet_trustee, sdk_pool_handle, req)
+    req = vdr_sign_and_send_prepared_request(looper, sdk_wallet_trustee, sdk_pool_handle, req)
     return vdr_get_and_check_replies(looper, [req])[0]
 
 
 @pytest.fixture(scope='module')
-def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, looper, sdk_pool_handle,
-                                   sdk_wallet_trustee):
+def nodeSetWithTaaAlwaysResponding(txnPoolNodeSet, looper, vdr_pool_handle,
+                                   vdr_wallet_trustee):
     global TIMESTAMP_V1, TIMESTAMP_V2
 
     # Force signing empty config state
     txnPoolNodeSet[0].master_replica._ordering_service._do_send_3pc_batch(ledger_id=CONFIG_LEDGER_ID)
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
-    reply = send_aml_request(looper, sdk_wallet_trustee, sdk_pool_handle, version=V1, aml=json.dumps(AML1),
+    reply = send_aml_request(looper, vdr_wallet_trustee, vdr_pool_handle, version=V1, aml=json.dumps(AML1),
                              context=CONTEXT1)
     TIMESTAMP_V1 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
     looper.runFor(3)  # Make sure we have long enough gap between updates
-    reply = send_aml_request(looper, sdk_wallet_trustee, sdk_pool_handle, version=V2, aml=json.dumps(AML2),
+    reply = send_aml_request(looper, vdr_wallet_trustee, vdr_pool_handle, version=V2, aml=json.dumps(AML2),
                              context=CONTEXT2)
     TIMESTAMP_V2 = reply[1]['result'][TXN_METADATA][TXN_METADATA_TIME]
 
@@ -98,32 +98,32 @@ def taa_aml_value(result, version, aml, context):
     })
 
 
-def test_get_taa_aml_static_validation_fails(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def test_get_taa_aml_static_validation_fails(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     req = {
         OPERATION: {
             TXN_TYPE: GET_TXN_AUTHOR_AGREEMENT_AML,
             'timestamp': randint(1, 2147483647),
             'version': randomString()
         },
-        f.IDENTIFIER.nm: sdk_wallet_client[1],
+        f.IDENTIFIER.nm: vdr_wallet_client[1],
         f.REQ_ID.nm: randint(1, 2147483647),
         f.PROTOCOL_VERSION.nm: CURRENT_PROTOCOL_VERSION
     }
-    rep = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client, sdk_pool_handle, json.dumps(req))
+    rep = vdr_sign_and_send_prepared_request(looper, vdr_wallet_client, vdr_pool_handle, json.dumps(req))
     with pytest.raises(RequestNackedException) as e:
         vdr_get_and_check_replies(looper, [rep])
     e.match('cannot be used in GET_TXN_AUTHOR_AGREEMENT_AML request together')
 
 
-def test_get_taa_aml_works_on_clear_state(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet_client)[1]
+def test_get_taa_aml_works_on_clear_state(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_taa_aml(looper, vdr_pool_handle, vdr_wallet_client)[1]
     assert reply['op'] == REPLY
     assert reply['result']['data'] is None
 
 
 def test_get_taa_aml_returns_latest_taa_by_default(looper, nodeSetWithTaa,
-                                                   sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet_client)[1]
+                                                   vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_taa_aml(looper, vdr_pool_handle, vdr_wallet_client)[1]
     assert reply['op'] == REPLY
 
     result = reply['result']
@@ -132,8 +132,8 @@ def test_get_taa_aml_returns_latest_taa_by_default(looper, nodeSetWithTaa,
 
 
 def test_get_taa_aml_can_return_taa_for_old_version(looper, nodeSetWithTaa,
-                                                    sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet_client, version=V1)[1]
+                                                    vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_taa_aml(looper, vdr_pool_handle, vdr_wallet_client, version=V1)[1]
 
     assert reply['op'] == REPLY
 
@@ -143,8 +143,8 @@ def test_get_taa_aml_can_return_taa_for_old_version(looper, nodeSetWithTaa,
 
 
 def test_get_taa_aml_can_return_taa_for_current_version(looper, nodeSetWithTaa,
-                                                        sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet_client, version=V2)[1]
+                                                        vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_taa_aml(looper, vdr_pool_handle, vdr_wallet_client, version=V2)[1]
 
     assert reply['op'] == REPLY
 
@@ -154,9 +154,9 @@ def test_get_taa_aml_can_return_taa_for_current_version(looper, nodeSetWithTaa,
 
 
 def test_get_taa_aml_doesnt_return_taa_for_nonexistent_version(looper, nodeSetWithTaa,
-                                                               sdk_pool_handle, sdk_wallet_client):
+                                                               vdr_pool_handle, vdr_wallet_client):
     invalid_version = randomString(16)
-    reply = sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet_client,
+    reply = sdk_get_taa_aml(looper, vdr_pool_handle, vdr_wallet_client,
                             version=invalid_version)[1]
     assert reply['op'] == REPLY
 
@@ -166,8 +166,8 @@ def test_get_taa_aml_doesnt_return_taa_for_nonexistent_version(looper, nodeSetWi
 
 
 def test_get_taa_aml_can_return_taa_aml_for_old_ts(looper, nodeSetWithTaa,
-                                                   sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet_client,
+                                                   vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_taa_aml(looper, vdr_pool_handle, vdr_wallet_client,
                             timestamp=TIMESTAMP_V2 - 2)[1]
     assert reply['op'] == REPLY
 
@@ -177,8 +177,8 @@ def test_get_taa_aml_can_return_taa_aml_for_old_ts(looper, nodeSetWithTaa,
 
 
 def test_get_taa_aml_can_return_taa_aml_for_fresh_ts(looper, nodeSetWithTaa,
-                                                     sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet_client,
+                                                     vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_taa_aml(looper, vdr_pool_handle, vdr_wallet_client,
                             timestamp=TIMESTAMP_V2 + 2)[1]
     assert reply['op'] == REPLY
 
@@ -189,8 +189,8 @@ def test_get_taa_aml_can_return_taa_aml_for_fresh_ts(looper, nodeSetWithTaa,
 
 # TODO: Change to nodeSetWithTaa when SDK will support this case
 def test_get_taa_aml_doesnt_return_taa_aml_when_it_didnt_exist(looper, nodeSetWithTaaAlwaysResponding,
-                                                               sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_taa_aml(looper, sdk_pool_handle, sdk_wallet_client,
+                                                               vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_taa_aml(looper, vdr_pool_handle, vdr_wallet_client,
                             timestamp=TIMESTAMP_V1 - 3)[1]
     assert reply['op'] == REPLY
 

@@ -28,7 +28,7 @@ batches_count = 0
 
 @pytest.mark.skip(reason="INDY-1336. For now, preprepares, prepares and commits queues are cleaned after view change")
 def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNodeSet,
-                                 sdk_pool_handle, sdk_wallet_client):
+                                 vdr_pool_handle, vdr_wallet_client):
     """
     Test checkpointing across views.
     This test checks that checkpointing and garbage collection works correctly
@@ -40,7 +40,7 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
     low_watermark = txnPoolNodeSet[0].master_replica.h
 
     batch_size = chkFreqPatched.Max3PCBatchSize
-    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                                          batch_size * sent_batches, sent_batches)
 
     batches_count += sent_batches
@@ -81,7 +81,7 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
         additional_after_vc = 1
 
     # Even after view change, chekpointing works
-    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                                          batch_size * sent_batches, sent_batches)
     batches_count += sent_batches
 
@@ -92,7 +92,7 @@ def test_checkpoint_across_views(sent_batches, chkFreqPatched, looper, txnPoolNo
     # when this test finishes, all requests are garbage collected and the
     # next run of this test (with next param) has the calculations correct
     more = CHK_FREQ - expected_batch_count
-    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                                          batch_size * more, more)
     batches_count += more
     looper.run(eventually(checkRequestCounts, txnPoolNodeSet, 0, 0, retryWait=1))

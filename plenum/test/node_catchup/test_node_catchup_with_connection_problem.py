@@ -26,8 +26,8 @@ def lost_count(request):
 # This test hangs on the 4th iteration.  Investigation required.
 def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
                                          looper,
-                                         sdk_pool_handle,
-                                         sdk_wallet_steward,
+                                         vdr_pool_handle,
+                                         vdr_wallet_steward,
                                          tconf,
                                          tdir,
                                          allPluginsPath,
@@ -39,7 +39,7 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
     node_to_disconnect = txnPoolNodeSet[-1]
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+                              vdr_pool_handle, vdr_wallet_steward, 5)
 
     # restart node
     disconnect_node_and_ensure_disconnected(looper,
@@ -47,7 +47,7 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward,
+                              vdr_pool_handle, vdr_wallet_steward,
                               2)
 
     nodeHa, nodeCHa = HA(*node_to_disconnect.nodestack.ha), HA(
@@ -83,8 +83,8 @@ def test_catchup_with_lost_ledger_status(txnPoolNodeSet,
 # @pytest.mark.skip(reason="This test hangs on the first iteration.  Investigation required; https://github.com/hyperledger/indy-plenum/issues/1546.")
 def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
                                                     looper,
-                                                    sdk_pool_handle,
-                                                    sdk_wallet_steward,
+                                                    vdr_pool_handle,
+                                                    vdr_wallet_steward,
                                                     tconf,
                                                     tdir,
                                                     allPluginsPath,
@@ -98,7 +98,7 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
     node_to_disconnect = txnPoolNodeSet[-1]
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+                              vdr_pool_handle, vdr_wallet_steward, 5)
 
     # restart node
     disconnect_node_and_ensure_disconnected(looper,
@@ -106,7 +106,7 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward,
+                              vdr_pool_handle, vdr_wallet_steward,
                               2)
 
     nodeHa, nodeCHa = HA(*node_to_disconnect.nodestack.ha), HA(
@@ -141,8 +141,8 @@ def test_catchup_with_lost_first_consistency_proofs(txnPoolNodeSet,
 # @pytest.mark.skip(reason="This test hangs on the first iteration.  Investigation required; https://github.com/hyperledger/indy-plenum/issues/1546.")
 def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
                                                 looper,
-                                                sdk_pool_handle,
-                                                sdk_wallet_steward,
+                                                vdr_pool_handle,
+                                                vdr_wallet_steward,
                                                 tconf,
                                                 tdir,
                                                 allPluginsPath):
@@ -150,7 +150,7 @@ def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
     proofs after catchup.'''
     node_to_disconnect = txnPoolNodeSet[-1]
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+                              vdr_pool_handle, vdr_wallet_steward, 5)
 
     # restart node
     disconnect_node_and_ensure_disconnected(looper,
@@ -158,7 +158,7 @@ def test_cancel_request_cp_and_ls_after_catchup(txnPoolNodeSet,
                                             node_to_disconnect)
     looper.removeProdable(name=node_to_disconnect.name)
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward,
+                              vdr_pool_handle, vdr_wallet_steward,
                               2)
     # add node_to_disconnect to pool
     node_to_disconnect = start_stopped_node(node_to_disconnect, looper, tconf,

@@ -15,14 +15,14 @@ num_batches_after = 1
 
 
 def test_node_erases_last_sent_pp_key_on_view_change(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, tconf):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, tconf):
     # Get a node with a backup primary replica
     replica = getPrimaryReplica(txnPoolNodeSet, instId=backup_inst_id)
     node = replica.node
 
     # Send some 3PC-batches and wait until the replica orders the 3PC-batches
     vdr_send_batches_of_random(looper, txnPoolNodeSet,
-                               sdk_pool_handle, sdk_wallet_client,
+                               vdr_pool_handle, vdr_wallet_client,
                                num_reqs=3, num_batches=num_batches_before,
                                timeout=tconf.Max3PCBatchWait)
 
@@ -45,7 +45,7 @@ def test_node_erases_last_sent_pp_key_on_view_change(
 
     # Send a 3PC-batch and ensure that the replica orders it
     vdr_send_batches_of_random(looper, txnPoolNodeSet,
-                               sdk_pool_handle, sdk_wallet_client,
+                               vdr_pool_handle, vdr_wallet_client,
                                num_reqs=1, num_batches=num_batches_after,
                                timeout=tconf.Max3PCBatchWait)
 

@@ -23,8 +23,8 @@ def test_3pc_while_catchup(tdir, tconf,
                            looper,
                            testNodeClass,
                            txnPoolNodeSet,
-                           sdk_pool_handle,
-                           sdk_wallet_client,
+                           vdr_pool_handle,
+                           vdr_wallet_client,
                            allPluginsPath):
     '''
     Tests that requests being ordered during catch-up are stashed and re-applied
@@ -36,8 +36,8 @@ def test_3pc_while_catchup(tdir, tconf,
     rest_nodes = txnPoolNodeSet[:-1]
 
     # Check that requests executed well
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 10)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 10)
 
     # Stop one node
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
@@ -48,8 +48,8 @@ def test_3pc_while_catchup(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 10)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 10)
     waitNodeDataEquality(looper, *rest_nodes)
 
     # Restart stopped node and wait for successful catch up
@@ -76,8 +76,8 @@ def test_3pc_while_catchup(tdir, tconf,
                        timeout=60))
 
         # make sure that more requests are being ordered while catch-up is in progress
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_client, 10)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                  vdr_wallet_client, 10)
 
         assert lagging_node.mode == Mode.syncing
         assert all(replica.stasher.stash_size(STASH_CATCH_UP) > 0 for inst_id, replica in lagging_node.replicas.items())

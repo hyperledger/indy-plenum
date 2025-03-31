@@ -16,8 +16,8 @@ from plenum.test.plugin.demo_plugin.constants import PLACE_BID, AMOUNT, AUCTION_
 
 
 @pytest.fixture(scope='function')
-def two_requests(looper, sdk_wallet_steward):
-    wh, did = sdk_wallet_steward
+def two_requests(looper, vdr_wallet_steward):
+    wh, did = vdr_wallet_steward
 
     op = {
         TXN_TYPE: AUCTION_START,
@@ -32,10 +32,10 @@ def two_requests(looper, sdk_wallet_steward):
     req2 = copy.deepcopy(req1)
     req2[field] = 'z' * 10
 
-    req1 = vdr_multisign_request_object(looper, sdk_wallet_steward, json.dumps(req1))
+    req1 = vdr_multisign_request_object(looper, vdr_wallet_steward, json.dumps(req1))
     req_obj1 = Request(**json.loads(req1))
 
-    req2 = vdr_multisign_request_object(looper, sdk_wallet_steward, json.dumps(req2))
+    req2 = vdr_multisign_request_object(looper, vdr_wallet_steward, json.dumps(req2))
     req_obj2 = Request(**json.loads(req2))
 
     assert req_obj1.payload_digest == req_obj2.payload_digest
@@ -44,16 +44,16 @@ def two_requests(looper, sdk_wallet_steward):
 
 
 def test_plugin_digest_match_to_written(txn_pool_node_set_post_creation, looper,
-                                        sdk_wallet_steward, sdk_pool_handle):
+                                        vdr_wallet_steward, vdr_pool_handle):
     op = {
         TXN_TYPE: AUCTION_START,
         DATA: {'id': 'xyz'}
     }
 
     # Valid field value results in successful processing
-    req_obj = vdr_gen_request(op, identifier=sdk_wallet_steward[1],
+    req_obj = vdr_gen_request(op, identifier=vdr_wallet_steward[1],
                               fix_length_dummy=randomString(dummy_field_length))
-    req = vdr_sign_and_submit_req_obj(looper, sdk_pool_handle, sdk_wallet_steward,
+    req = vdr_sign_and_submit_req_obj(looper, vdr_pool_handle, vdr_wallet_steward,
                                       req_obj)
     vdr_get_and_check_replies(looper, [req])
 
@@ -66,13 +66,13 @@ def test_plugin_digest_match_to_written(txn_pool_node_set_post_creation, looper,
 
 
 def test_send_same_txn_with_different_plugins(
-        looper, txn_pool_node_set_post_creation, sdk_pool_handle, two_requests):
+        looper, txn_pool_node_set_post_creation, vdr_pool_handle, two_requests):
     req1, req2 = two_requests
 
-    rep1 = vdr_send_signed_requests(sdk_pool_handle, [req1], looper)
+    rep1 = vdr_send_signed_requests(vdr_pool_handle, [req1], looper)
     vdr_get_and_check_replies(looper, rep1)
 
-    rep2 = vdr_send_signed_requests(sdk_pool_handle, [req2], looper)
+    rep2 = vdr_send_signed_requests(vdr_pool_handle, [req2], looper)
     with pytest.raises(RequestNackedException) as e:
         vdr_get_and_check_replies(looper, rep2)
     e.match('Same txn was already ordered with different signatures or pluggable fields')

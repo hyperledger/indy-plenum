@@ -19,7 +19,7 @@ def tconf(tconf, request):
 
 
 def test_pp_seq_not_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper,
-                                              sdk_pool_handle, sdk_wallet_client):
+                                              vdr_pool_handle, vdr_wallet_client):
     # This test fails since last ordered pre-prepare sequence number is
     old_view_no = checkViewNoForNodes(txnPoolNodeSet)
 
@@ -30,7 +30,7 @@ def test_pp_seq_not_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper,
     batches_count = 0
     chk(batches_count)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 5)
     batches_count += 5
     chk(batches_count)
 
@@ -39,10 +39,10 @@ def test_pp_seq_not_starts_from_0_in_new_view(tconf, txnPoolNodeSet, looper,
     batches_count += 1
     chk(batches_count)  # After view_change, master primary must initiate 3pc batch
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
     batches_count += 1
     chk(batches_count)  # new request for new view => last ordered 3PC is (0,2)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 5)
     batches_count += 5
     chk(batches_count)

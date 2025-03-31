@@ -5,7 +5,7 @@ from plenum.test.spy_helpers import getAllReturnVals
 
 
 def test_already_processed_requests(looper, txnPoolNodeSet,
-                                    sdk_pool_handle, sdk_wallet_client):
+                                    vdr_pool_handle, vdr_wallet_client):
     """
     Client re-sending request and checking that nodes picked the reply from
     ledger and did not process the request again
@@ -40,10 +40,10 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     rpc1 = get_recordAndPropagate_call_count()
 
     # Request which will be send twice
-    reqs = vdr_signed_random_requests(looper, sdk_wallet_client, 1)
+    reqs = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
 
     # Send, check and getting reply from first request
-    sdk_reqs = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    sdk_reqs = vdr_send_signed_requests(vdr_pool_handle, reqs, looper)
     total_timeout = vdr_eval_timeout(len(sdk_reqs), len(txnPoolNodeSet))
     request1 = vdr_get_replies(looper, sdk_reqs, timeout=total_timeout)
     for req_res in request1:
@@ -58,7 +58,7 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     assert r1 is None  # getReplyFromLedgerForRequest returned None since had not seen request
 
     # Request which we will send only once
-    request2 = vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    request2 = vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
     second_req_id = request2[0][0]['reqId']
 
     assert second_req_id != first_req_id
@@ -73,7 +73,7 @@ def test_already_processed_requests(looper, txnPoolNodeSet,
     rep1 = request1[0][1]['result']
 
     # Client re-sending first request
-    request3 = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    request3 = vdr_send_signed_requests(vdr_pool_handle, reqs, looper)
     total_timeout = vdr_eval_timeout(len(request3), len(txnPoolNodeSet))
     request3 = vdr_get_replies(looper, request3, timeout=total_timeout)
     third_req_id = request3[0][0]['reqId']

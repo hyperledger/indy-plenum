@@ -11,7 +11,7 @@ nodeCount = 7
 logger = getlogger()
 
 
-def testOrderingCase2(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def testOrderingCase2(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     """
     Scenario -> A client sends requests, some nodes delay COMMITs to few
     specific nodes such some nodes achieve commit quorum later for those
@@ -61,8 +61,8 @@ def testOrderingCase2(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client
         logger.debug('{} would be delaying commits'.format(node))
         node.nodeIbStasher.delay(specificCommits)
 
-    sdk_reqs = vdr_send_random_requests(looper, sdk_pool_handle,
-                                        sdk_wallet_client, requestCount)
+    sdk_reqs = vdr_send_random_requests(looper, vdr_pool_handle,
+                                        vdr_wallet_client, requestCount)
 
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
 

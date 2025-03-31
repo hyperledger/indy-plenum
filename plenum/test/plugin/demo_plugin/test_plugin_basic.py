@@ -22,7 +22,7 @@ def test_plugin_setup(txn_pool_node_set_post_creation):
 
 
 def test_plugin_client_req_fields(txn_pool_node_set_post_creation, looper,
-                                  sdk_wallet_steward, sdk_pool_handle):
+                                  vdr_wallet_steward, vdr_pool_handle):
     """
     Test that plugin's addition of request fields and their validation is
     successful
@@ -33,17 +33,17 @@ def test_plugin_client_req_fields(txn_pool_node_set_post_creation, looper,
     }
 
     # Valid field value results in successful processing
-    req_obj = vdr_gen_request(op, identifier=sdk_wallet_steward[1],
+    req_obj = vdr_gen_request(op, identifier=vdr_wallet_steward[1],
                               fix_length_dummy=randomString(dummy_field_length))
-    req = vdr_sign_and_submit_req_obj(looper, sdk_pool_handle, sdk_wallet_steward,
+    req = vdr_sign_and_submit_req_obj(looper, vdr_pool_handle, vdr_wallet_steward,
                                       req_obj)
     vdr_get_reply(looper, req)
 
     # Invalid field value results in proper failure
-    _, did = sdk_wallet_steward
+    _, did = vdr_wallet_steward
     req = vdr_gen_request(op, identifier=did, fix_length_dummy=randomString(dummy_field_length + 1))
-    reqs = vdr_sign_request_objects(looper, sdk_wallet_steward, [req])
-    reqs = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    reqs = vdr_sign_request_objects(looper, vdr_wallet_steward, [req])
+    reqs = vdr_send_signed_requests(vdr_pool_handle, reqs, looper)
 
     with pytest.raises(RequestNackedException) as e:
         vdr_get_and_check_replies(looper, reqs)

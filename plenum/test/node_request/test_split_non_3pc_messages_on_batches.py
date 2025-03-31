@@ -5,9 +5,9 @@ from stp_core.validators.message_length_validator import MessageLenValidator
 
 def test_msg_max_length_check_node_to_node(looper,
                                            txnPoolNodeSet,
-                                           sdk_pool_handle,
-                                           sdk_wallet_client,
-                                           sdk_wallet_client2):
+                                           vdr_pool_handle,
+                                           vdr_wallet_client,
+                                           vdr_wallet_client2):
     """
     Two clients send 2*N requests each at the same time.
     N < MSG_LEN_LIMIT but 2*N > MSG_LEN_LIMIT so the requests pass the max
@@ -21,8 +21,8 @@ def test_msg_max_length_check_node_to_node(looper,
 
     patch_msg_len_validators(max_len_limit, txnPoolNodeSet)
 
-    reqs1 = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, N)
-    reqs2 = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client2, N)
+    reqs1 = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, N)
+    reqs2 = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client2, N)
 
     total_timeout = vdr_eval_timeout(N, len(txnPoolNodeSet))
     vdr_get_and_check_replies(looper, reqs1, timeout=total_timeout)

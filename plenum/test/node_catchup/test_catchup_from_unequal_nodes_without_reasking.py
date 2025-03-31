@@ -32,8 +32,8 @@ def tconf(tconf):
 
 def test_catchup_from_unequal_nodes_without_reasking(looper,
                                                      txnPoolNodeSet,
-                                                     sdk_pool_handle,
-                                                     sdk_wallet_client):
+                                                     vdr_pool_handle,
+                                                     vdr_wallet_client):
     lagged_node_1 = txnPoolNodeSet[-1]
     lagged_node_2 = txnPoolNodeSet[-2]
     normal_nodes = [node for node in txnPoolNodeSet
@@ -41,10 +41,10 @@ def test_catchup_from_unequal_nodes_without_reasking(looper,
     normal_stashers = [node.nodeIbStasher for node in normal_nodes]
 
     with delay_rules_without_processing(lagged_node_1.nodeIbStasher, delay_3pc()):
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 2)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 2)
 
         with delay_rules_without_processing(lagged_node_2.nodeIbStasher, delay_3pc()):
-            vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 7)
+            vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 7)
             ensure_all_nodes_have_same_data(looper, normal_nodes, custom_timeout=30)
 
             # Perform catchup, while making sure that cons proof from lagging node is received

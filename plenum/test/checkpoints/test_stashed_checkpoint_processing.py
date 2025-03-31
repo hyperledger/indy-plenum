@@ -13,7 +13,7 @@ nodeCount = 5
 
 
 def test_stashed_checkpoint_processing(chkFreqPatched, looper, txnPoolNodeSet,
-                                       sdk_wallet_client, sdk_pool_handle):
+                                       vdr_wallet_client, vdr_pool_handle):
     """
     One node in a pool of 5 nodes lags to order the last 3PC-batch in a
     checkpoint. By the moment when it eventually orders the 3PC-batch it has
@@ -25,14 +25,14 @@ def test_stashed_checkpoint_processing(chkFreqPatched, looper, txnPoolNodeSet,
     epsilon = txnPoolNodeSet[-1]
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 4)
+                              vdr_pool_handle, vdr_wallet_client, 4)
 
     epsilon.nodeIbStasher.delay(cDelay())
     epsilon.nodeIbStasher.delay(chk_delay(sender_filter='Gamma'))
     epsilon.nodeIbStasher.delay(chk_delay(sender_filter='Delta'))
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
 
     stabilization_timeout = \
         waits.expectedTransactionExecutionTime(len(txnPoolNodeSet))

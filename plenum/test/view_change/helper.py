@@ -10,7 +10,7 @@ from plenum.test.delayers import delayNonPrimaries, delay_3pc_messages, \
 from plenum.test.helper import checkViewNoForNodes, \
     vdr_send_random_requests, vdr_send_random_and_check
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, sdk_add_new_steward_and_node, sdk_pool_refresh
+    disconnect_node_and_ensure_disconnected, vdr_add_new_steward_and_node, vdr_pool_refresh
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data, waitNodeDataEquality
 from plenum.test.test_node import get_master_primary_node, ensureElectionsDone, \
     TestNode, checkNodesConnected, check_not_in_view_change
@@ -347,7 +347,7 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
                  tdir, tconf, all_plugins_path, name=None, wait_till_added=True):
     node_name = name or "Psi"
     new_steward_name = "testClientSteward" + randomString(3)
-    _, new_node = sdk_add_new_steward_and_node(
+    _, new_node = vdr_add_new_steward_and_node(
         looper, sdk_pool_handle, sdk_wallet_steward,
         new_steward_name, node_name, tdir, tconf,
         allPluginsPath=all_plugins_path, wait_till_added=wait_till_added)
@@ -358,7 +358,7 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
         waitNodeDataEquality(looper, new_node, *nodes[:-1],
                              customTimeout=timeout,
                              exclude_from_check=['check_last_ordered_3pc_backup'])
-        sdk_pool_refresh(looper, sdk_pool_handle)
+        vdr_pool_refresh(looper, sdk_pool_handle)
     return new_node
 
 

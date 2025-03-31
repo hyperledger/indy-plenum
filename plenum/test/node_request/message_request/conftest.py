@@ -6,7 +6,7 @@ from plenum.test.helper import vdr_send_random_and_check
 
 
 @pytest.fixture(scope="module")
-def teardown(request, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
+def teardown(request, looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle):
     def tear():
         # Repair any broken network
         for node in txnPoolNodeSet:
@@ -22,6 +22,6 @@ def teardown(request, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle
                                            for n in txnPoolNodeSet])
 
         # Check the network is functional since all nodes reply
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 5)
 
     request.addfinalizer(tear)

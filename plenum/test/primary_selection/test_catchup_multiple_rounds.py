@@ -21,8 +21,8 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
         tconf,
         looper,
         txnPoolNodeSet,
-        sdk_pool_handle,
-        sdk_wallet_client,
+        vdr_pool_handle,
+        vdr_wallet_client,
         one_node_added):
     """
     Delay 3PC messages to one node and view change messages to some others
@@ -40,8 +40,8 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
     delay_3pc = 100
     delay_ic = 5
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 2 * Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 2 * Max3PCBatchSize)
 
     delay_3pc_messages([slow_node], 0, delay_3pc)
 
@@ -53,8 +53,8 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
                                    if e.params['ledgerId'] == DOMAIN_LEDGER_ID])
 
     s = start_count()
-    requests = vdr_send_random_requests(looper, sdk_pool_handle,
-                                        sdk_wallet_client, 10 * Max3PCBatchSize)
+    requests = vdr_send_random_requests(looper, vdr_pool_handle,
+                                        vdr_wallet_client, 10 * Max3PCBatchSize)
 
     ensure_view_change(looper, nodes=txnPoolNodeSet,
                        exclude_from_check=nodes_slow_to_inst_chg)
@@ -69,7 +69,7 @@ def test_slow_nodes_catchup_before_selecting_primary_in_new_view(
     looper.run(eventually(checkViewNoForNodes, slow_node.viewNo))
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
 
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 2 * Max3PCBatchSize)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 2 * Max3PCBatchSize)
 
     waitNodeDataEquality(looper, new_node, *nodes_slow_to_inst_chg)

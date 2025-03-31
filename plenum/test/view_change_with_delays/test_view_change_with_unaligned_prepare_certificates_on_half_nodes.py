@@ -17,12 +17,12 @@ def tconf(tconf):
 
 
 def test_view_change_with_unaligned_prepare_certificates_on_half_nodes(
-        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
+        txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client, tconf):
     """
     Perform view change with half nodes reaching lower last prepared certificate than others.
     With current implementation of view change this can result with view change taking a lot of time.
     """
     do_view_change_with_unaligned_prepare_certificates(txnPoolNodeSet[2:],
-                                                       txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client)
+                                                       txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client)
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

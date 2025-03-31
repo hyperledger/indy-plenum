@@ -7,7 +7,7 @@ from plenum.test.helper import vdr_signed_random_requests, vdr_send_and_check, \
 
 
 def test_unordered_state_reverted_before_catchup(
-        tconf, looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
+        tconf, looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle):
     """
     Check that unordered state is reverted before starting catchup:
     - save the initial state on a node
@@ -26,8 +26,8 @@ def test_unordered_state_reverted_before_catchup(
 
     # send reqs and make sure we are at the same state
 
-    reqs = vdr_signed_random_requests(looper, sdk_wallet_client, 10)
-    vdr_send_and_check(reqs, looper, txnPoolNodeSet, sdk_pool_handle)
+    reqs = vdr_signed_random_requests(looper, vdr_wallet_client, 10)
+    vdr_send_and_check(reqs, looper, txnPoolNodeSet, vdr_pool_handle)
     checkNodesHaveSameRoots(txnPoolNodeSet)
 
     # the state of the node before
@@ -44,7 +44,7 @@ def test_unordered_state_reverted_before_catchup(
     non_primary_node.nodeIbStasher.delay(cpDelay())
 
     # send requests
-    reqs = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, tconf.Max3PCBatchSize)
+    reqs = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, tconf.Max3PCBatchSize)
     vdr_get_replies(looper, reqs, timeout=40)
 
     committed_ledger_during_3pc = non_primary_node.getLedger(

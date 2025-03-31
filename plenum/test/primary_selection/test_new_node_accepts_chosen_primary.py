@@ -25,7 +25,7 @@ def testNodeClass(patchPluginManager):
 
 
 @pytest.fixture(scope="module")
-def txnPoolNodeSet(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_steward,
+def txnPoolNodeSet(txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_steward,
                    tconf, tdirWithPoolTxns, allPluginsPath):
     logger.debug("Do several view changes to round the list of primaries")
 
@@ -35,8 +35,8 @@ def txnPoolNodeSet(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_steward,
     ensure_view_change_complete(looper, txnPoolNodeSet)
     logger.debug("Send requests to ensure that pool is working properly, "
                  "viewNo: {}".format(txnPoolNodeSet[0].viewNo))
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 3)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 3)
 
     logger.debug("Pool is ready, current viewNo: {}".format(txnPoolNodeSet[0].viewNo))
 

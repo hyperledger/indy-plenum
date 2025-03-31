@@ -9,7 +9,7 @@ from plenum.test.checkpoints.conftest import tconf, chkFreqPatched, \
 from plenum.test.helper import send_reqs_batches_and_get_suff_replies
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     checkNodeDataForInequality, waitNodeDataInequality, get_number_of_completed_catchups
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import vdr_add_new_steward_and_node
 from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
 
 logger = getLogger()
@@ -25,7 +25,7 @@ LOG_SIZE = 3 * CHK_FREQ
 
 def test_complete_short_checkpoint_not_included_in_lag_for_catchup(
         looper, chkFreqPatched, reqs_for_checkpoint, txnPoolNodeSet,
-        sdk_pool_handle, sdk_wallet_steward, sdk_wallet_client,
+        vdr_pool_handle, vdr_wallet_steward, vdr_wallet_client,
         tdir, tconf, allPluginsPath):
     """
     Verifies that if the first stored own checkpoint has a not aligned lower
@@ -38,8 +38,8 @@ def test_complete_short_checkpoint_not_included_in_lag_for_catchup(
     """
     max_batch_size = chkFreqPatched.Max3PCBatchSize
 
-    _, new_node = sdk_add_new_steward_and_node(
-        looper, sdk_pool_handle, sdk_wallet_steward,
+    _, new_node = vdr_add_new_steward_and_node(
+        looper, vdr_pool_handle, vdr_wallet_steward,
         'EpsilonSteward', 'Epsilon', tdir, tconf,
         allPluginsPath=allPluginsPath)
     txnPoolNodeSet.append(new_node)
@@ -56,8 +56,8 @@ def test_complete_short_checkpoint_not_included_in_lag_for_catchup(
     # transaction). This checkpoint has a not aligned lower bound
     # on the new node replicas so it will not be stabilized on them.
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
-                                           sdk_pool_handle,
-                                           sdk_wallet_client,
+                                           vdr_pool_handle,
+                                           vdr_wallet_client,
                                            reqs_for_checkpoint - 2 * max_batch_size)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1], exclude_from_check=['check_last_ordered_3pc_backup'])
@@ -73,8 +73,8 @@ def test_complete_short_checkpoint_not_included_in_lag_for_catchup(
     # Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1 quorumed stashed
     # checkpoints from others
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
-                                           sdk_pool_handle,
-                                           sdk_wallet_client,
+                                           vdr_pool_handle,
+                                           vdr_wallet_client,
                                            Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
                                            reqs_for_checkpoint)
 
@@ -91,8 +91,8 @@ def test_complete_short_checkpoint_not_included_in_lag_for_catchup(
     # Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 2 quorumed stashed
     # checkpoints from others
     send_reqs_batches_and_get_suff_replies(looper, txnPoolNodeSet,
-                                           sdk_pool_handle,
-                                           sdk_wallet_client,
+                                           vdr_pool_handle,
+                                           vdr_wallet_client,
                                            reqs_for_checkpoint)
 
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:-1], exclude_from_check=['check_last_ordered_3pc_backup'])

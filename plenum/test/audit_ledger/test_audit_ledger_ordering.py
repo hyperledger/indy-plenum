@@ -5,7 +5,7 @@ from plenum.test.helper import vdr_send_random_and_check
 
 
 def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
-                                             sdk_pool_handle, sdk_wallet_client, sdk_wallet_stewards,
+                                             vdr_pool_handle, vdr_wallet_client, vdr_wallet_stewards,
                                              initial_domain_size, initial_pool_size, initial_config_size,
                                              view_no, pp_seq_no,
                                              initial_seq_no):
@@ -16,7 +16,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
 
     # 1st domain txn
     audit_size_initial = [node.auditLedger.size for node in txnPoolNodeSet]
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
     check_audit_ledger_updated(audit_size_initial, txnPoolNodeSet, audit_txns_added=1)
 
     for node in txnPoolNodeSet:
@@ -46,7 +46,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
         )
 
     # 2d domain txn
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
     check_audit_ledger_updated(audit_size_initial, txnPoolNodeSet, audit_txns_added=2)
 
     for node in txnPoolNodeSet:
@@ -76,8 +76,8 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
     # 1st pool txn
     sdk_change_bls_key(looper, txnPoolNodeSet,
                        txnPoolNodeSet[3],
-                       sdk_pool_handle,
-                       sdk_wallet_stewards[3],
+                       vdr_pool_handle,
+                       vdr_wallet_stewards[3],
                        check_functional=False)
     check_audit_ledger_updated(audit_size_initial, txnPoolNodeSet, audit_txns_added=3)
 
@@ -108,8 +108,8 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
     # 2d pool txn
     sdk_change_bls_key(looper, txnPoolNodeSet,
                        txnPoolNodeSet[3],
-                       sdk_pool_handle,
-                       sdk_wallet_stewards[3],
+                       vdr_pool_handle,
+                       vdr_wallet_stewards[3],
                        check_functional=False)
     check_audit_ledger_updated(audit_size_initial, txnPoolNodeSet, audit_txns_added=4)
 
@@ -138,7 +138,7 @@ def test_audit_ledger_updated_after_ordering(looper, txnPoolNodeSet,
         )
 
     # one more domain txn
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
     check_audit_ledger_updated(audit_size_initial, txnPoolNodeSet, audit_txns_added=5)
 
     for node in txnPoolNodeSet:

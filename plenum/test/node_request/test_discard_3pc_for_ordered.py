@@ -19,7 +19,7 @@ def tconf(tconf):
 
 
 def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
-                                                  sdk_wallet_client, sdk_pool_handle):
+                                                  vdr_wallet_client, vdr_pool_handle):
     """
     Nodes discard any 3PC messages for already ordered 3PC keys
     (view_no, pp_seq_no). Delay all 3PC messages to a node so it cannot respond
@@ -35,8 +35,8 @@ def test_discard_3PC_messages_for_already_ordered(looper, txnPoolNodeSet,
     sent_batches = 3
     vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
-                                         sdk_pool_handle,
-                                         sdk_wallet_client,
+                                         vdr_pool_handle,
+                                         vdr_wallet_client,
                                          num_reqs=2 * sent_batches,
                                          num_batches=sent_batches)
 

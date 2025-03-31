@@ -244,13 +244,13 @@ def test_protocol_info_section(info):
 
 @pytest.fixture
 def write_txn_and_get_latest_info(txnPoolNodesLooper,
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   node):
     def write_wrapped():
         vdr_send_random_and_check(txnPoolNodesLooper, range(nodeCount),
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   1)
         return node._info_tool.info
 

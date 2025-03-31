@@ -46,8 +46,8 @@ def tconf(tconf):
 
 
 def test_view_change_on_performance_degraded(looper, txnPoolNodeSet, viewNo,
-                                             sdk_pool_handle,
-                                             sdk_wallet_steward):
+                                             vdr_pool_handle,
+                                             vdr_wallet_steward):
     """
     Test that a view change is done when the performance of master goes down
     Send multiple requests from the client and delay some requests by master
@@ -68,8 +68,8 @@ def test_view_change_on_performance_degraded(looper, txnPoolNodeSet, viewNo,
 
 
 def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
-                                                  sdk_pool_handle,
-                                                  sdk_wallet_steward,
+                                                  vdr_pool_handle,
+                                                  vdr_wallet_steward,
                                                   viewNo):
     """
     Node will change view even though it does not find the master to be degraded
@@ -96,8 +96,8 @@ def test_view_change_on_quorum_of_master_degraded(txnPoolNodeSet, looper,
 
     backup_replica = txnPoolNodeSet[0].replicas[1]
     backup_last_ordered_before = backup_replica.last_ordered_3pc
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 4)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 4)
     # make sure that backups also ordered at least 1 batch to be able to track performance degradation
     looper.run(eventually(lambda: assertExp(backup_replica.last_ordered_3pc > backup_last_ordered_before)))
 

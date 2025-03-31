@@ -38,8 +38,8 @@ def delay_audit_ledger_catchup():
 def test_stashed_pp_pass_obsolescence_check(tdir, tconf,
                                      looper,
                                      txnPoolNodeSet,
-                                     sdk_pool_handle,
-                                     sdk_wallet_client):
+                                     vdr_pool_handle,
+                                     vdr_wallet_client):
     lagging_node = txnPoolNodeSet[-1]
 
     def lagging_node_state() -> NodeLeecherService.State:
@@ -48,7 +48,7 @@ def test_stashed_pp_pass_obsolescence_check(tdir, tconf,
     # TODO INDY-2047: fills domain ledger with some requests
     # as a workaround for the issue
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+                              vdr_pool_handle, vdr_wallet_client, 1)
 
     # Prevent lagging node from catching up domain ledger (and finishing catchup)
     with delay_rules(lagging_node.nodeIbStasher, delay_audit_ledger_catchup()):
@@ -58,7 +58,7 @@ def test_stashed_pp_pass_obsolescence_check(tdir, tconf,
 
         # Order request on all nodes except lagging one where they goes to stashed state
         vdr_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client, 1)
+                                  vdr_pool_handle, vdr_wallet_client, 1)
 
         # lagging node is still syncing Audit ledger
         assert lagging_node_state() == NodeLeecherService.State.SyncingAudit

@@ -42,10 +42,10 @@ def deserialize_req(req):
     return req
 
 
-def test_seq_no_db_signed_request(looper, node, sdk_wallet_client):
+def test_seq_no_db_signed_request(looper, node, vdr_wallet_client):
     # Create signed request and write it to ledger
-    req = vdr_random_request_objects(1, identifier=sdk_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
-    req = vdr_sign_request_objects(looper, sdk_wallet_client, [req])[0]
+    req = vdr_random_request_objects(1, identifier=vdr_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
+    req = vdr_sign_request_objects(looper, vdr_wallet_client, [req])[0]
     req = deserialize_req(req)
     write_request(node, req)
 
@@ -54,10 +54,10 @@ def test_seq_no_db_signed_request(looper, node, sdk_wallet_client):
     assert isinstance(rep, Reply)
 
 
-def test_seq_no_db_multisigned_request(looper, node, sdk_wallet_client, sdk_wallet_client2):
+def test_seq_no_db_multisigned_request(looper, node, vdr_wallet_client, vdr_wallet_client2):
     # Create signed request and write it to ledger
-    req = vdr_random_request_objects(1, identifier=sdk_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
-    req = vdr_multisign_request_object(looper, sdk_wallet_client, json.dumps(req.as_dict))
+    req = vdr_random_request_objects(1, identifier=vdr_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
+    req = vdr_multisign_request_object(looper, vdr_wallet_client, json.dumps(req.as_dict))
     req = deserialize_req(req)
     write_request(node, req)
 
@@ -66,15 +66,15 @@ def test_seq_no_db_multisigned_request(looper, node, sdk_wallet_client, sdk_wall
     assert isinstance(rep, Reply)
 
     # Make sure sending request with additional signature will return NACK
-    multisig_req = vdr_multisign_request_object(looper, sdk_wallet_client2, json.dumps(req.as_dict))
+    multisig_req = vdr_multisign_request_object(looper, vdr_wallet_client2, json.dumps(req.as_dict))
     multisig_req = deserialize_req(multisig_req)
     rep = node.getReplyFromLedgerForRequest(multisig_req)
     assert isinstance(rep, RequestNack)
 
 
-def test_seq_no_db_unsigned_request(looper, node, sdk_wallet_client):
+def test_seq_no_db_unsigned_request(looper, node, vdr_wallet_client):
     # Create unsigned request and write it to ledger
-    req = vdr_random_request_objects(1, identifier=sdk_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
+    req = vdr_random_request_objects(1, identifier=vdr_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
     write_request(node, req)
 
     # Make sure sending request again will return REPLY
@@ -82,7 +82,7 @@ def test_seq_no_db_unsigned_request(looper, node, sdk_wallet_client):
     assert isinstance(rep, Reply)
 
     # Make sure sending request with signature will return NACK
-    signed_req = vdr_sign_request_objects(looper, sdk_wallet_client, [req])[0]
+    signed_req = vdr_sign_request_objects(looper, vdr_wallet_client, [req])[0]
     signed_req = deserialize_req(signed_req)
     rep = node.getReplyFromLedgerForRequest(signed_req)
     assert isinstance(rep, RequestNack)

@@ -24,15 +24,15 @@ def tconf(tconf):
 
 def test_catchup_from_unequal_nodes_without_waiting(looper,
                                                     txnPoolNodeSet,
-                                                    sdk_pool_handle,
-                                                    sdk_wallet_client):
+                                                    vdr_pool_handle,
+                                                    vdr_wallet_client):
     normal_node = txnPoolNodeSet[0]
     lagging_node_1 = txnPoolNodeSet[1]
     lagging_node_2 = txnPoolNodeSet[2]
     stopped_node = txnPoolNodeSet[3]
 
     # Make sure everyone have one batch
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
 
     # Wait until all nodes have same data and store last 3PC number of node that's going to be "stopped"
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=30)
@@ -40,16 +40,16 @@ def test_catchup_from_unequal_nodes_without_waiting(looper,
 
     with delay_rules_without_processing(stopped_node.nodeIbStasher, delay_3pc()):
         # Create one more batch on all nodes except "stopped" node
-        vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
 
         with delay_rules(lagging_node_1.nodeIbStasher, delay_3pc(msgs=Commit)):
             # Create one more batch on all nodes except "stopped" and first lagging node
-            vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+            vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
 
             with delay_rules(lagging_node_2.nodeIbStasher, delay_3pc(msgs=Commit)):
                 # Create one more batch on all nodes except "stopped" and both lagging nodes
                 # This time we can't wait for replies because there will be only one
-                reqs = vdr_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+                reqs = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
 
                 # Wait until normal node orders txn
                 looper.run(eventually(lambda: assert_eq(normal_node.master_last_ordered_3PC[1],

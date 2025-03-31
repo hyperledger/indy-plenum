@@ -15,7 +15,7 @@ def node_primary_disconnected_calls(node):
 
 
 def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
-        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
+        txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client):
     """
     Less than quorum nodes lose connection with primary, this should not
     trigger view change as the protocol can move ahead
@@ -62,7 +62,7 @@ def test_view_not_changed_when_primary_disconnected_from_less_than_quorum(
 
     looper.run(eventually(chk2, retryWait=1, timeout=10))
     # Send some requests and make sure the request execute
-    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 5)
 
     # Partitioned node should have the same ledger and state as others as it gets reqs from all nodes
     waitNodeDataEquality(looper, partitioned_node,

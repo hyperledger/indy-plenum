@@ -4,7 +4,7 @@ from plenum.test.node_request.test_propagate.helper import sum_of_request_propag
 from plenum.test.spy_helpers import get_count, getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.test.helper import vdr_send_random_and_check
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 
 
 @pytest.fixture(scope="module")
@@ -36,7 +36,7 @@ def setup(request, txnPoolNodeSet):
 
 
 def test_node_request_propagates(looper, setup, txnPoolNodeSet,
-                                 sdk_wallet_client, sdk_pool_handle, tconf):
+                                 vdr_wallet_client, vdr_pool_handle, tconf):
     """
     One of node lacks sufficient propagates
     """
@@ -55,8 +55,8 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
     sent_reqs = 1
     vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               sent_reqs)
     looper.runFor(tconf.PROPAGATE_REQUEST_DELAY)
 
@@ -78,8 +78,8 @@ def test_node_request_propagates(looper, setup, txnPoolNodeSet,
                                                 old_sum_of_sent_batches)
 
     faulty_node.nodeIbStasher.reset_delays_and_process_delayeds()
-    sdk_ensure_pool_functional(looper,
+    vdr_ensure_pool_functional(looper,
                                txnPoolNodeSet,
-                               sdk_wallet_client,
-                               sdk_pool_handle,
+                               vdr_wallet_client,
+                               vdr_pool_handle,
                                num_reqs=4)

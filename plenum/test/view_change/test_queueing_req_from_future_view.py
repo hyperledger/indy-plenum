@@ -14,7 +14,7 @@ logger = getlogger()
 
 # noinspection PyIncorrectDocstring
 def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client):
+                                  vdr_pool_handle, vdr_wallet_client):
     """
     Test if every node queues 3 Phase requests(PRE-PREPARE, PREPARE and COMMIT)
     that come from a view which is greater than the current view.
@@ -51,8 +51,8 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
                        [lagging_node])
 
     # send more requests that will be queued for the lagged node
-    reqs = vdr_send_random_requests(looper, sdk_pool_handle,
-                                    sdk_wallet_client, 5)
+    reqs = vdr_send_random_requests(looper, vdr_pool_handle,
+                                    vdr_wallet_client, 5)
     l = looper.run(eventually(chk_fut_view, False,
                               retryWait=1))
     logger.debug('{} has {} messages for future views'
@@ -69,4 +69,4 @@ def testQueueingReqFromFutureView(delayed_perf_chk, looper, txnPoolNodeSet,
                  .format(lagging_node))
 
     vdr_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 2)
+                              vdr_pool_handle, vdr_wallet_client, 2)

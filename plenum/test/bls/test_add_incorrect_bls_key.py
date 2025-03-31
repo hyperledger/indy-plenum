@@ -10,9 +10,9 @@ nodes_wth_bls = 0
 
 def test_add_incorrect_bls_one_node(looper,
                                     txnPoolNodeSet,
-                                    sdk_pool_handle,
-                                    sdk_wallet_stewards,
-                                    sdk_wallet_client):
+                                    vdr_pool_handle,
+                                    vdr_wallet_stewards,
+                                    vdr_wallet_client):
     '''
     Added wrong BLS key for 1st Node;
     do not expect that BLS multi-sigs are applied
@@ -20,17 +20,17 @@ def test_add_incorrect_bls_one_node(looper,
     check_update_bls_key(node_num=0,
                          saved_multi_sigs_count=0,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
-                         sdk_wallet_stewards=sdk_wallet_stewards,
-                         sdk_wallet_client=sdk_wallet_client,
-                         sdk_pool_handle=sdk_pool_handle,
+                         sdk_wallet_stewards=vdr_wallet_stewards,
+                         sdk_wallet_client=vdr_wallet_client,
+                         sdk_pool_handle=vdr_pool_handle,
                          add_wrong=True)
 
 
 def test_add_incorrect_bls_two_nodes(looper,
                                      txnPoolNodeSet,
-                                     sdk_pool_handle,
-                                     sdk_wallet_stewards,
-                                     sdk_wallet_client):
+                                     vdr_pool_handle,
+                                     vdr_wallet_stewards,
+                                     vdr_wallet_client):
     '''
     Added wrong BLS key for 1st and 2d Nodes;
     do not expect that BLS multi-sigs are applied
@@ -38,17 +38,17 @@ def test_add_incorrect_bls_two_nodes(looper,
     check_update_bls_key(node_num=1,
                          saved_multi_sigs_count=0,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
-                         sdk_wallet_stewards=sdk_wallet_stewards,
-                         sdk_wallet_client=sdk_wallet_client,
-                         sdk_pool_handle=sdk_pool_handle,
+                         sdk_wallet_stewards=vdr_wallet_stewards,
+                         sdk_wallet_client=vdr_wallet_client,
+                         sdk_pool_handle=vdr_pool_handle,
                          add_wrong=True)
 
 
 def test_add_incorrect_bls_three_nodes(looper,
                                        txnPoolNodeSet,
-                                       sdk_pool_handle,
-                                       sdk_wallet_stewards,
-                                       sdk_wallet_client):
+                                       vdr_pool_handle,
+                                       vdr_wallet_stewards,
+                                       vdr_wallet_client):
     '''
     Added wrong BLS key for 1-3 Nodes;
     do not expect that BLS multi-sigs are applied
@@ -60,17 +60,17 @@ def test_add_incorrect_bls_three_nodes(looper,
     check_update_bls_key(node_num=2,
                          saved_multi_sigs_count=0,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
-                         sdk_wallet_stewards=sdk_wallet_stewards,
-                         sdk_wallet_client=sdk_wallet_client,
-                         sdk_pool_handle=sdk_pool_handle,
+                         sdk_wallet_stewards=vdr_wallet_stewards,
+                         sdk_wallet_client=vdr_wallet_client,
+                         sdk_pool_handle=vdr_pool_handle,
                          add_wrong=True)
 
 
 def test_add_incorrect_bls_all_nodes(looper,
                                      txnPoolNodeSet,
-                                     sdk_pool_handle,
-                                     sdk_wallet_stewards,
-                                     sdk_wallet_client):
+                                     vdr_pool_handle,
+                                     vdr_wallet_stewards,
+                                     vdr_wallet_client):
     '''
     Added wrong BLS key for all Nodes;
     Still do not expect that BLS multi-sigs are applied
@@ -78,7 +78,7 @@ def test_add_incorrect_bls_all_nodes(looper,
     check_update_bls_key(node_num=3,
                          saved_multi_sigs_count=0,
                          looper=looper, txnPoolNodeSet=txnPoolNodeSet,
-                         sdk_wallet_stewards=sdk_wallet_stewards,
-                         sdk_wallet_client=sdk_wallet_client,
-                         sdk_pool_handle=sdk_pool_handle,
+                         sdk_wallet_stewards=vdr_wallet_stewards,
+                         sdk_wallet_client=vdr_wallet_client,
+                         sdk_pool_handle=vdr_pool_handle,
                          add_wrong=True)

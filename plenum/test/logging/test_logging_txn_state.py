@@ -11,8 +11,8 @@ from stp_core.loop.eventually import eventually
 
 from plenum.common.constants import DOMAIN_LEDGER_ID, STEWARD_STRING
 
-from plenum.test.pool_transactions.helper import prepare_nym_request, \
-    sdk_sign_and_send_prepared_request
+from plenum.test.pool_transactions.helper import vdr_prepare_nym_request, \
+    vdr_sign_and_send_prepared_request
 from plenum.test import waits
 from plenum.test.helper import vdr_send_random_and_check, \
     vdr_get_and_check_replies, get_key_from_req
@@ -31,14 +31,14 @@ whitelist = [ERORR_MSG]
 
 def testLoggingTxnStateForValidRequest(
         looper, logsearch, txnPoolNodeSet,
-        sdk_pool_handle, sdk_wallet_client):
+        vdr_pool_handle, vdr_wallet_client):
     logsPropagate, _ = logsearch(files=['propagator.py'], funcs=['propagate'],
                                  msgs=['propagating.*request.*from client'])
     logsOrdered, _ = logsearch(files=['ordering_service.py'], funcs=['_order_3pc_key'], msgs=['ordered batch request'])
     logsCommited, _ = logsearch(files=['node.py'], funcs=['executeBatch'], msgs=['committed batch request'])
 
-    reqs = vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                     sdk_wallet_client, 1)
+    reqs = vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                     vdr_wallet_client, 1)
     req, _ = reqs[0]
 
     key = get_key_from_req(req)
@@ -48,21 +48,21 @@ def testLoggingTxnStateForValidRequest(
 
 
 def testLoggingTxnStateForInvalidRequest(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, logsearch):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, logsearch):
     logsPropagate, _ = logsearch(files=['propagator.py'], funcs=['propagate'],
                                  msgs=['propagating.*request.*from client'])
     logsReject, _ = logsearch(files=['ordering_service.py'], funcs=['_consume_req_queue_for_pre_prepare'],
                               msgs=['encountered exception.*while processing.*will reject'])
 
     seed = randomString(32)
-    wh, _ = sdk_wallet_client
+    wh, _ = vdr_wallet_client
 
     nym_request, _ = looper.loop.run_until_complete(
-        prepare_nym_request(sdk_wallet_client, seed,
+        vdr_prepare_nym_request(vdr_wallet_client, seed,
                             "name", STEWARD_STRING))
 
-    request_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_client,
-                                                        sdk_pool_handle, nym_request)
+    request_couple = vdr_sign_and_send_prepared_request(looper, vdr_wallet_client,
+                                                        vdr_pool_handle, nym_request)
 
     with pytest.raises(RequestRejectedException) as e:
         vdr_get_and_check_replies(looper, [request_couple])
@@ -76,7 +76,7 @@ def testLoggingTxnStateForInvalidRequest(
 
 
 def testLoggingTxnStateWhenCommitFails(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, logsearch):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward, logsearch):
     logsPropagate, _ = logsearch(files=['propagator.py'], funcs=['propagate'],
                                  msgs=['propagating.*request.*from client'])
     logsOrdered, _ = logsearch(files=['ordering_service.py'], funcs=['_order_3pc_key'], msgs=['ordered batch request'])
@@ -84,14 +84,14 @@ def testLoggingTxnStateWhenCommitFails(
                                   msgs=['commit failed for batch request'])
 
     seed = randomString(32)
-    wh, _ = sdk_wallet_steward
+    wh, _ = vdr_wallet_steward
 
     nym_request, _ = looper.loop.run_until_complete(
-        prepare_nym_request(sdk_wallet_steward, seed,
+        vdr_prepare_nym_request(vdr_wallet_steward, seed,
                             "name", None))
 
-    req_couple = sdk_sign_and_send_prepared_request(looper, sdk_wallet_steward,
-                                                    sdk_pool_handle, nym_request)
+    req_couple = vdr_sign_and_send_prepared_request(looper, vdr_wallet_steward,
+                                                    vdr_pool_handle, nym_request)
 
     class SomeError(Exception):
         pass
