@@ -66,7 +66,7 @@ from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, vdr_json_to_request_object, vdr_send_random_requests, \
-    vdr_get_and_check_replies, vdr_set_protocol_version, vdr_send_random_and_check, MockTimer, create_pool_txn_data
+    vdr_get_and_check_replies, vdr_set_protocol_version, vdr_send_random_and_check, MockTimer, create_pool_txn_data, sdk_set_protocol_version
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -900,7 +900,7 @@ def sdk_pool_handle(looper, txnPoolNodeSet, tdirWithPoolTxns, sdk_pool_data):
     # TODO think about moving protocol version setting to separate
     # fixture like 'sdk_init' since some sdk request builders don't
     # requires pool handle but use protocol version
-    set_protocol_version(looper)
+    sdk_set_protocol_version(looper)
     pool_name, open_config = sdk_pool_data
     pool_handle = looper.loop.run_until_complete(
         sdk_gen_pool_handler(tdirWithPoolTxns, pool_name, open_config))

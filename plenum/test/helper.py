@@ -33,6 +33,8 @@ from indy_vdr import VdrError, VdrErrorCode
 from plenum.test.wallet_helper import vdr_sign_and_submit_request, vdr_sign_request, vdr_multi_sign_request
 from indy_vdr import set_protocol_version
 
+from indy.pool import set_protocol_version as set_sdk_protocol_version
+
 from indy.ledger import sign_and_submit_request as sign_and_submit_sdk_request
 from indy.ledger import sign_request as sign_sdk_request
 from indy.ledger import submit_request as submit_sdk_request
@@ -1148,7 +1150,7 @@ def sdk_get_bad_response(looper, reqs, exception, message):
 
 
 def sdk_set_protocol_version(looper, version=CURRENT_PROTOCOL_VERSION):
-    looper.loop.run_until_complete(set_protocol_version(version))
+    looper.loop.run_until_complete(set_sdk_protocol_version(version))
 
 
 # ####### VDR

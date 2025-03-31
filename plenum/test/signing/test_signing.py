@@ -81,16 +81,16 @@ def testOneNodeAltersAClientRequest(looper,
     looper.run(eventually(check, retryWait=1, timeout=timeout))
 
 #indy-sdk request manipulation test (invalid in vdr)
-def test_request_with_incorrect_multisig_signatures(looper, vdr_pool_handle, vdr_wallet_client, vdr_wallet_client2):
-    req = sdk_random_request_objects(1, identifier=vdr_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
+def test_request_with_incorrect_multisig_signatures(looper, sdk_pool_handle, sdk_wallet_client, sdk_wallet_client2):
+    req = sdk_random_request_objects(1, identifier=sdk_wallet_client[1], protocol_version=CURRENT_PROTOCOL_VERSION)[0]
 
-    req = sdk_multisign_request_object(looper, vdr_wallet_client, json.dumps(req.as_dict))
+    req = sdk_multisign_request_object(looper, sdk_wallet_client, json.dumps(req.as_dict))
     req = deserialize_req(req)
     req.signatures[req.identifier] = 'garbage'
 
-    multisig_req = sdk_multisign_request_object(looper, vdr_wallet_client2, json.dumps(req.as_dict))
+    multisig_req = sdk_multisign_request_object(looper, sdk_wallet_client2, json.dumps(req.as_dict))
 
-    rep1 = sdk_send_signed_requests(vdr_pool_handle, [multisig_req])
+    rep1 = sdk_send_signed_requests(sdk_pool_handle, [multisig_req])
 
     invalid_signatures = 'did={}, signature={}'.format(req.identifier, req.signatures[req.identifier])
     expected_error_message = 'Reason: client request invalid: {}'.\
