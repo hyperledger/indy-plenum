@@ -1157,8 +1157,10 @@ def sdk_set_protocol_version(looper, version=CURRENT_PROTOCOL_VERSION):
 
 
 def vdr_gen_request(operation, protocol_version=CURRENT_PROTOCOL_VERSION,
-                    identifier=None, **kwargs):
-    json_req = Request(operation=operation, reqId=random.randint(10, 1000000000),
+                    identifier=None, reqId=None, **kwargs):
+    if reqId is None:
+        reqId = random.randint(10, 1000000000)
+    json_req = Request(operation=operation, reqId=reqId,
                    protocolVersion=protocol_version, identifier=identifier,
                    **kwargs)
     req = ledger.build_custom_request(json_req.as_dict)
