@@ -1323,6 +1323,8 @@ def vdr_get_reply(looper, sdk_req_resp, timeout=None):
         timeout = waits.expectedTransactionExecutionTime(7)
     try:
         resp = looper.run(asyncio.wait_for(resp_task, timeout=timeout))
+        if isinstance(resp, dict):
+            resp = resp[list(resp.keys())[0]]
         resp = json.loads(resp)
     except VdrError as e:
         resp = e.error_code
