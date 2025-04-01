@@ -41,7 +41,8 @@ from plenum.common.keygen_utils import initNodeKeysForBothStacks
 from plenum.test.greek import genNodeNames
 from plenum.test.grouped_load_scheduling import GroupedLoadScheduling
 from plenum.test.node_catchup.helper import waitNodeDataEquality, check_last_3pc_master
-from plenum.test.pool_transactions.helper import vdr_add_new_nym, vdr_pool_refresh, vdr_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import vdr_add_new_nym, vdr_pool_refresh, vdr_add_new_steward_and_node, \
+    sdk_pool_refresh, sdk_add_new_nym, sdk_add_new_steward_and_node
 from plenum.test.simulation.sim_random import DefaultSimRandom
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.view_change.helper import ensure_view_change
@@ -66,7 +67,8 @@ from plenum.test.helper import checkLastClientReqForNode, \
     waitForViewChange, requestReturnedToNode, randomText, \
     mockDistributions, mockImportModule, chk_all_funcs, \
     create_new_test_node, vdr_json_to_request_object, vdr_send_random_requests, \
-    vdr_get_and_check_replies, vdr_set_protocol_version, vdr_send_random_and_check, MockTimer, create_pool_txn_data, sdk_set_protocol_version
+    vdr_get_and_check_replies, vdr_set_protocol_version, vdr_send_random_and_check, MockTimer, \
+    create_pool_txn_data, sdk_set_protocol_version, sdk_send_random_and_check
 from plenum.test.node_request.node_request_helper import checkPrePrepared, \
     checkPropagated, checkPrepared, checkCommitted
 from plenum.test.plugin.helper import getPluginPath
@@ -1368,8 +1370,8 @@ def vdr_node_created_after_some_txns(looper, testNodeClass, do_post_node_creatio
 
 
 @pytest.fixture(scope="module")
-def vdr_node_set_with_node_advdr_pool_handletxns(
-        txnPoolNodeSet, sdk_vdr_pool_handleter_some_txns):
+def vdr_node_set_with_node_added_after_some_txns(
+        txnPoolNodeSet, vdr_node_created_after_some_txns):
     looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
         vdr_node_created_after_some_txns
     txnPoolNodeSet.append(new_node)
@@ -1380,8 +1382,8 @@ def vdr_node_set_with_node_advdr_pool_handletxns(
 
 @pytest.fixture(scope="module")
 def vdr_new_node_caught_up(txnPoolNodeSet,
-                           sdk_node_set_with_node_added_after_some_txns):
-    looper, new_node, _, _ = sdk_node_set_with_node_added_after_some_txns
+                           vdr_node_set_with_node_added_after_some_txns):
+    looper, new_node, _, _ = vdr_node_set_with_node_added_after_some_txns
     waitNodeDataEquality(looper, new_node, *txnPoolNodeSet[:4],
                          exclude_from_check=['check_last_ordered_3pc_backup'])
     check_last_3pc_master(new_node, txnPoolNodeSet[:4])
@@ -1402,9 +1404,6 @@ def vdr_new_node_caught_up(txnPoolNodeSet,
                 new_node.num_txns_caught_up_in_last_catchup)) > 0
 
     return new_node
-
-######## SDK
-
 
 
 

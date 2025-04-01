@@ -841,7 +841,7 @@ def sdk_sign_and_send_prepared_request(looper, sdk_wallet, sdk_pool_handle, stri
     signed_reqs = sdk_sign_request_objects(looper, sdk_wallet,
                                            [sdk_json_to_request_object(
                                                json.loads(string_req))])
-    request_couple = sdk_send_signed_requests(sdk_pool_handle, signed_reqs)[0]
+    request_couple = sdk_send_signed_requests(looper, sdk_pool_handle, signed_reqs)[0]
     return request_couple
 
 

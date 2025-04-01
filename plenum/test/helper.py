@@ -874,15 +874,15 @@ def sdk_signed_random_requests(looper, sdk_wallet, count):
     return sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
 
 
-def sdk_send_signed_requests(pool_h, signed_reqs: Sequence):
+def sdk_send_signed_requests(looper, pool_h, signed_reqs: Sequence):
     return [(json.loads(req),
-             asyncio.ensure_future(submit_sdk_request(pool_h, req)))
+             asyncio.ensure_future(submit_sdk_request(pool_h, req), loop=looper.loop))
             for req in signed_reqs]
 
 
 def sdk_send_random_requests(looper, pool_h, sdk_wallet, count: int):
     reqs = sdk_signed_random_requests(looper, sdk_wallet, count)
-    return sdk_send_signed_requests(pool_h, reqs)
+    return sdk_send_signed_requests(looper, pool_h, reqs)
 
 
 def sdk_send_random_request(looper, pool_h, sdk_wallet):
