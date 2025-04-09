@@ -3,7 +3,7 @@
 ##Pre-Install
 
         sudo apt-get update && sudo apt-get install -y apt-transport-https ca-certificates
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 || sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CE7709D068DB5E88
+        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 || sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 9692C00E657DDE61
         sudo echo "deb https://hyperledger.jfrog.io/artifactory/indy bionic master" >> /etc/apt/sources.list
         sudo echo "deb http://security.ubuntu.com/ubuntu bionic-security main" >> /etc/apt/sources.list
 
