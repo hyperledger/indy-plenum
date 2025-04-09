@@ -45,9 +45,10 @@ RUN echo "deb [signed-by=/etc/apt/keyrings/hyperledger.gpg] https://hyperledger.
 
 # todo: Will be removed when libindy will have been replace by indy-vdr, askar, and indy-credx
 RUN echo "deb [signed-by=/etc/apt/keyrings/ubuntu-bionic.gpg] http://security.ubuntu.com/ubuntu bionic-security main" > /etc/apt/sources.list.d/ubuntu-bionic.list
-RUN echo "deb [signed-by=/etc/apt/keyrings/sovrin.gpg] https://repo.sovrin.org/deb bionic master" > /etc/apt/sources.list.d/sovrin.list
 RUN echo "deb [signed-by=/etc/apt/keyrings/sovrin.gpg] https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list.d/sovrin.list
 
+# todo: Will be removed when Ursa is replaced
+RUN echo "deb [signed-by=/etc/apt/keyrings/hyperledger.gpg] https://hyperledger.jfrog.io/artifactory/indy bionic master" > /etc/apt/sources.list.d/sovrin.list
 
 RUN apt-get update -y && apt-get install -y \
     # Python

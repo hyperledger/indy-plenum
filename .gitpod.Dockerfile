@@ -28,7 +28,7 @@ RUN sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE
 #  - Needed to pick up rocksdb=5.8.8
 RUN sudo add-apt-repository 'deb https://hyperledger.jfrog.io/artifactory/indy focal dev' && \
     sudo add-apt-repository 'deb http://security.ubuntu.com/ubuntu bionic-security main' && \
-    sudo add-apt-repository 'deb https://repo.sovrin.org/deb bionic master'  && \
+    sudo add-apt-repository 'deb https://hyperledger.jfrog.io/artifactory/indy bionic master'  && \
     sudo add-apt-repository 'deb https://repo.sovrin.org/sdk/deb bionic master'
 
 RUN sudo apt-get update -y && sudo apt-get install -y \
