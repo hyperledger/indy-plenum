@@ -31,17 +31,16 @@ RUN gpg --keyserver keyserver.ubuntu.com --recv-keys 3B4FE6ACC0B21F32 && \
 #  - Eliminate dependency on obsolete bionic repositories.
 
 # Plenum
-#  - https://github.com/hyperledger/indy-plenum/issues/1546
-#  - Needed to pick up rocksdb=5.8.8
-RUN echo "deb [signed-by=/etc/apt/keyrings/hyperledger.gpg] https://hyperledger.jfrog.io/artifactory/indy jammy dev rc" > /etc/apt/sources.list.d/hyperledger.list
-
 # todo: Will be removed when libindy will have been replace by indy-vdr, askar, and indy-credx
 RUN echo "deb [signed-by=/etc/apt/keyrings/ubuntu-bionic.gpg] http://security.ubuntu.com/ubuntu bionic-security main" > /etc/apt/sources.list.d/ubuntu-bionic.list
 RUN echo "deb [signed-by=/etc/apt/keyrings/hyperledger.gpg] https://hyperledger.jfrog.io/artifactory/indy bionic master" > /etc/apt/sources.list.d/hyperledger.list
+
+#  - https://github.com/hyperledger/indy-plenum/issues/1546
+#  - Needed to pick up rocksdb=5.8.8
+RUN echo "deb [signed-by=/etc/apt/keyrings/hyperledger.gpg] https://hyperledger.jfrog.io/artifactory/indy jammy dev rc" >> /etc/apt/sources.list.d/hyperledger.list
 
 RUN apt update -y && apt install -y rubygems python3-pip && apt-get -y autoremove && rm -rf /var/lib/apt/lists/*
 
 # install fpm
 RUN gem install --no-document dotenv:2.8.1 fpm:1.15.0 && \
     pip3 install Cython==0.29.36
-

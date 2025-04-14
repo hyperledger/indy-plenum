@@ -24,9 +24,9 @@ RUN sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE
 # Plenum
 #  - https://github.com/hyperledger/indy-plenum/issues/1546
 #  - Needed to pick up rocksdb=5.8.8
-RUN sudo add-apt-repository 'deb https://hyperledger.jfrog.io/artifactory/indy focal dev' && \
-    sudo add-apt-repository 'deb http://security.ubuntu.com/ubuntu bionic-security main' && \
-    sudo add-apt-repository 'deb https://hyperledger.jfrog.io/artifactory/indy bionic master'
+RUN echo "deb http://security.ubuntu.com/ubuntu bionic-security main"  >> /etc/apt/sources.list && \
+    echo "deb https://hyperledger.jfrog.io/artifactory/indy bionic master" >> /etc/apt/sources.list && \
+    echo "deb https://hyperledger.jfrog.io/artifactory/indy focal dev"  >> /etc/apt/sources.list
 
 RUN sudo apt-get update -y && sudo apt-get install -y \
     # Python
