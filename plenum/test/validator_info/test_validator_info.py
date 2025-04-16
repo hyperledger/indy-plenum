@@ -7,7 +7,7 @@ import time
 from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 from plenum.common.constants import GET_TXN
 from plenum.server.validator_info_tool import ValidatorNodeInfoTool
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from stp_core.common.constants import ZMQ_NETWORK_PROTOCOL
 
@@ -244,13 +244,13 @@ def test_protocol_info_section(info):
 
 @pytest.fixture
 def write_txn_and_get_latest_info(txnPoolNodesLooper,
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   node):
     def write_wrapped():
-        sdk_send_random_and_check(txnPoolNodesLooper, range(nodeCount),
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+        vdr_send_random_and_check(txnPoolNodesLooper, range(nodeCount),
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   1)
         return node._info_tool.info
 

@@ -3,7 +3,7 @@ import types
 import pytest
 
 from plenum.test.helper import checkViewNoForNodes, \
-    sdk_send_random_and_check, countDiscarded
+    vdr_send_random_and_check, countDiscarded
 from plenum.test.malicious_behaviors_node import slow_primary
 from plenum.test.test_node import getPrimaryReplica, ensureElectionsDone
 from plenum.test.view_change.helper import provoke_and_wait_for_view_change, ensure_view_change
@@ -14,7 +14,7 @@ logger = getlogger()
 
 
 def test_master_primary_different_from_previous(txnPoolNodeSet, looper,
-                                                sdk_pool_handle, sdk_wallet_client):
+                                                vdr_pool_handle, vdr_wallet_client):
     """
     After a view change, primary must be different from previous primary for
     master instance, it does not matter for other instance. The primary is
@@ -36,4 +36,4 @@ def test_master_primary_different_from_previous(txnPoolNodeSet, looper,
     pr.outBoxTestStasher.resetDelays()
 
     # The new primary can still process requests
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 5)

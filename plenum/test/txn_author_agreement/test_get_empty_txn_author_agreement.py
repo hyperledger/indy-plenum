@@ -1,5 +1,5 @@
 import pytest
-from indy.error import CommonInvalidParam3
+from indy_vdr.error import VdrErrorCode, VdrError
 
 from plenum.common.constants import REPLY, CONFIG_LEDGER_ID
 from plenum.common.exceptions import RequestNackedException, CommonSdkIOException
@@ -43,8 +43,8 @@ def nodeSetWithoutTaa(request, nodeSetWithoutTaaAlwaysResponding):
     ({'timestamp': TIMESTAMP_NONE}, '2:latest')
 ])
 def test_get_txn_author_agreement_works_on_clear_state(params, state_key, looper, nodeSetWithoutTaa,
-                                                       sdk_pool_handle, sdk_wallet_client):
-    reply = sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client, **params)[1]
+                                                       vdr_pool_handle, vdr_wallet_client):
+    reply = sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client, **params)[1]
     assert reply['op'] == REPLY
 
     result = reply['result']
@@ -59,6 +59,6 @@ def test_get_txn_author_agreement_works_on_clear_state(params, state_key, looper
     {'digest': 'some_digest', 'version': 'some_version', 'timestamp': 374273}
 ])
 def test_get_txn_author_agreement_cannot_have_more_than_one_parameter(params, looper, nodeSetWithoutTaa,
-                                                                      sdk_pool_handle, sdk_wallet_client):
-    with pytest.raises(CommonInvalidParam3) as e:
-        sdk_get_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_client, **params)
+                                                                      vdr_pool_handle, vdr_wallet_client):
+    with pytest.raises(VdrError(code=VdrErrorCode.UNEXPECTED)) as e:
+        sdk_get_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_client, **params)

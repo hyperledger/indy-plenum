@@ -5,16 +5,16 @@ import pytest
 from plenum.common.average_strategies import MedianLowStrategy
 from plenum.server.instances import Instances
 from plenum.server.monitor import Monitor
-from plenum.test.helper import sdk_eval_timeout, sdk_send_random_request, sdk_get_reply
+from plenum.test.helper import vdr_eval_timeout, vdr_send_random_request, vdr_get_reply
 from plenum.test.testing_utils import FakeSomething
 
 
 @pytest.fixture()
-def requests(looper, sdk_wallet_client, sdk_pool_handle):
+def requests(looper, vdr_wallet_client, vdr_pool_handle):
     requests = []
     for i in range(5):
-        req = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
-        req, _ = sdk_get_reply(looper, req, timeout=sdk_eval_timeout(1, 4))
+        req = vdr_send_random_request(looper, vdr_pool_handle, vdr_wallet_client)
+        req, _ = vdr_get_reply(looper, req, timeout=vdr_eval_timeout(1, 4))
         requests.append(req)
     return requests
 

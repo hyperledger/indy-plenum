@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.messages.node_messages import PrePrepare, Prepare, Commit
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import checkNodeDataForEquality
 from plenum.test.test_node import TestNode
 
@@ -25,7 +25,7 @@ def exclude_from_consensus(node):
 
 def test_observer_node(txnPoolNodeSet,
                        looper,
-                       sdk_pool_handle, sdk_wallet_client):
+                       vdr_pool_handle, vdr_wallet_client):
     '''
     Integration tests checking the full workflow between a real Node Observer and real Node Observables.
     '''
@@ -39,8 +39,8 @@ def test_observer_node(txnPoolNodeSet,
         node.add_observer(observer_node.name, ObserverSyncPolicyType.EACH_BATCH)
 
     # send requests, so that they will be propagated to Observer (Delta)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_client,
                               10)
 
     # check that Delta is in sync with other Nodes.

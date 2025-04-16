@@ -2,7 +2,7 @@ import pytest
 
 from plenum.test.freshness.helper import has_freshness_instance_change
 from plenum.test.helper import freshness
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from stp_core.loop.eventually import eventually
 
 FRESHNESS_TIMEOUT = 5
@@ -15,7 +15,7 @@ def tconf(tconf):
 
 
 def test_view_change_happens_if_primary_is_slow_to_update_freshness(looper, tconf, txnPoolNodeSet,
-                                                                    sdk_wallet_client, sdk_pool_handle,
+                                                                    vdr_wallet_client, vdr_pool_handle,
                                                                     monkeypatch):
     monkeypatch.setattr(txnPoolNodeSet[0].master_replica._freshness_checker,
                         'freshness_timeout', 3 * FRESHNESS_TIMEOUT)
@@ -32,4 +32,4 @@ def test_view_change_happens_if_primary_is_slow_to_update_freshness(looper, tcon
 
     assert sum(1 for node in txnPoolNodeSet if has_freshness_instance_change(node)) >= 3
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle)

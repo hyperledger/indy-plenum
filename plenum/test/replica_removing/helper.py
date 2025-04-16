@@ -3,7 +3,7 @@ from contextlib import contextmanager
 
 from plenum.common.throughput_measurements import RevivalSpikeResistantEMAThroughputMeasurement
 from plenum.test.delayers import cDelay
-from plenum.test.helper import sdk_send_batches_of_random_and_check, waitForViewChange, \
+from plenum.test.helper import vdr_send_batches_of_random_and_check, waitForViewChange, \
     acc_monitor
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
@@ -64,7 +64,7 @@ def do_test_replica_removing_with_backup_degraded(looper,
     instance_to_remove = 1
     stashers = [node.nodeIbStasher for node in txnPoolNodeSet]
     with delay_rules(stashers, cDelay(delay=sys.maxsize, instId=instance_to_remove)):
-        sdk_send_batches_of_random_and_check(looper,
+        vdr_send_batches_of_random_and_check(looper,
                                              txnPoolNodeSet,
                                              sdk_pool_handle,
                                              sdk_wallet_client,

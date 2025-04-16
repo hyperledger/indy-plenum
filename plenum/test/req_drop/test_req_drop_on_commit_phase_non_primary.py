@@ -1,13 +1,13 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_requests
+from plenum.test.helper import vdr_send_random_requests
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Commit
 from plenum.test.delayers import delay
 from plenum.test.propagate.helper import recvdRequest, recvdPropagate, \
     sentPropagate, recvdPrepareForInstId, recvdCommitForInstId
 from plenum.test.test_node import TestNode
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 
 
 howlong = 20
@@ -34,15 +34,15 @@ def tconf(tconf):
 
 
 @pytest.fixture()
-def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
+def setup(txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client):
     global initial_ledger_size
     A, B, C, D = txnPoolNodeSet  # type: TestNode
     lagged_node = C
     frm = [A, B, D]
     delay(Commit, frm=frm, to=lagged_node, howlong=howlong)
     initial_ledger_size = lagged_node.domainLedger.size
-    request_couple_json = sdk_send_random_requests(
-        looper, sdk_pool_handle, sdk_wallet_client, 1)
+    request_couple_json = vdr_send_random_requests(
+        looper, vdr_pool_handle, vdr_wallet_client, 1)
     return request_couple_json
 
 
@@ -53,7 +53,7 @@ def setup(txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client):
 # before all Prepares received.
 def test_req_drop_on_commit_phase_on_non_primary_and_then_ordered(
         tconf, setup, looper, txnPoolNodeSet,
-        sdk_wallet_client, sdk_pool_handle):
+        vdr_wallet_client, vdr_pool_handle):
     global initial_ledger_size
     A, B, C, D = txnPoolNodeSet  # type: TestNode
     lagged_node = C
@@ -104,4 +104,4 @@ def test_req_drop_on_commit_phase_on_non_primary_and_then_ordered(
 
     looper.run(eventually(check_ledger_size, retryWait=.5, timeout=timeout))
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle)

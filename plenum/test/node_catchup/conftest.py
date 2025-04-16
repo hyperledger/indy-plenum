@@ -5,11 +5,11 @@ from plenum.test.spy_helpers import getAllReturnVals
 from stp_core.common.log import getlogger
 from plenum.common.util import randomString
 from plenum.test.conftest import getValueFromModule
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     check_last_3pc_master
 from plenum.test.pool_transactions.helper import \
-    sdk_add_new_steward_and_node, sdk_pool_refresh
+    vdr_add_new_steward_and_node, vdr_pool_refresh
 from plenum.test.test_node import checkNodesConnected, getNonPrimaryReplicas
 
 
@@ -22,37 +22,37 @@ logger = getlogger()
 
 @pytest.fixture(scope="module")
 def sdk_node_created_after_some_txns_not_started(looper, testNodeClass, do_post_node_creation,
-                                     sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
+                                     vdr_pool_handle, vdr_wallet_client, vdr_wallet_steward,
                                      txnPoolNodeSet, tdir, tconf, allPluginsPath, request):
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               txnCount)
     new_steward_name = randomString()
     new_node_name = "Epsilon"
-    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
-        looper, sdk_pool_handle, sdk_wallet_steward,
+    new_steward_wallet_handle, new_node = vdr_add_new_steward_and_node(
+        looper, vdr_pool_handle, vdr_wallet_steward,
         new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
         allPluginsPath=allPluginsPath, autoStart=False,
         do_post_node_creation=do_post_node_creation)
-    sdk_pool_refresh(looper, sdk_pool_handle)
-    yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
+    vdr_pool_refresh(looper, vdr_pool_handle)
+    yield looper, new_node, vdr_pool_handle, new_steward_wallet_handle
 
 
 @pytest.fixture(scope="module")
 def poolAfterSomeTxns(
         looper,
         txnPoolNodeSet,
-        sdk_pool_handle,
-        sdk_wallet_client,
+        vdr_pool_handle,
+        vdr_wallet_client,
         request):
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               txnCount)
-    yield looper, sdk_pool_handle, sdk_wallet_client
+    yield looper, vdr_pool_handle, vdr_wallet_client
 
 
 @pytest.fixture

@@ -7,7 +7,7 @@ from crypto.bls.indy_crypto.bls_crypto_indy_crypto import IndyCryptoBlsUtils
 
 from plenum.test.pool_transactions.helper import demote_node
 from plenum.test.test_node import TestNode, checkNodesConnected, ensureElectionsDone, ensure_node_disconnected
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 
 from plenum.common.config_helper import PNodeConfigHelper
 from plenum.common.types import f
@@ -17,9 +17,9 @@ serializer = Base58Serializer()
 
 
 def test_bls_not_depend_on_node_reg(looper, txnPoolNodeSet,
-                                    sdk_pool_handle, sdk_wallet_client):
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
-                                         sdk_pool_handle, sdk_wallet_client, 3, 3)
+                                    vdr_pool_handle, vdr_wallet_client):
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+                                         vdr_pool_handle, vdr_wallet_client, 3, 3)
 
     node = txnPoolNodeSet[2]
     last_pre_prepare = \
@@ -44,10 +44,10 @@ def test_bls_not_depend_on_node_reg(looper, txnPoolNodeSet,
 
 
 def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
-                                        sdk_pool_handle, sdk_wallet_client, tdir, tconf, allPluginsPath,
-                                        sdk_wallet_stewards):
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
-                                         sdk_pool_handle, sdk_wallet_client, 3, 3)
+                                        vdr_pool_handle, vdr_wallet_client, tdir, tconf, allPluginsPath,
+                                        vdr_wallet_stewards):
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+                                         vdr_pool_handle, vdr_wallet_client, 3, 3)
 
     primary_node = txnPoolNodeSet[0]
     node_to_stop = txnPoolNodeSet[1]
@@ -59,7 +59,7 @@ def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
     looper.removeProdable(node_to_stop)
     ensure_node_disconnected(looper, node_to_stop, txnPoolNodeSet, timeout=2)
 
-    demote_node(looper, sdk_wallet_stewards[2], sdk_pool_handle, node_to_demote)
+    demote_node(looper, vdr_wallet_stewards[2], vdr_pool_handle, node_to_demote)
 
     config_helper = PNodeConfigHelper(node_to_stop.name, tconf, chroot=tdir)
     restarted_node = TestNode(node_to_stop.name, config_helper=config_helper, config=tconf,
@@ -70,8 +70,8 @@ def test_order_after_demote_and_restart(looper, txnPoolNodeSet,
     looper.run(checkNodesConnected(txnPoolNodeSet))
     ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet, check_primaries=False)
 
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
-                                         sdk_pool_handle, sdk_wallet_client, 1, 1)
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+                                         vdr_pool_handle, vdr_wallet_client, 1, 1)
 
     def get_current_bls_keys(node):
         bls_keys_raw_dict = node.master_replica._bls_bft_replica._bls_bft.bls_key_register._current_bls_keys

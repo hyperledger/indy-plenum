@@ -56,8 +56,8 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
                                            txnPoolNodeSet,
                                            node,
                                            looper,
-                                           sdk_wallet_steward,
-                                           sdk_pool_handle):
+                                           vdr_wallet_steward,
+                                           vdr_pool_handle):
     old_bls_key = get_payload_data(pool_node_txns[0])[DATA][BLS_KEY]
     new_bls_key, key_proof = init_bls_keys(node.keys_dir, node.name)
     old_pool_root_hash = node.poolManager.state.committedHeadHash
@@ -66,8 +66,8 @@ def test_get_key_for_old_root_keys_changed(bls_key_register_ledger,
 
     sdk_change_bls_key(looper, txnPoolNodeSet,
                        node,
-                       sdk_pool_handle,
-                       sdk_wallet_steward,
+                       vdr_pool_handle,
+                       vdr_wallet_steward,
                        add_wrong=False,
                        new_bls=new_bls_key,
                        new_key_proof=key_proof)

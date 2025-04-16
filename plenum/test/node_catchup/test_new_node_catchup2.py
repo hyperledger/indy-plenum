@@ -2,7 +2,7 @@ import pytest
 
 from plenum.test import waits
 from plenum.test.delayers import cqDelay
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.node_request_helper import chk_commits_prepares_recvd
 from plenum.test.test_node import ensureElectionsDone
@@ -28,7 +28,7 @@ def nodes_slow_to_process_catchup_reqs(txnPoolNodeSet):
 
 def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
                                             nodes_slow_to_process_catchup_reqs,
-                                            sdk_node_created_after_some_txns):
+                                            vdr_node_created_after_some_txns):
     """
     A new node that joins after some transactions should stash new transactions
     until it has caught up
@@ -36,10 +36,10 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
     """
 
     looper, new_node, sdk_pool_handle, new_steward_wallet_handle = \
-        sdk_node_created_after_some_txns
+        vdr_node_created_after_some_txns
     txnPoolNodeSet.append(new_node)
     old_nodes = txnPoolNodeSet[:-1]
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 4)
     chk_commits_prepares_recvd(0, old_nodes, new_node)
 
@@ -53,7 +53,7 @@ def testNodeDoesNotParticipateUntilCaughtUp(txnPoolNodeSet,
     waitNodeDataEquality(looper, new_node, *old_nodes,
                          exclude_from_check=['check_last_ordered_3pc_backup'])
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
                               new_steward_wallet_handle, 2)
 
     # Commits and Prepares are received by all old nodes

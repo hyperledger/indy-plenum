@@ -10,7 +10,7 @@ from plenum.test.node_request.message_request.helper import \
 from plenum.test.stasher import delay_rules
 from stp_core.common.log import getlogger
 from plenum.common.messages.node_messages import LedgerStatus
-from plenum.test.helper import sdk_send_random_requests, sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_requests, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, ensure_all_nodes_have_same_data
 
 # Do not remove the next imports
@@ -25,15 +25,15 @@ Max3PCBatchSize = 1
 def test_node_request_consistency_proof(tdir, tconf,
                                         looper,
                                         txnPoolNodeSet,
-                                        sdk_pool_handle,
-                                        sdk_wallet_client,
+                                        vdr_pool_handle,
+                                        vdr_wallet_client,
                                         monkeypatch):
     lagging_node = txnPoolNodeSet[-1]
     other_nodes = txnPoolNodeSet[:-1]
 
     # Preseed pool with some transactions
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 4)
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_client, 4)
 
     # Make some node send different ledger statuses so it doesn't get enough similar
     # consisistency proofs
@@ -65,8 +65,8 @@ def test_node_request_consistency_proof(tdir, tconf,
     # Block lagging node from ordering transactions
     with delay_rules(lagging_node.nodeIbStasher, ppDelay(), pDelay(), cDelay()):
         # Order some transactions on pool
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client, 4)
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
+                                  vdr_pool_handle, vdr_wallet_client, 4)
 
         # Start catchup on lagging node
         lagging_node.ledgerManager.start_catchup()

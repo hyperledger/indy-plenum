@@ -8,7 +8,7 @@ from plenum.common.request import Request
 from plenum.common.txn_util import transform_to_new_format, reqToTxn, get_payload_digest, get_digest
 from plenum.common.types import f, OPERATION
 from plenum.common.util import SortedDict
-from plenum.test.helper import sdk_signed_random_requests, sdk_random_request_objects, sdk_multisign_request_object
+from plenum.test.helper import vdr_signed_random_requests, vdr_random_request_objects, vdr_multisign_request_object
 
 
 @pytest.fixture(
@@ -110,9 +110,9 @@ def req_to_legacy_txn(req: Request):
     return txn
 
 
-def test_old_txn_metadata_digest_fallback(looper, sdk_wallet_client):
+def test_old_txn_metadata_digest_fallback(looper, vdr_wallet_client):
     # Create signed request and convert to legacy txn
-    req_str = sdk_signed_random_requests(looper, sdk_wallet_client, 1)[0]
+    req_str = vdr_signed_random_requests(looper, vdr_wallet_client, 1)[0]
     req = deserialize_req(req_str)
     txn = req_to_legacy_txn(req_str)
 
@@ -121,11 +121,11 @@ def test_old_txn_metadata_digest_fallback(looper, sdk_wallet_client):
     assert get_digest(txn) == None
 
 
-def test_old_txn_metadata_multisig_digest_fallback(looper, sdk_wallet_client, sdk_wallet_client2):
+def test_old_txn_metadata_multisig_digest_fallback(looper, vdr_wallet_client, vdr_wallet_client2):
     # Create signed request and convert to legacy txn
-    req_str = json.dumps(sdk_random_request_objects(1, CURRENT_PROTOCOL_VERSION, sdk_wallet_client[1])[0].as_dict)
-    req_str = sdk_multisign_request_object(looper, sdk_wallet_client, req_str)
-    req_str = sdk_multisign_request_object(looper, sdk_wallet_client2, req_str)
+    req_str = json.dumps(vdr_random_request_objects(1, CURRENT_PROTOCOL_VERSION, vdr_wallet_client[1])[0].as_dict)
+    req_str = vdr_multisign_request_object(looper, vdr_wallet_client, req_str)
+    req_str = vdr_multisign_request_object(looper, vdr_wallet_client2, req_str)
     req = deserialize_req(req_str)
     txn = req_to_legacy_txn(req_str)
 

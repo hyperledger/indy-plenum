@@ -9,8 +9,8 @@ from plenum.test import waits
 from plenum.test.delayers import cr_delay, msg_rep_delay
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.helper import sdk_send_random_and_check, assertExp, max_3pc_batch_limits, \
-    sdk_send_batches_of_random_and_check, check_last_ordered_3pc_on_master
+from plenum.test.helper import vdr_send_random_and_check, assertExp, max_3pc_batch_limits, \
+    vdr_send_batches_of_random_and_check, check_last_ordered_3pc_on_master
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkNodesConnected
@@ -37,8 +37,8 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
                                          looper,
                                          testNodeClass,
                                          txnPoolNodeSet,
-                                         sdk_pool_handle,
-                                         sdk_wallet_client,
+                                         vdr_pool_handle,
+                                         vdr_wallet_client,
                                          allPluginsPath,
                                          chkFreqPatched):
     '''
@@ -51,8 +51,8 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
     rest_nodes = txnPoolNodeSet[:-1]
 
     # Check that requests executed well
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
 
     # Stop one node
     waitNodeDataEquality(looper, lagging_node, *rest_nodes)
@@ -63,8 +63,8 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Order 2 checkpoints on rest_nodes (2 txns in 2 batches)
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
-                                         sdk_pool_handle, sdk_wallet_client,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+                                         vdr_pool_handle, vdr_wallet_client,
                                          2 * CHK_FREQ, 2)
     waitNodeDataEquality(looper, *rest_nodes)
 
@@ -92,19 +92,19 @@ def test_limited_stash_3pc_while_catchup(tdir, tconf,
                            timeout=60))
 
             # Order 2 checkpoints in the first lagging node catchup (2 txns in 2 batches)
-            sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
-                                                 sdk_pool_handle, sdk_wallet_client,
+            vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+                                                 vdr_pool_handle, vdr_wallet_client,
                                                  2 * CHK_FREQ, 2)
 
         # Order 2 checkpoints in the second lagging node catchup (2 txns in 2 batches)
-        sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet,
-                                             sdk_pool_handle, sdk_wallet_client,
+        vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet,
+                                             vdr_pool_handle, vdr_wallet_client,
                                              2 * CHK_FREQ, 2)
 
     waitNodeDataEquality(looper, *txnPoolNodeSet, customTimeout=5,
                          exclude_from_check=['check_last_ordered_3pc_backup'])
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
     looper.run(
         eventually(
             lambda: assertExp(

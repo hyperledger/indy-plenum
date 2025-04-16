@@ -3,7 +3,7 @@ import pytest
 from plenum.test.view_change.helper import ensure_all_nodes_have_same_data, \
     ensure_view_change, add_new_node
 from plenum.common.constants import DOMAIN_LEDGER_ID, LedgerState, POOL_LEDGER_ID
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -11,7 +11,7 @@ from plenum.test.node_catchup.helper import check_ledger_state, \
     waitNodeDataEquality
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected, ensureElectionsDone
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node, sdk_pool_refresh
+from plenum.test.pool_transactions.helper import vdr_add_new_steward_and_node, vdr_pool_refresh
 from plenum.test import waits
 from plenum.common.startable import Mode
 
@@ -42,8 +42,8 @@ def catchuped(node):
 
 def test_6th_node_join_after_view_change_by_master_restart(
         looper, txnPoolNodeSet, tdir, tconf,
-        allPluginsPath, sdk_pool_handle,
-        sdk_wallet_steward,
+        allPluginsPath, vdr_pool_handle,
+        vdr_wallet_steward,
         limitTestRunningTime):
     """
     Test steps:
@@ -63,19 +63,19 @@ def test_6th_node_join_after_view_change_by_master_restart(
     for node in txnPoolNodeSet:
         looper.run(eventually(catchuped, node, timeout=2 * timeout))
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=timeout)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_steward, 5)
 
     new_epsilon_node = add_new_node(looper,
                                     txnPoolNodeSet,
-                                    sdk_pool_handle,
-                                    sdk_wallet_steward,
+                                    vdr_pool_handle,
+                                    vdr_wallet_steward,
                                     tdir,
                                     tconf,
                                     allPluginsPath,
                                     name='Epsilon')
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_steward, 5)
     """
     check that pool and domain ledgers for new node are in synced state
     """
@@ -92,12 +92,12 @@ def test_6th_node_join_after_view_change_by_master_restart(
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(txnPoolNodeSet))
     for node in txnPoolNodeSet:
         looper.run(eventually(catchuped, node, timeout=3 * timeout))
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_steward, 2)
     new_psi_node = add_new_node(looper,
                                 txnPoolNodeSet,
-                                sdk_pool_handle,
-                                sdk_wallet_steward,
+                                vdr_pool_handle,
+                                vdr_wallet_steward,
                                 tdir,
                                 tconf,
                                 allPluginsPath,

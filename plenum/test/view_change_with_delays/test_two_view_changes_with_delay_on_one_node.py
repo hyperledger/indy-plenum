@@ -1,7 +1,7 @@
 import pytest
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 
-from plenum.test.helper import sdk_send_random_and_check, perf_monitor_disabled
+from plenum.test.helper import vdr_send_random_and_check, perf_monitor_disabled
 from plenum.test.view_change_with_delays.helper import \
     do_view_change_with_delay_on_one_node
 
@@ -20,7 +20,7 @@ def tconf(tconf):
 
 
 def test_two_view_changes_with_delay_on_one_node(
-        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
+        txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client, tconf):
     """
     Perform two view changes in such a way that a view change is performed on
     one slow node later than on the other nodes so that delayed Commits are
@@ -29,10 +29,10 @@ def test_two_view_changes_with_delay_on_one_node(
     that verify that a new request can be ordered.
     """
     do_view_change_with_delay_on_one_node(txnPoolNodeSet[-1], txnPoolNodeSet, looper,
-                                          sdk_pool_handle, sdk_wallet_client)
+                                          vdr_pool_handle, vdr_wallet_client)
 
     do_view_change_with_delay_on_one_node(txnPoolNodeSet[0], txnPoolNodeSet, looper,
-                                          sdk_pool_handle, sdk_wallet_client)
+                                          vdr_pool_handle, vdr_wallet_client)
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

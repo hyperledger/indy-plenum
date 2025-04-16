@@ -8,14 +8,14 @@ from plenum.test.helper import sdk_get_and_check_replies
 from plenum.common.util import randomString
 from plenum.common.constants import FORCE
 
-from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request, prepare_nym_request, \
+from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request, sdk_prepare_nym_request, \
     sdk_add_new_nym
 
 
 def test_forced_request_validation(looper, txnPoolNodeSet, sdk_wallet_client,
                                    sdk_pool_handle, sdk_wallet_steward):
     nym_request, new_did = looper.loop.run_until_complete(
-        prepare_nym_request(sdk_wallet_client, randomString(32),
+        sdk_prepare_nym_request(sdk_wallet_client, randomString(32),
                             None, None))
 
     request_json = json.loads(nym_request)

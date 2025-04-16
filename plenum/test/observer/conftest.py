@@ -5,7 +5,7 @@ from plenum.common.messages.node_messages import BatchCommitted
 from plenum.common.util import get_utc_epoch
 from plenum.server.observer.observable import Observable
 from plenum.server.observer.observer_sync_policy import ObserverSyncPolicyType
-from plenum.test.helper import sdk_random_request_objects, generate_state_root
+from plenum.test.helper import vdr_random_request_objects, generate_state_root
 from plenum.test.test_node import TestNode
 from plenum.test.testable import spyable
 
@@ -60,7 +60,7 @@ def policy_each_reply(observable):
 @pytest.fixture()
 def fake_msg_batch_committed():
     reqs = [req.as_dict for req in
-            sdk_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
+            vdr_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
     return BatchCommitted(reqs,
                           DOMAIN_LEDGER_ID,
                           0,

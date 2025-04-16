@@ -3,7 +3,7 @@ import types
 
 from plenum.common.txn_util import get_type, set_type
 from plenum.test.delayers import lsDelay, delay_3pc
-from plenum.test.helper import sdk_send_random_and_check, assert_in
+from plenum.test.helper import vdr_send_random_and_check, assert_in
 
 from plenum.common.ledger import Ledger
 from plenum.test.stasher import delay_rules, delay_rules_without_processing
@@ -27,7 +27,7 @@ def tconf(tconf):
     tconf.CATCHUP_BATCH_SIZE = old
 
 
-def test_node_reject_invalid_txn_during_catchup(looper, sdk_pool_handle, sdk_wallet_client,
+def test_node_reject_invalid_txn_during_catchup(looper, vdr_pool_handle, vdr_wallet_client,
                                                 tconf, tdir, txnPoolNodeSet,
                                                 bad_node, lagging_node):
     """
@@ -38,7 +38,7 @@ def test_node_reject_invalid_txn_during_catchup(looper, sdk_pool_handle, sdk_wal
     normal_stashers = [node.nodeIbStasher for node in normal_nodes]
 
     with delay_rules_without_processing(lagging_node.nodeIbStasher, delay_3pc()):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 5)
 
         # Perform catchup, while making sure that cons proof from bad node is received
         # before cons proofs from normal nodes, so bad node can participate in catchup

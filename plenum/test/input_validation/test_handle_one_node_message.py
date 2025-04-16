@@ -1,8 +1,8 @@
 from plenum.common.messages.node_messages import Batch, InstanceChange
 
 
-def test_unpack_node_msg_with_str_as_msg_in_batch(create_node_and_not_start):
-    node = create_node_and_not_start
+def test_unpack_node_msg_with_str_as_msg_in_batch(vdr_create_node_and_not_start):
+    node = vdr_create_node_and_not_start
     while node.nodeInBox:
         node.nodeInBox.pop()
     batch = Batch(['pi',

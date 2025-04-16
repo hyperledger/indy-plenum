@@ -1,9 +1,9 @@
-from plenum.test.pool_transactions.helper import sdk_pool_refresh
+from plenum.test.pool_transactions.helper import vdr_pool_refresh
 from stp_core.loop.eventually import eventually
 from stp_core.common.log import getlogger
 from plenum.test import waits
-from plenum.test.helper import sdk_send_random_and_check
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.helper import vdr_send_random_and_check
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.test_node import checkNodesConnected, TestNode, \
     ensureElectionsDone
 from plenum.common.config_helper import PNodeConfigHelper
@@ -14,9 +14,9 @@ logger = getlogger()
 def testClientConnectToRestartedNodes(looper, txnPoolNodeSet,
                                       tdir, tconf,
                                       poolTxnNodeNames, allPluginsPath,
-                                      sdk_wallet_new_client,
-                                      sdk_pool_handle):
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_new_client, 1)
+                                      vdr_wallet_new_client,
+                                      vdr_pool_handle):
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_new_client, 1)
     for node in txnPoolNodeSet:
         node.stop()
         looper.removeProdable(node)
@@ -39,5 +39,5 @@ def testClientConnectToRestartedNodes(looper, txnPoolNodeSet,
     timeout = waits.expectedPoolGetReadyTimeout(len(txnPoolNodeSet))
     looper.run(eventually(chk, retryWait=1, timeout=timeout))
 
-    sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_new_client, sdk_pool_handle)
+    vdr_pool_refresh(looper, vdr_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_new_client, vdr_pool_handle)

@@ -3,8 +3,8 @@ import pytest
 from plenum.common.messages.node_messages import Commit
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.test.delayers import delay_3pc
-from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits, assert_eq, sdk_send_random_requests, \
-    sdk_get_replies, sdk_get_and_check_replies
+from plenum.test.helper import vdr_send_random_and_check, max_3pc_batch_limits, assert_eq, vdr_send_random_requests, \
+    vdr_get_replies, vdr_get_and_check_replies
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules_without_processing, delay_rules
 from stp_core.loop.eventually import eventually
@@ -24,15 +24,15 @@ def tconf(tconf):
 
 def test_catchup_from_unequal_nodes_without_waiting(looper,
                                                     txnPoolNodeSet,
-                                                    sdk_pool_handle,
-                                                    sdk_wallet_client):
+                                                    vdr_pool_handle,
+                                                    vdr_wallet_client):
     normal_node = txnPoolNodeSet[0]
     lagging_node_1 = txnPoolNodeSet[1]
     lagging_node_2 = txnPoolNodeSet[2]
     stopped_node = txnPoolNodeSet[3]
 
     # Make sure everyone have one batch
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
 
     # Wait until all nodes have same data and store last 3PC number of node that's going to be "stopped"
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=30)
@@ -40,16 +40,16 @@ def test_catchup_from_unequal_nodes_without_waiting(looper,
 
     with delay_rules_without_processing(stopped_node.nodeIbStasher, delay_3pc()):
         # Create one more batch on all nodes except "stopped" node
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
 
         with delay_rules(lagging_node_1.nodeIbStasher, delay_3pc(msgs=Commit)):
             # Create one more batch on all nodes except "stopped" and first lagging node
-            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+            vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
 
             with delay_rules(lagging_node_2.nodeIbStasher, delay_3pc(msgs=Commit)):
                 # Create one more batch on all nodes except "stopped" and both lagging nodes
                 # This time we can't wait for replies because there will be only one
-                reqs = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+                reqs = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
 
                 # Wait until normal node orders txn
                 looper.run(eventually(lambda: assert_eq(normal_node.master_last_ordered_3PC[1],
@@ -71,4 +71,4 @@ def test_catchup_from_unequal_nodes_without_waiting(looper,
                 assert stopped_node.master_last_ordered_3PC[0] == last_3pc[0]
 
             # Make sure replies from last request are eventually received
-            sdk_get_and_check_replies(looper, reqs)
+            vdr_get_and_check_replies(looper, reqs)

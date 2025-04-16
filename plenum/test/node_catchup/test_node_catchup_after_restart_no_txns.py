@@ -18,7 +18,7 @@ txnCount = 5
 
 
 def test_node_catchup_after_restart_no_txns(
-        sdk_new_node_caught_up,
+        vdr_new_node_caught_up,
         txnPoolNodeSet,
         tdir,
         tconf,

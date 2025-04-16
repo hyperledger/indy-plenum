@@ -1,4 +1,4 @@
-from plenum.test.helper import sdk_send_random_and_check, waitForViewChange
+from plenum.test.helper import vdr_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import demote_node
 from plenum.test.view_change.helper import ensure_view_change_by_primary_restart
@@ -24,11 +24,11 @@ def demote_primary_node(looper,
 def test_restart_primaries_then_demote(
         looper, txnPoolNodeSet,
         tconf, tdir, allPluginsPath,
-        sdk_pool_handle,
-        sdk_wallet_stewards):
+        vdr_pool_handle,
+        vdr_wallet_stewards):
     """
     """
-    sdk_wallet_steward = sdk_wallet_stewards[0]
+    sdk_wallet_steward = vdr_wallet_stewards[0]
     logger.info("1. Restart Node1")
     pool_of_nodes = ensure_view_change_by_primary_restart(looper,
                                                           txnPoolNodeSet,
@@ -39,7 +39,7 @@ def test_restart_primaries_then_demote(
                                                           exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, pool_of_nodes, sdk_pool_handle,
+    vdr_send_random_and_check(looper, pool_of_nodes, vdr_pool_handle,
                               sdk_wallet_steward, 1)
 
     logger.info("2. Restart Node2")
@@ -52,7 +52,7 @@ def test_restart_primaries_then_demote(
                                                           exclude_from_check=['check_last_ordered_3pc_backup'])
 
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, pool_of_nodes, sdk_pool_handle,
+    vdr_send_random_and_check(looper, pool_of_nodes, vdr_pool_handle,
                               sdk_wallet_steward, 1)
 
     logger.info("3. Demote Node3")
@@ -60,13 +60,13 @@ def test_restart_primaries_then_demote(
     pool_of_nodes = demote_primary_node(looper,
                                         txnPoolNodeSet,
                                         pool_of_nodes,
-                                        sdk_pool_handle,
-                                        sdk_wallet_stewards)
+                                        vdr_pool_handle,
+                                        vdr_wallet_stewards)
 
     # make sure view changed
     waitForViewChange(looper, pool_of_nodes, expectedViewNo=3)
 
     # ensure pool is working properly
-    sdk_send_random_and_check(looper, pool_of_nodes, sdk_pool_handle,
+    vdr_send_random_and_check(looper, pool_of_nodes, vdr_pool_handle,
                               sdk_wallet_steward, 10)
     ensure_all_nodes_have_same_data(looper, nodes=pool_of_nodes)

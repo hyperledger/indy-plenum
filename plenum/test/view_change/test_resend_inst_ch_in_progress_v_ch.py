@@ -1,7 +1,7 @@
 import pytest
 from stp_core.loop.eventually import eventually
 
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 
 from plenum.test.stasher import delay_rules_without_processing
 from plenum.test.delayers import icDelay
@@ -24,8 +24,8 @@ def tconf(tconf):
     tconf.STATE_FRESHNESS_UPDATE_INTERVAL = old_value_freshness
 
 
-def test_resend_inst_ch_in_progress_v_ch(txnPoolNodeSet, looper, sdk_pool_handle,
-                                         sdk_wallet_client, tdir, tconf, allPluginsPath):
+def test_resend_inst_ch_in_progress_v_ch(txnPoolNodeSet, looper, vdr_pool_handle,
+                                         vdr_wallet_client, tdir, tconf, allPluginsPath):
     old_view = viewNoForNodes(txnPoolNodeSet)
 
     # disconnect two nodes. One of them should be next master primary in case of view change.
@@ -47,4 +47,4 @@ def test_resend_inst_ch_in_progress_v_ch(txnPoolNodeSet, looper, sdk_pool_handle
 
     looper.run(eventually(checks, timeout=tconf.NEW_VIEW_TIMEOUT * 2.5, retryWait=1))
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle)

@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.spy_helpers import get_count
 from stp_core.loop.eventually import eventually
 
@@ -21,18 +21,18 @@ def tconf(tconf):
 
 def test_clean_verified_reqs(looper,
                            txnPoolNodeSet,
-                           sdk_wallet_steward,
-                           sdk_pool_handle):
+                           vdr_wallet_steward,
+                           vdr_pool_handle):
     """ As for now requests object is cleaned only after checkpoint stabilization,
     therefore need to forcing checkpoint sending"""
     def checkpoint_check(nodes):
         for node in nodes:
             assert get_count(node.master_replica._checkpointer, node.master_replica._checkpointer._mark_checkpoint_stable) > 0
 
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_steward,
+                              vdr_pool_handle,
+                              vdr_wallet_steward,
                               REQ_COUNT)
     looper.run(eventually(checkpoint_check, txnPoolNodeSet))
     for node in txnPoolNodeSet:

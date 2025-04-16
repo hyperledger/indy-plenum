@@ -6,8 +6,8 @@ nodeCount = 7
 
 def test_select_primary_after_removed_backup(txnPoolNodeSet,
                                              looper,
-                                             sdk_pool_handle,
-                                             sdk_wallet_client):
+                                             vdr_pool_handle,
+                                             vdr_wallet_client):
     """
     Check correct order of primaries on backup replicas
     """

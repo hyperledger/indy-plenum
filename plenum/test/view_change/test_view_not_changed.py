@@ -1,5 +1,5 @@
 from plenum.common.util import getMaxFailures
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check
 from plenum.test.delayers import ppDelay
 from plenum.test.test_node import TestReplica, getNonPrimaryReplicas
 
@@ -8,7 +8,7 @@ F = getMaxFailures(nodeCount)
 
 
 # noinspection PyIncorrectDocstring
-def test_view_not_changed(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def test_view_not_changed(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     """
     Test that a view change is not done when the performance of master does
     not go down
@@ -27,6 +27,6 @@ def test_view_not_changed(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_cl
         for r in nonPrimReps:
             r.node.nodeIbStasher.delay(ppDelay(10, i))
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 5)
 
     checkViewNoForNodes(txnPoolNodeSet, expectedViewNo=0)

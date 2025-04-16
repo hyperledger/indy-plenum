@@ -3,12 +3,12 @@ import pytest
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.server.consensus.ordering_service import OrderingService
 from plenum.test.delayers import msg_rep_delay
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.view_change.helper import ensure_all_nodes_have_same_data
 from plenum.common.constants import PREPREPARE
-from plenum.test.helper import sdk_send_random_and_check, waitForViewChange, sdk_send_random_request, \
-    sdk_get_and_check_replies
+from plenum.test.helper import vdr_send_random_and_check, waitForViewChange, vdr_send_random_request, \
+    vdr_get_and_check_replies
 from plenum.test.view_change_service.helper import trigger_view_change
 
 from stp_core.common.log import getlogger
@@ -20,8 +20,8 @@ logger = getlogger()
 
 
 def test_primary_send_incorrect_pp(looper, txnPoolNodeSet, tconf,
-                                   allPluginsPath, sdk_pool_handle,
-                                   sdk_wallet_steward,
+                                   allPluginsPath, vdr_pool_handle,
+                                   vdr_wallet_steward,
                                    monkeypatch):
     """
     Test steps:
@@ -38,8 +38,8 @@ def test_primary_send_incorrect_pp(looper, txnPoolNodeSet, tconf,
     other_nodes = [n for n in txnPoolNodeSet if n not in [slow_node, malicious_primary]]
     timeout = waits.expectedPoolCatchupTime(nodeCount=len(txnPoolNodeSet))
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet, custom_timeout=timeout)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_steward, 1)
     old_sender = malicious_primary.master_replica._ordering_service._send
 
     def patched_sender(msg, dst=None, stat=None):
@@ -60,7 +60,7 @@ def test_primary_send_incorrect_pp(looper, txnPoolNodeSet, tconf,
     with delay_rules(slow_node.nodeIbStasher, msg_rep_delay(types_to_delay=[PREPREPARE])):
         preprepare_process_num = slow_node.master_replica._ordering_service.spylog.count(
             OrderingService.process_preprepare)
-        resp_task = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_steward)
+        resp_task = vdr_send_random_request(looper, vdr_pool_handle, vdr_wallet_steward)
 
         def chk():
             assert preprepare_process_num + 1 == slow_node.master_replica._ordering_service.spylog.count(
@@ -68,9 +68,9 @@ def test_primary_send_incorrect_pp(looper, txnPoolNodeSet, tconf,
 
         looper.run(eventually(chk))
 
-        _, j_resp = sdk_get_and_check_replies(looper, [resp_task])[0]
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_steward, 1)
+        _, j_resp = vdr_get_and_check_replies(looper, [resp_task])[0]
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
+                                  vdr_pool_handle, vdr_wallet_steward, 1)
 
         trigger_view_change(txnPoolNodeSet)
         ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
@@ -79,4 +79,4 @@ def test_primary_send_incorrect_pp(looper, txnPoolNodeSet, tconf,
         ensureElectionsDone(looper=looper, nodes=txnPoolNodeSet,
                             instances_list=[0, 1])
         ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
-        sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+        vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)

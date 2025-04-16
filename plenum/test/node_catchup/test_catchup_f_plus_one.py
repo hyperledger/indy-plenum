@@ -1,6 +1,6 @@
 from stp_core.common.log import getlogger
 from plenum.common.config_helper import PNodeConfigHelper
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality, \
     waitNodeDataInequality, checkNodeDataForEquality
 from plenum.test.pool_transactions.helper import \
@@ -16,8 +16,8 @@ txnCount = 5
 
 def testNodeCatchupFPlusOne(looper,
                             txnPoolNodeSet,
-                            sdk_pool_handle,
-                            sdk_wallet_steward,
+                            vdr_pool_handle,
+                            vdr_wallet_steward,
                             tconf, tdir,
                             tdirWithPoolTxns, allPluginsPath, testNodeClass):
     """
@@ -36,8 +36,8 @@ def testNodeCatchupFPlusOne(looper,
     looper.removeProdable(node0)
 
     logger.debug("Sending requests")
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 5)
 
     logger.debug("Stopping node1 with pool ledger size {}".
                  format(node1.poolManager.txnSeqNo))
@@ -67,7 +67,7 @@ def testNodeCatchupFPlusOne(looper,
                          exclude_from_check=['check_last_ordered_3pc_backup'])
 
     logger.debug("Sending more requests")
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 2)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 2)
     checkNodeDataForEquality(node0, *txnPoolNodeSet[:-2],
                              exclude_from_check=['check_last_ordered_3pc_backup'])

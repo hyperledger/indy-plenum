@@ -1,9 +1,13 @@
+import base58
+
 from plenum.common.constants import TXN_TYPE, TARGET_NYM, AUDIT_TXN_LEDGER_ROOT, AUDIT_TXN_STATE_ROOT, TXN_PAYLOAD, \
-    TXN_PAYLOAD_DATA, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, ROLE, DATA, ALIAS
+    TXN_PAYLOAD_DATA, TXN_METADATA, TXN_METADATA_SEQ_NO, TXN_AUTHOR_AGREEMENT_AML, AML_VERSION, ROLE, DATA, ALIAS, CURRENT_PROTOCOL_VERSION
 from plenum.common.ledger import Ledger
 from plenum.common.transactions import PlenumTransactions
 from plenum.server.batch_handlers.three_pc_batch import ThreePcBatch
-from plenum.test.helper import sdk_gen_request
+from plenum.test.helper import vdr_gen_request, gen_request_plenum
+from plenum.test.wallet_helper import vdr_create_and_store_did
+from indy_vdr.ledger import build_nym_request, build_pool_config_request
 
 
 def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
@@ -12,13 +16,16 @@ def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
     audit_batch_handler = node.write_manager.audit_b_handler
     op = {
         TXN_TYPE: PlenumTransactions.NYM.value,
-        TARGET_NYM: "000000000000000000000000Trustee4"
+        TARGET_NYM: "000000000000000000000000Trustee4" # This is a seed not a did
     }
-    nym_req = sdk_gen_request(op, signatures={"sig1": "111"})
-    node.write_manager.apply_request(nym_req, 10000)
+    #_, did = sdk_wallet_client
+    #target_did, verkey = looper.loop.run_until_complete(create_and_store_did(sdk_wallet_handle, seed=op[TARGET_NYM])) 
+    #nym_req = build_nym_request(did, target_did, verkey, version=CURRENT_PROTOCOL_VERSION)
+    nym_req_plenum = gen_request_plenum(op, signatures={"sig1": "111"})
+    node.write_manager.apply_request(nym_req_plenum, 10000)
     op2 = {TXN_TYPE: TXN_AUTHOR_AGREEMENT_AML,
            AML_VERSION: "version1"}
-    pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
+    pool_config_req = gen_request_plenum(op2, signatures={"sig1": "111"})
     node.write_manager.apply_request(pool_config_req, 10000)
 
     domain_root_hash = Ledger.hashToStr(node.domainLedger.uncommittedRootHash)
@@ -41,11 +48,11 @@ def test_audit_ledger_multiple_ledgers_in_one_batch(txnPoolNodeSet):
         TXN_TYPE: PlenumTransactions.NYM.value,
         TARGET_NYM: "000000000000000000000000Trustee5"
     }
-    nym_req = sdk_gen_request(op, signatures={"sig1": "111"})
+    nym_req = gen_request_plenum(op, signatures={"sig1": "111"})
     node.write_manager.apply_request(nym_req, 10000)
     op2 = {TXN_TYPE: TXN_AUTHOR_AGREEMENT_AML,
            AML_VERSION: "version2"}
-    pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
+    pool_config_req = gen_request_plenum(op2, signatures={"sig1": "111"})
     node.write_manager.apply_request(pool_config_req, 10000)
 
     # Checking second batch created
@@ -74,11 +81,11 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
         TARGET_NYM: "000000000000000000000000Trustee4",
         ROLE: None
     }
-    nym_req = sdk_gen_request(op, signatures={"sig1": "111"})
+    nym_req = gen_request_plenum(op, signatures={"sig1": "111"})
     node.write_manager.apply_request(nym_req, 10000)
     op2 = {TXN_TYPE: TXN_AUTHOR_AGREEMENT_AML,
            AML_VERSION: "version2"}
-    pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
+    pool_config_req = gen_request_plenum(op2, signatures={"sig1": "111"})
     node.write_manager.apply_request(pool_config_req, 10000)
 
     domain_root_hash = Ledger.hashToStr(node.domainLedger.uncommittedRootHash)
@@ -94,12 +101,12 @@ def test_multiple_ledgers_in_second_batch_apply_first_time(txnPoolNodeSet):
         TARGET_NYM: "000000000000000000000000Trustee1",
         DATA: {ALIAS: "Node100"}
     }
-    node_req = sdk_gen_request(op2, signatures={"sig1": "111"})
+    node_req = gen_request_plenum(op2, signatures={"sig1": "111"})
     node.write_manager.apply_request(node_req, 10000)
 
     op2 = {TXN_TYPE: TXN_AUTHOR_AGREEMENT_AML,
            AML_VERSION: "version2"}
-    pool_config_req = sdk_gen_request(op2, signatures={"sig1": "111"})
+    pool_config_req = gen_request_plenum(op2, signatures={"sig1": "111"})
     node.write_manager.apply_request(pool_config_req, 10000)
 
     pool_root_hash = Ledger.hashToStr(node.poolLedger.uncommittedRootHash)

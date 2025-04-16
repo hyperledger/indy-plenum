@@ -10,9 +10,9 @@ from plenum.common.types import f
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.helper import \
-    checkLastClientReqForNode, sdk_signed_random_requests, \
-    sdk_send_signed_requests, sdk_json_to_request_object, \
-    sdk_get_and_check_replies, sdk_send_random_request
+    checkLastClientReqForNode, vdr_signed_random_requests, \
+    vdr_send_signed_requests, vdr_json_to_request_object, \
+    vdr_get_and_check_replies, vdr_send_random_request
 
 nodeCount = 7
 
@@ -23,19 +23,19 @@ logger = getlogger()
 
 # noinspection PyIncorrectDocstring
 def testSendRequestWithoutSignatureFails(looper, txnPoolNodeSet,
-                                         sdk_pool_handle, sdk_wallet_client):
+                                         vdr_pool_handle, vdr_wallet_client):
     """
     A client request sent without a signature fails with an EmptySignature
     exception
     """
 
     # remove the client's ability to sign
-    requests = sdk_signed_random_requests(looper, sdk_wallet_client, 1)
+    requests = vdr_signed_random_requests(looper, vdr_wallet_client, 1)
     json_req = json.loads(requests[0])
     json_req['signature'] = None
     request = json.dumps(json_req)
-    res = sdk_send_signed_requests(sdk_pool_handle, [request])
-    obj_req = sdk_json_to_request_object(res[0][0])
+    res = vdr_send_signed_requests(vdr_pool_handle, [request], looper)
+    obj_req = vdr_json_to_request_object(res[0][0])
 
     timeout = waits.expectedClientRequestPropagationTime(nodeCount)
 
@@ -61,13 +61,13 @@ def testSendRequestWithoutSignatureFails(looper, txnPoolNodeSet,
 
 
 # noinspection PyIncorrectDocstring
-def testReplyWhenRequestAlreadyExecuted(looper, txnPoolNodeSet, sdk_pool_handle,
-                                        sdk_wallet_client, sent1):
+def testReplyWhenRequestAlreadyExecuted(looper, txnPoolNodeSet, vdr_pool_handle,
+                                        vdr_wallet_client, sent1):
     """
     When a request has already been executed the previously executed reply
     will be sent again to the client. An acknowledgement will not be sent
     for a repeated request.
     """
-    sdk_get_and_check_replies(looper, sent1)
-    req = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
-    sdk_get_and_check_replies(looper, [req])
+    vdr_get_and_check_replies(looper, sent1)
+    req = vdr_send_random_request(looper, vdr_pool_handle, vdr_wallet_client)
+    vdr_get_and_check_replies(looper, [req])

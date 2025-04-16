@@ -2,7 +2,7 @@ from plenum.common.config_helper import PNodeConfigHelper
 from plenum.test.test_node import ensure_node_disconnected, TestNode, checkNodesConnected, ensureElectionsDone
 
 from plenum.common.constants import TXN_TYPE, DATA
-from plenum.test.helper import sdk_gen_request, sdk_sign_and_submit_req_obj, sdk_get_reply, sdk_get_and_check_replies
+from plenum.test.helper import vdr_gen_request, vdr_sign_and_submit_req_obj, vdr_get_reply, vdr_get_and_check_replies
 from plenum.test.plugin.demo_plugin.constants import AUCTION_START, GET_AUCTION
 
 
@@ -25,10 +25,10 @@ def send_get_auction_txn(looper,
 
 
 def successful_op(looper, op, sdk_wallet, sdk_pool_handle):
-    req_obj = sdk_gen_request(op, identifier=sdk_wallet[1])
-    req = sdk_sign_and_submit_req_obj(looper, sdk_pool_handle,
+    req_obj = vdr_gen_request(op, identifier=sdk_wallet[1])
+    req = vdr_sign_and_submit_req_obj(looper, sdk_pool_handle,
                                       sdk_wallet, req_obj)
-    return sdk_get_and_check_replies(looper, [req])
+    return vdr_get_and_check_replies(looper, [req])
 
 
 def restart_nodes(looper, nodeSet, restart_set, tconf, tdir, allPluginsPath,

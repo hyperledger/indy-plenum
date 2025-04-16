@@ -13,8 +13,8 @@ whitelist = ['found legacy entry']  # warnings
 
 def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
                                           sdk_node_set_with_node_added_after_some_txns,
-                                          sdk_new_node_caught_up,
-                                          allPluginsPath, sdk_wallet_client):
+                                          vdr_new_node_caught_up,
+                                          allPluginsPath, vdr_wallet_client):
     """
     Node discards 3-phase or ViewChangeDone messages from view nos that it does not
     know of (view nos before it joined the pool)
@@ -40,7 +40,7 @@ def testNodeDiscardMessageFromUnknownView(txnPoolNodeSet,
     messageTimeout = waits.expectedNodeToNodeMessageDeliveryTime()
 
     # 3 pc msg (PrePrepare) needs to be discarded
-    _, did = sdk_wallet_client
+    _, did = vdr_wallet_client
     primaryRepl = getPrimaryReplica(txnPoolNodeSet)
     inst_id = 0
     three_pc = create_pre_prepare_no_bls(primaryRepl.node.db_manager.get_state_root_hash(DOMAIN_LEDGER_ID),

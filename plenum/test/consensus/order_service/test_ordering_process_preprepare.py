@@ -9,7 +9,7 @@ from plenum.common.messages.node_messages import PrePrepare
 from plenum.server.replica_helper import PP_SUB_SEQ_NO_WRONG, PP_NOT_FINAL
 from plenum.server.suspicion_codes import Suspicions
 from plenum.test.consensus.order_service.helper import _register_pp_ts, check_suspicious
-from plenum.test.helper import sdk_random_request_objects, create_pre_prepare_params
+from plenum.test.helper import vdr_random_request_objects, create_pre_prepare_params
 from plenum.test.testing_utils import FakeSomething
 
 
@@ -21,7 +21,7 @@ def pre_prepare(orderer, _pre_prepare):
 
 @pytest.fixture()
 def fake_requests():
-    return sdk_random_request_objects(10, identifier="fake_did",
+    return vdr_random_request_objects(10, identifier="fake_did",
                                       protocol_version=CURRENT_PROTOCOL_VERSION)
 
 

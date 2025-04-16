@@ -5,7 +5,7 @@ from plenum.test.checkpoints.helper import check_num_received_checkpoints, check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.node_request.helper import nodes_last_ordered_equal
 
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 from plenum.test.malicious_behaviors_node import dont_send_prepare_and_commit_to, reset_sending
 
 from plenum.test.checkpoints.conftest import chkFreqPatched
@@ -21,8 +21,8 @@ def tconf(tconf):
 
 def test_2_nodes_get_only_preprepare(looper,
                                      txnPoolNodeSet,
-                                     sdk_pool_handle,
-                                     sdk_wallet_client,
+                                     vdr_pool_handle,
+                                     vdr_wallet_client,
                                      tconf,
                                      chkFreqPatched):
     # CHK_FREQ = 2 in this test
@@ -32,16 +32,16 @@ def test_2_nodes_get_only_preprepare(looper,
     behind_nodes = txnPoolNodeSet[-2:]
 
     # Nodes order batches
-    sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+    vdr_send_batches_of_random_and_check(
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
     nodes_last_ordered_equal(*txnPoolNodeSet)
 
     # Emulate connection problems, 1st behind_node receiving only pre-prepares
     dont_send_prepare_and_commit_to(txnPoolNodeSet[:-2], behind_nodes[0].name)
 
     # Send some txns and 1st behind_node cant order them while pool is working
-    sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+    vdr_send_batches_of_random_and_check(
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
     assert behind_nodes[0].master_last_ordered_3PC[1] + 1 == \
            master_node.master_last_ordered_3PC[1]
 
@@ -53,8 +53,8 @@ def test_2_nodes_get_only_preprepare(looper,
     reset_sending(txnPoolNodeSet[:-2])
 
     # Send txns
-    sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+    vdr_send_batches_of_random_and_check(
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
 
     # 1st behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -65,8 +65,8 @@ def test_2_nodes_get_only_preprepare(looper,
     dont_send_prepare_and_commit_to(txnPoolNodeSet[:-2], behind_nodes[1].name)
 
     # Send some txns and 2nd behind_node cant order them while pool is working
-    sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+    vdr_send_batches_of_random_and_check(
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
     assert behind_nodes[1].master_last_ordered_3PC[1] + 1 == \
            master_node.master_last_ordered_3PC[1]
 
@@ -82,8 +82,8 @@ def test_2_nodes_get_only_preprepare(looper,
     reset_sending(txnPoolNodeSet[:-2])
 
     # Send txns
-    sdk_send_batches_of_random_and_check(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1, 1)
+    vdr_send_batches_of_random_and_check(
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1, 1)
 
     # 2nd behind_node is getting new prepares, but still can't order,
     # cause can't get quorum for prepare for previous batch
@@ -91,7 +91,7 @@ def test_2_nodes_get_only_preprepare(looper,
            master_node.master_last_ordered_3PC[1]
 
     # After achieving stable checkpoint, behind_node start ordering
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                                          1, 1)
     # 2d behind got another stashed checkpoint, so should catch-up now
     waitNodeDataEquality(looper, master_node, behind_nodes[1], customTimeout=60,

@@ -14,9 +14,9 @@ def validate_bls_signature_without_key_proof(request):
 
 def test_switched_off_sign_validation_for_key_proof_exist(looper,
                                                           txnPoolNodeSet,
-                                                          sdk_pool_handle,
-                                                          sdk_wallet_stewards,
-                                                          sdk_wallet_client,
+                                                          vdr_pool_handle,
+                                                          vdr_wallet_stewards,
+                                                          vdr_wallet_client,
                                                           monkeypatch,
                                                           validate_bls_signature_without_key_proof):
     '''
@@ -30,7 +30,7 @@ def test_switched_off_sign_validation_for_key_proof_exist(looper,
             monkeypatch.setattr(n.write_manager.request_handlers[NODE][0],
                                 'static_validation',
                                 lambda req: True)
-        new_blspk = update_bls_keys_no_proof(0, sdk_wallet_stewards, sdk_pool_handle, looper, txnPoolNodeSet)
+        new_blspk = update_bls_keys_no_proof(0, vdr_wallet_stewards, vdr_pool_handle, looper, txnPoolNodeSet)
         monkeypatch.undo()
 
     with update_validate_bls_signature_without_key_proof(txnPoolNodeSet, validate_bls_signature_without_key_proof):

@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.metrics_collector import KvStoreMetricsFormat, MetricsName, TMP_METRIC
-from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits, assertExp
+from plenum.test.helper import vdr_send_random_and_check, max_3pc_batch_limits, assertExp
 from storage.helper import initKeyValueStorage
 from stp_core.loop.eventually import eventually
 
@@ -18,13 +18,13 @@ def tconf(tconf):
         tconf.METRICS_FLUSH_INTERVAL = old_metrics_flush_interval
 
 
-def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, sdk_pool_handle, sdk_wallet_client):
+def test_kv_store_metrics_config(looper, txnPoolNodeSet, tdir, tconf, vdr_pool_handle, vdr_wallet_client):
     total_time = 1.5 * tconf.PerfCheckFreq
     total_iters = 5
     iter_time = total_time / total_iters
 
     for _ in range(total_iters):
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 15)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 15)
         looper.runFor(iter_time)
 
     for node in txnPoolNodeSet:

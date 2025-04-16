@@ -2,9 +2,9 @@ import pytest
 from plenum.test.test_node import ensureElectionsDone
 
 from plenum.common.messages.node_messages import NewView
-from plenum.test.helper import sdk_send_random_and_check, waitForViewChange
+from plenum.test.helper import vdr_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.view_change_service.helper import trigger_view_change
 
 call_count = 0
@@ -26,8 +26,8 @@ def lost_count(request):
 
 def test_view_change_with_lost_new_view(txnPoolNodeSet,
                                         looper,
-                                        sdk_pool_handle,
-                                        sdk_wallet_steward,
+                                        vdr_pool_handle,
+                                        vdr_wallet_steward,
                                         tconf,
                                         tdir,
                                         lost_count):
@@ -39,8 +39,8 @@ def test_view_change_with_lost_new_view(txnPoolNodeSet,
     node_to_disconnect = txnPoolNodeSet[-1]
     initial_view_no = txnPoolNodeSet[0].viewNo
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_steward, 5)
 
     def unpatch_after_call(msg, frm):
         global call_count
@@ -62,4 +62,4 @@ def test_view_change_with_lost_new_view(txnPoolNodeSet,
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
 
     # make sure that the pool is functional
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)

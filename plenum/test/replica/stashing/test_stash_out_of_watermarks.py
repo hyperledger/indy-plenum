@@ -1,7 +1,7 @@
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE
 from plenum.server.replica_validator_enums import STASH_WATERMARKS
 from plenum.test.delayers import chk_delay, msg_rep_delay
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_batches_of_random_and_check, incoming_3pc_msgs_count
+from plenum.test.helper import vdr_send_random_and_check, vdr_send_batches_of_random_and_check, incoming_3pc_msgs_count
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from stp_core.loop.eventually import eventually
@@ -13,8 +13,8 @@ LOG_SIZE = CHK_FREQ
 
 def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
                                                                  looper,
-                                                                 sdk_pool_handle,
-                                                                 sdk_wallet_client,
+                                                                 vdr_pool_handle,
+                                                                 vdr_wallet_client,
                                                                  chkFreqPatched):
     """
     1. Delay checkpoints processing on the slow_node. That is checkpoint on this node
@@ -42,20 +42,20 @@ def test_process_three_phase_msg_and_stashed_for_next_checkpoint(txnPoolNodeSet,
     with delay_rules([slow_node.nodeIbStasher, ],
                      msg_rep_delay(types_to_delay=[PREPREPARE, PREPARE, COMMIT])):
         with delay_rules([slow_node.nodeIbStasher, ], chk_delay()):
-            sdk_send_batches_of_random_and_check(looper,
+            vdr_send_batches_of_random_and_check(looper,
                                                  txnPoolNodeSet,
-                                                 sdk_pool_handle,
-                                                 sdk_wallet_client,
+                                                 vdr_pool_handle,
+                                                 vdr_wallet_client,
                                                  num_reqs=1 * CHK_FREQ,
                                                  num_batches=CHK_FREQ)
             ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
             looper.run(eventually(_check_checkpoint_finalize,
                                   fast_nodes,
                                   CHK_FREQ))
-            sdk_send_random_and_check(looper,
+            vdr_send_random_and_check(looper,
                                       txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_client,
+                                      vdr_pool_handle,
+                                      vdr_wallet_client,
                                       1)
 
             stashed_messages = incoming_3pc_msgs_count(len(txnPoolNodeSet))

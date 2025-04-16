@@ -2,9 +2,9 @@ import pytest
 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.test.delayers import delay_3pc
-from plenum.test.helper import sdk_send_random_requests, check_missing_pre_prepares, max_3pc_batch_limits
+from plenum.test.helper import vdr_send_random_requests, check_missing_pre_prepares, max_3pc_batch_limits
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone, check_not_in_view_change
 from plenum.test.view_change.helper import ensure_view_change
@@ -18,7 +18,7 @@ def tconf(tconf):
 
 
 def test_missing_pp_before_starting_vc(tconf, txnPoolNodeSet, looper,
-                                       sdk_pool_handle, sdk_wallet_steward):
+                                       vdr_pool_handle, vdr_wallet_steward):
     '''
     - all nodes delay PrePrepares for viewNo=1 with ppSeqNo<4
     - all nodes go to view=1
@@ -36,8 +36,8 @@ def test_missing_pp_before_starting_vc(tconf, txnPoolNodeSet, looper,
         looper.run(eventually(check_not_in_view_change, txnPoolNodeSet))
 
         # 3. send requests
-        sdk_send_random_requests(looper, sdk_pool_handle,
-                                 sdk_wallet_steward, 10)
+        vdr_send_random_requests(looper, vdr_pool_handle,
+                                 vdr_wallet_steward, 10)
 
         # 4. do view change for view=2
         ensure_view_change(looper, txnPoolNodeSet)
@@ -45,4 +45,4 @@ def test_missing_pp_before_starting_vc(tconf, txnPoolNodeSet, looper,
     # 5. ensure everything is fine
     ensureElectionsDone(looper, txnPoolNodeSet)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)

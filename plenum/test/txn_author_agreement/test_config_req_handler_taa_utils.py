@@ -31,12 +31,12 @@ def test_state_path_taa_aml_version():
     assert WriteRequestManager._state_path_taa_aml_version('some_version') == b'3:v:some_version'
 
 
-def test_is_trustee(txnPoolNodeSet, sdk_wallet_trustee, sdk_wallet_steward, sdk_wallet_client):
+def test_is_trustee(txnPoolNodeSet, vdr_wallet_trustee, vdr_wallet_steward, vdr_wallet_client):
     aml_req_handler = get_aml_req_handler(txnPoolNodeSet[0])
     state = aml_req_handler.database_manager.get_database(DOMAIN_LEDGER_ID).state
-    assert is_trustee(state, sdk_wallet_trustee[1])
-    assert not is_trustee(state, sdk_wallet_steward[1])
-    assert not is_trustee(state, sdk_wallet_client[1])
+    assert is_trustee(state, vdr_wallet_trustee[1])
+    assert not is_trustee(state, vdr_wallet_steward[1])
+    assert not is_trustee(state, vdr_wallet_client[1])
 
 
 def test_add_txn_author_agreement(taa_handler, write_manager, taa_input_data,

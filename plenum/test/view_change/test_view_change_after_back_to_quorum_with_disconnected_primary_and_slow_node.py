@@ -2,7 +2,7 @@ import pytest
 
 from plenum.common.constants import LEDGER_STATUS
 from plenum.test.delayers import msg_rep_delay
-from plenum.test.helper import checkViewNoForNodes, waitForViewChange, sdk_send_random_and_check, view_change_timeout
+from plenum.test.helper import checkViewNoForNodes, waitForViewChange, vdr_send_random_and_check, view_change_timeout
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.stasher import delay_rules
@@ -20,8 +20,8 @@ def tconf(tconf):
 
 
 def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeSet, looper,
-                                                                    sdk_pool_handle,
-                                                                    sdk_wallet_client,
+                                                                    vdr_pool_handle,
+                                                                    vdr_wallet_client,
                                                                     tdir, tconf, allPluginsPath):
     assert len(txnPoolNodeSet) == 4
 
@@ -89,6 +89,6 @@ def test_view_change_after_back_to_quorum_with_disconnected_primary(txnPoolNodeS
                       customTimeout=3 * tconf.NEW_VIEW_TIMEOUT)
 
     # 7. ensure pool is working properly
-    sdk_send_random_and_check(looper, remaining_nodes, sdk_pool_handle,
-                              sdk_wallet_client, 3)
+    vdr_send_random_and_check(looper, remaining_nodes, vdr_pool_handle,
+                              vdr_wallet_client, 3)
     ensure_all_nodes_have_same_data(looper, nodes=remaining_nodes)

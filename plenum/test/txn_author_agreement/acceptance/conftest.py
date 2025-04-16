@@ -11,7 +11,7 @@ from plenum.common.exceptions import (
     InvalidClientTaaAcceptanceError, RequestRejectedException
 )
 
-from plenum.test.helper import sdk_send_and_check
+from plenum.test.helper import vdr_send_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from .helper import (
     build_nym_request, build_node_request,
@@ -33,7 +33,7 @@ class ValidationType(Enum):
 @pytest.fixture(scope='module')
 def activate_taa(
     set_txn_author_agreement_aml, set_txn_author_agreement,
-    sdk_wallet_trustee, sdk_wallet_new_steward, sdk_wallet_client
+    vdr_wallet_trustee, vdr_wallet_new_steward, vdr_wallet_client
 ):
     return set_txn_author_agreement()
 
@@ -61,10 +61,10 @@ def validate_taa_acceptance_func_api(node_validator):
 
 
 @pytest.fixture(scope='module')
-def validate_taa_acceptance_txn_api(looper, txnPoolNodeSet, sdk_pool_handle):
+def validate_taa_acceptance_txn_api(looper, txnPoolNodeSet, vdr_pool_handle):
     def wrapped(signed_req_dict):
         signed_req_json = json.dumps(signed_req_dict)
-        sdk_send_and_check([signed_req_json], looper, txnPoolNodeSet, sdk_pool_handle)[0]
+        vdr_send_and_check([signed_req_json], looper, txnPoolNodeSet, vdr_pool_handle)[0]
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
     return wrapped
 
@@ -133,13 +133,13 @@ def validation_error(validation_type):
 @pytest.fixture
 def validate_taa_acceptance(
     looper,
-    sdk_wallet_new_steward,
+    vdr_wallet_new_steward,
     validate_taa_acceptance_func_api,
     validate_taa_acceptance_txn_api,
     validation_type,
 ):
     def wrapped(req_dict):
-        req_dict = sign_request_dict(looper, sdk_wallet_new_steward, req_dict)
+        req_dict = sign_request_dict(looper, vdr_wallet_new_steward, req_dict)
         {
             ValidationType.FuncApi: validate_taa_acceptance_func_api,
             ValidationType.TxnApi: validate_taa_acceptance_txn_api
@@ -196,13 +196,13 @@ def taa_acceptance(
 
 
 @pytest.fixture
-def domain_request_json(looper, sdk_wallet_new_steward):
-    return build_nym_request(looper, sdk_wallet_new_steward)
+def domain_request_json(looper, vdr_wallet_new_steward):
+    return build_nym_request(looper, vdr_wallet_new_steward)
 
 
 @pytest.fixture
-def pool_request_json(looper, tconf, tdir, sdk_wallet_new_steward):
-    return build_node_request(looper, tconf, tdir, sdk_wallet_new_steward)
+def pool_request_json(looper, tconf, tdir, vdr_wallet_new_steward):
+    return build_node_request(looper, tconf, tdir, vdr_wallet_new_steward)
 
 
 @pytest.fixture

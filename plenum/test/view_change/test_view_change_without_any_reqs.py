@@ -8,7 +8,7 @@ from stp_core.loop.eventually import eventually
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import delay_3pc_messages, \
     reset_delays_and_process_delayeds
-from plenum.test.helper import sdk_send_random_and_check, waitForViewChange, sdk_send_random_requests
+from plenum.test.helper import vdr_send_random_and_check, waitForViewChange, vdr_send_random_requests
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import get_master_primary_node
 
@@ -42,7 +42,7 @@ def tconf(tconf):
 
 
 def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
-                              sdk_pool_handle, sdk_wallet_client):
+                              vdr_pool_handle, vdr_wallet_client):
     """
     Do view change on a without any requests
     """
@@ -52,7 +52,7 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
     delay_3pc = 10
     delay_3pc_messages(txnPoolNodeSet, 0, delay_3pc)
     sent_batches = 2
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client,
                              sent_batches * tconf.Max3PCBatchSize)
 
     def chk1():
@@ -70,6 +70,6 @@ def test_view_change_on_start(tconf, txnPoolNodeSet, looper,
     check_uncommitteds_equal(txnPoolNodeSet)
 
     reset_delays_and_process_delayeds(txnPoolNodeSet)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                               2 * Max3PCBatchSize, add_delay_to_timeout=delay_3pc)
     ensure_all_nodes_have_same_data(looper, nodes=txnPoolNodeSet)

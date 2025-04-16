@@ -9,8 +9,8 @@ from plenum.common.util import getMaxFailures, get_utc_epoch
 from plenum.test import waits
 from plenum.test.helper import checkPrePrepareReqSent, \
     checkPrePrepareReqRecvd, \
-    checkPrepareReqSent, sdk_send_random_requests, \
-    sdk_json_to_request_object, sdk_get_replies, init_discarded
+    checkPrepareReqSent, vdr_send_random_requests, \
+    vdr_json_to_request_object, vdr_get_replies, init_discarded
 from plenum.test.test_node import getNonPrimaryReplicas, getPrimaryReplica
 
 whitelist = ['doing nothing for now',
@@ -21,7 +21,7 @@ logger = getlogger()
 
 
 # noinspection PyIncorrectDocstring
-def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     """
     Replicas should not accept PRE-PREPARE for view "v" and prepare sequence
     number "n" if it has already accepted a request with view number "v" and
@@ -40,11 +40,11 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
     for node in txnPoolNodeSet:
         node.nodeIbStasher.delay(cDelay(delay=c_delay, instId=1))
 
-    req1 = sdk_send_random_requests(looper,
-                                    sdk_pool_handle,
-                                    sdk_wallet_client,
+    req1 = vdr_send_random_requests(looper,
+                                    vdr_pool_handle,
+                                    vdr_wallet_client,
                                     1)[0]
-    request1 = sdk_json_to_request_object(req1[0])
+    request1 = vdr_json_to_request_object(req1[0])
     for npr in nonPrimaryReplicas:
         looper.run(eventually(checkPrepareReqSent,
                               npr,
@@ -72,10 +72,10 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
         "one...")
     primaryRepl._ordering_service._lastPrePrepareSeqNo -= 1
     view_no = primaryRepl.viewNo
-    request2 = sdk_json_to_request_object(
-        sdk_send_random_requests(looper,
-                                 sdk_pool_handle,
-                                 sdk_wallet_client,
+    request2 = vdr_json_to_request_object(
+        vdr_send_random_requests(looper,
+                                 vdr_pool_handle,
+                                 vdr_wallet_client,
                                  1)[0][0])
     timeout = waits.expectedPrePrepareTime(len(txnPoolNodeSet))
     looper.run(eventually(checkPrePrepareReqSent, primaryRepl, request2,
@@ -128,5 +128,5 @@ def testReplicasRejectSamePrePrepareMsg(looper, txnPoolNodeSet, sdk_pool_handle,
                                   timeout=timeout))
 
     timeout = waits.expectedTransactionExecutionTime(len(txnPoolNodeSet)) + c_delay
-    result1 = sdk_get_replies(looper, [req1])[0][1]
+    result1 = vdr_get_replies(looper, [req1])[0][1]
     logger.debug("request {} gives result {}".format(request1, result1))

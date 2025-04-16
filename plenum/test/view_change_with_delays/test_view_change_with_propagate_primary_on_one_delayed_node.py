@@ -20,7 +20,7 @@ def tconf(tconf):
 
 
 def test_view_change_with_propagate_primary_on_one_delayed_node(
-        txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client, tconf):
+        txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client, tconf):
     """
     Perform view change on all the nodes except for one slow node and then
     propagate primary on it so that delayed Commits are processed by the slow
@@ -28,6 +28,6 @@ def test_view_change_with_propagate_primary_on_one_delayed_node(
     verify that all the nodes have the same ledgers and state.
     """
     do_view_change_with_propagate_primary_on_one_delayed_node(
-        txnPoolNodeSet[-1], txnPoolNodeSet, looper, sdk_pool_handle, sdk_wallet_client)
+        txnPoolNodeSet[-1], txnPoolNodeSet, looper, vdr_pool_handle, vdr_wallet_client)
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

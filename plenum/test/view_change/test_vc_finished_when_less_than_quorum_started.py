@@ -1,6 +1,6 @@
 import pytest
 
-from plenum.test.helper import sdk_send_random_and_check, waitForViewChange
+from plenum.test.helper import vdr_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import ensureElectionsDone
 from plenum.test.view_change.helper import restart_node, nodes_received_ic
@@ -17,7 +17,7 @@ def tconf(tconf):
 
 
 def test_vc_finished_when_less_than_quorum_started(looper, txnPoolNodeSet,
-                                                   sdk_wallet_client, sdk_pool_handle,
+                                                   vdr_wallet_client, vdr_pool_handle,
                                                    tconf, tdir, allPluginsPath):
 
     alpha, beta, gamma, delta = txnPoolNodeSet
@@ -37,8 +37,8 @@ def test_vc_finished_when_less_than_quorum_started(looper, txnPoolNodeSet,
     send_test_instance_change(beta)
 
     # Ensure that pool is still functional
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_client, 1)
 
     # Alpha and Gamma send InstanceChange for all nodes.
     for node in [gamma, alpha]:
@@ -49,6 +49,6 @@ def test_vc_finished_when_less_than_quorum_started(looper, txnPoolNodeSet,
                       customTimeout=tconf.NEW_VIEW_TIMEOUT)
 
     # Ensure that pool is still functional
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_client, 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

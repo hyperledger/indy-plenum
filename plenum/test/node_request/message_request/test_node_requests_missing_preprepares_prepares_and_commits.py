@@ -14,7 +14,7 @@ from stp_core.common.log import getlogger
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected, reconnect_node_and_ensure_connected
-from plenum.test.helper import sdk_send_random_requests, sdk_send_random_and_check, assertEquality
+from plenum.test.helper import vdr_send_random_requests, vdr_send_random_and_check, assertEquality
 from stp_core.loop.eventually import eventually
 
 logger = getlogger()
@@ -31,7 +31,7 @@ def tconf(tconf):
 
 
 def test_node_requests_missing_preprepares_prepares_and_commits(
-        looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle,
+        looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle,
         tdir, allPluginsPath):
     """
     1 of 4 nodes goes down ((simulate this by dropping requests)). A new request comes in and is ordered by
@@ -48,19 +48,19 @@ def test_node_requests_missing_preprepares_prepares_and_commits(
     alive_nodes = txnPoolNodeSet[:3]
     disconnected_node_stashers = disconnected_node.nodeIbStasher
 
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               INIT_REQS_CNT)
     init_ledger_size = txnPoolNodeSet[0].domainLedger.size
 
     with delay_rules_without_processing(disconnected_node_stashers, delay_3pc()):
         last_ordered_key = txnPoolNodeSet[0].master_replica.last_ordered_3pc
-        sdk_send_random_and_check(looper,
+        vdr_send_random_and_check(looper,
                                   txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   MISSING_REQS_CNT)
         looper.run(eventually(check_pp_out_of_sync,
                               alive_nodes,
@@ -82,10 +82,10 @@ def test_node_requests_missing_preprepares_prepares_and_commits(
         MessageReqService.process_message_rep) == 0
     doOrderTimesBefore = ordering_service.spylog.count(OrderingService._do_order)
 
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               REQS_AFTER_RECONNECT_CNT)
     waitNodeDataEquality(looper, disconnected_node, *alive_nodes)
 

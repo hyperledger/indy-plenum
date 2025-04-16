@@ -5,7 +5,7 @@ import pytest
 
 from plenum.common.constants import PreVCStrategies
 from plenum.common.messages.node_messages import ViewChangeDone, InstanceChange, NewView, ViewChange
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import TestNode, ensureElectionsDone
 from plenum.test.view_change.helper import ensure_view_change
@@ -48,13 +48,13 @@ def not_processing_view_change_done(node):
 
 def test_complete_with_delayed_view_change(looper,
                                            txnPoolNodeSet,
-                                           sdk_wallet_steward,
-                                           sdk_pool_handle):
+                                           vdr_wallet_steward,
+                                           vdr_pool_handle):
     def chk_len_stashed_msgs():
         # We are waiting for one message from selected primary
         assert len(stashed_vc_done_msgs) == 1
 
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward, REQ_COUNT)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward, REQ_COUNT)
     slow_node = txnPoolNodeSet[-1]
     not_processing_view_change_done(slow_node)
     ensure_view_change(looper, txnPoolNodeSet[:-1])

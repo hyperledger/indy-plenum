@@ -30,24 +30,19 @@ RUN gpg --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 && \
 # bionic key
 RUN gpg --keyserver keyserver.ubuntu.com --recv-keys 3B4FE6ACC0B21F32 && \
     gpg --export 3B4FE6ACC0B21F32 > /etc/apt/keyrings/ubuntu-bionic.gpg
-# sovrin key
-RUN gpg --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 && \
-    gpg --export CE7709D068DB5E88 > /etc/apt/keyrings/sovrin.gpg
 # ========================================================================================================
 
 # ToDo:
 #  - Eliminate dependency on obsolete bionic repositories.
 
 # Plenum
-#  - https://github.com/hyperledger/indy-plenum/issues/1546
-#  - Needed to pick up rocksdb=5.8.8
-RUN echo "deb [signed-by=/etc/apt/keyrings/hyperledger.gpg] https://hyperledger.jfrog.io/artifactory/indy jammy dev rc" > /etc/apt/sources.list.d/hyperledger.list
-
 # todo: Will be removed when libindy will have been replace by indy-vdr, askar, and indy-credx
 RUN echo "deb [signed-by=/etc/apt/keyrings/ubuntu-bionic.gpg] http://security.ubuntu.com/ubuntu bionic-security main" > /etc/apt/sources.list.d/ubuntu-bionic.list
-RUN echo "deb [signed-by=/etc/apt/keyrings/sovrin.gpg] https://repo.sovrin.org/deb bionic master" > /etc/apt/sources.list.d/sovrin.list
-RUN echo "deb [signed-by=/etc/apt/keyrings/sovrin.gpg] https://repo.sovrin.org/sdk/deb bionic master" >> /etc/apt/sources.list.d/sovrin.list
+RUN echo "deb [signed-by=/etc/apt/keyrings/hyperledger.gpg] https://hyperledger.jfrog.io/artifactory/indy bionic master" > /etc/apt/sources.list.d/hyperledger.list
 
+#  - https://github.com/hyperledger/indy-plenum/issues/1546
+#  - Needed to pick up rocksdb=5.8.8
+RUN echo "deb [signed-by=/etc/apt/keyrings/hyperledger.gpg] https://hyperledger.jfrog.io/artifactory/indy jammy dev rc" >> /etc/apt/sources.list.d/hyperledger.list
 
 RUN apt-get update -y && apt-get install -y \
     # Python
@@ -79,9 +74,10 @@ RUN apt-get update -y && apt-get install -y \
     #  - This deb is a special build using the code here:
     #  - https://github.com/ioflo/ioflo/commit/45bcddbf680d22af84469406a04286ff1c79043a
     #  - This line can be removed once the release containing these changes is available on PyPi
-    python3-ioflo \
+    #python3-ioflo \
     # Need to move libursa.so to parent dir
     && mv /usr/lib/ursa/* /usr/lib && rm -rf /usr/lib/ursa
+
 
 RUN pip3 install -U \
     # Required by setup.py
@@ -91,6 +87,7 @@ RUN pip3 install -U \
     pep8==1.7.1 \
     pep8-naming==0.6.1 \
     flake8==3.8.4 \
+    ioflo==2.0.3 \
     Cython==0.29.36
 
 # install fpm

@@ -2,7 +2,8 @@ import json
 import types
 
 import pytest
-from indy.did import create_and_store_my_did
+
+from plenum.test.wallet_helper import vdr_create_and_store_did
 
 from plenum.server.consensus.ordering_service import OrderingService
 
@@ -13,9 +14,9 @@ from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.test_node import getPrimaryReplica
 from plenum.common.exceptions import RequestNackedException
 from plenum.common.request import Request
-from plenum.test.helper import sdk_gen_request, sdk_multisign_request_object, sdk_send_signed_requests, \
-    sdk_get_and_check_replies, sdk_random_request_objects, waitForViewChange, max_3pc_batch_limits, \
-    sdk_send_random_and_check
+from plenum.test.helper import vdr_gen_request, vdr_multisign_request_object, vdr_send_signed_requests, \
+    vdr_get_and_check_replies, vdr_random_request_objects, waitForViewChange, max_3pc_batch_limits, \
+    vdr_send_random_and_check
 
 from plenum.common.constants import CURRENT_PROTOCOL_VERSION, DOMAIN_LEDGER_ID, TXN_TYPE
 
@@ -24,11 +25,11 @@ from stp_core.loop.eventually import eventually
 
 
 @pytest.fixture(scope='function')
-def op(looper, sdk_wallet_stewards):
-    wh, did = sdk_wallet_stewards[0]
+def op(looper, vdr_wallet_stewards):
+    wh, did = vdr_wallet_stewards[0]
     seed = randomString(32)
     new_did, new_verkey = looper.loop.run_until_complete(
-        create_and_store_my_did(wh, json.dumps({'seed': seed})))
+        vdr_create_and_store_did(wh, seed))
     op = {'type': '1',
           'dest': new_did,
           'verkey': new_verkey,
@@ -51,15 +52,15 @@ def wait_one_batch(node, before):
 
 
 @pytest.fixture(scope='function')
-def two_requests(looper, op, sdk_wallet_stewards):
-    wh, did = sdk_wallet_stewards[0]
+def two_requests(looper, op, vdr_wallet_stewards):
+    wh, did = vdr_wallet_stewards[0]
 
-    req = json.dumps(sdk_gen_request(op, protocol_version=CURRENT_PROTOCOL_VERSION,
+    req = json.dumps(vdr_gen_request(op, protocol_version=CURRENT_PROTOCOL_VERSION,
                                      identifier=did).as_dict)
-    req1 = sdk_multisign_request_object(looper, sdk_wallet_stewards[0], req)
+    req1 = vdr_multisign_request_object(looper, vdr_wallet_stewards[0], req)
     req_obj1 = Request(**json.loads(req1))
 
-    req2 = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], req1)
+    req2 = vdr_multisign_request_object(looper, vdr_wallet_stewards[1], req1)
     req_obj2 = Request(**json.loads(req2))
 
     assert req_obj1.payload_digest == req_obj2.payload_digest
@@ -68,39 +69,40 @@ def two_requests(looper, op, sdk_wallet_stewards):
 
 
 def test_second_digest_is_written(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards):
-    req = json.dumps(sdk_random_request_objects(1, CURRENT_PROTOCOL_VERSION, sdk_wallet_stewards[0][1])[0].as_dict)
-    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[0], req)
-    req = sdk_multisign_request_object(looper, sdk_wallet_stewards[1], req)
-    sdk_get_and_check_replies(looper, sdk_send_signed_requests(sdk_pool_handle, [req]))
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_stewards):
+    reqs = vdr_random_request_objects(1, CURRENT_PROTOCOL_VERSION, vdr_wallet_stewards[0][1])
+    #req = json.dumps(reqs.as_dict)
+    req = vdr_multisign_request_object(looper, vdr_wallet_stewards[0], reqs[0])
+    req = vdr_multisign_request_object(looper, vdr_wallet_stewards[1], reqs[0])
+    res = vdr_get_and_check_replies(looper, vdr_send_signed_requests(vdr_pool_handle, [req], looper))
 
-    req = Request(**json.loads(req))
+    req_metadata = json.loads(res[0][1]["Alpha"])["result"]["txn"]["metadata"]
 
-    ledger_id, _ = txnPoolNodeSet[0].seqNoDB.get_by_payload_digest(req.payload_digest)
+    ledger_id, _ = txnPoolNodeSet[0].seqNoDB.get_by_payload_digest(req_metadata["payloadDigest"])
     assert ledger_id == DOMAIN_LEDGER_ID
 
-    payload_digest = txnPoolNodeSet[0].seqNoDB.get_by_full_digest(req.digest)
-    assert payload_digest == req.payload_digest
+    payload_digest = txnPoolNodeSet[0].seqNoDB.get_by_full_digest(req_metadata["digest"])
+    assert payload_digest == req_metadata["payloadDigest"]
 
 
 def test_send_same_txn_with_different_signatures_in_separate_batches(
-        looper, txnPoolNodeSet, sdk_pool_handle, two_requests):
+        looper, txnPoolNodeSet, vdr_pool_handle, two_requests):
     # Send two txn with same payload digest but different signatures,
     # so that they could be processed in one batch, trying to break the ledger hashes
 
     req1, req2 = two_requests
 
-    rep1 = sdk_send_signed_requests(sdk_pool_handle, [req1])
-    sdk_get_and_check_replies(looper, rep1)
+    rep1 = vdr_send_signed_requests(vdr_pool_handle, [req1], looper)
+    vdr_get_and_check_replies(looper, rep1)
 
-    rep2 = sdk_send_signed_requests(sdk_pool_handle, [req2])
+    rep2 = vdr_send_signed_requests(vdr_pool_handle, [req2], looper)
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, rep2)
+        vdr_get_and_check_replies(looper, rep2)
     e.match('Same txn was already ordered with different signatures or pluggable fields')
 
 
 def test_send_same_txn_with_different_signatures_in_one_batch(
-        looper, txnPoolNodeSet, sdk_pool_handle, two_requests, tconf):
+        looper, txnPoolNodeSet, vdr_pool_handle, two_requests, tconf):
     req1, req2 = two_requests
 
     lo_before = (txnPoolNodeSet[0].replicas[0].last_ordered_3pc[1],
@@ -108,8 +110,8 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
 
     old_reqs = len(txnPoolNodeSet[0].requests)
     with max_3pc_batch_limits(tconf, size=2):
-        sdk_send_signed_requests(sdk_pool_handle, [req1])
-        sdk_send_signed_requests(sdk_pool_handle, [req2])
+        vdr_send_signed_requests(vdr_pool_handle, [req1], looper)
+        vdr_send_signed_requests(vdr_pool_handle, [req2], looper)
 
         # We need to check for ordering this way, cause sdk do not allow
         # track two requests with same reqId at the same time
@@ -125,7 +127,7 @@ def test_send_same_txn_with_different_signatures_in_one_batch(
 
 
 def test_parts_of_nodes_have_same_request_with_different_signatures(
-        looper, txnPoolNodeSet, sdk_pool_handle, two_requests, sdk_wallet_stewards, tconf):
+        looper, txnPoolNodeSet, vdr_pool_handle, two_requests, vdr_wallet_stewards, tconf):
     req1s, req2s = two_requests
     req1 = Request(**json.loads(req1s))
     req2 = Request(**json.loads(req2s))
@@ -158,19 +160,19 @@ def test_parts_of_nodes_have_same_request_with_different_signatures(
         assert node.spylog.count(node.request_propagates) >= 1
         node.spylog.getAll(node.request_propagates)
 
-    req1s = sdk_send_signed_requests(sdk_pool_handle, [req1s])
-    sdk_get_and_check_replies(looper, req1s)
+    req1s = vdr_send_signed_requests(vdr_pool_handle, [req1s], looper)
+    vdr_get_and_check_replies(looper, req1s)
 
-    req2s = sdk_send_signed_requests(sdk_pool_handle, [req2s])
+    req2s = vdr_send_signed_requests(vdr_pool_handle, [req2s], looper)
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, req2s)
+        vdr_get_and_check_replies(looper, req2s)
     e.match('Same txn was already ordered with different signatures or pluggable fields')
 
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
 
 
 def test_suspicious_primary_send_same_request_with_different_signatures(
-        looper, txnPoolNodeSet, sdk_pool_handle, two_requests):
+        looper, txnPoolNodeSet, vdr_pool_handle, two_requests):
     assert txnPoolNodeSet[0].master_replica.isPrimary
     txnPoolNodeSet[0].master_replica._ordering_service._do_dynamic_validation = \
         types.MethodType(malicious_dynamic_validation,
@@ -179,8 +181,8 @@ def test_suspicious_primary_send_same_request_with_different_signatures(
     req1, req2 = two_requests
 
     old_view = txnPoolNodeSet[0].viewNo
-    sdk_send_signed_requests(sdk_pool_handle, [req1])
-    sdk_send_signed_requests(sdk_pool_handle, [req2])
+    vdr_send_signed_requests(vdr_pool_handle, [req1], looper)
+    vdr_send_signed_requests(vdr_pool_handle, [req2], looper)
 
     waitForViewChange(looper, txnPoolNodeSet, expectedViewNo=old_view + 1)
     all(cll.params['msg'][1] == Suspicions.PPR_WITH_ORDERED_REQUEST.code for cll in
@@ -191,8 +193,8 @@ def test_suspicious_primary_send_same_request_with_different_signatures(
 
 
 def test_suspicious_primary_send_same_request_with_same_signatures(
-        looper, txnPoolNodeSet, sdk_pool_handle, two_requests, sdk_wallet_stewards, tconf):
-    couple = sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_stewards[0], 1)[0]
+        looper, txnPoolNodeSet, vdr_pool_handle, two_requests, vdr_wallet_stewards, tconf):
+    couple = vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_stewards[0], 1)[0]
     req = Request(**couple[0])
     replica = getPrimaryReplica(txnPoolNodeSet)
     replica._ordering_service._do_dynamic_validation = types.MethodType(malicious_dynamic_validation, replica.node)

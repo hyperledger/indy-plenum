@@ -8,11 +8,11 @@ from plenum.test.conftest import getValueFromModule
 from plenum.test.node_catchup.helper import \
     waitNodeDataEquality
 from plenum.test.pool_transactions.helper import \
-    disconnect_node_and_ensure_disconnected, sdk_pool_refresh, sdk_add_new_steward_and_node
+    disconnect_node_and_ensure_disconnected, vdr_pool_refresh, vdr_add_new_steward_and_node
 
 from plenum.common.util import randomString
-from plenum.test.helper import sdk_gen_request, sdk_sign_request_objects, \
-    sdk_send_signed_requests, sdk_get_replies, sdk_get_and_check_replies, sdk_send_random_and_check
+from plenum.test.helper import vdr_gen_request, vdr_sign_request_objects, \
+    vdr_send_signed_requests, vdr_get_replies, vdr_get_and_check_replies, vdr_send_random_and_check
 
 from plenum.common.constants import CONFIG_LEDGER_ID, DATA
 from plenum.test.test_config_req_handler import write_conf_op, \
@@ -23,20 +23,20 @@ from stp_core.types import HA
 
 def write(key, val, looper, sdk_pool_handle, sdk_wallet):
     _, idr = sdk_wallet
-    reqs_obj = [sdk_gen_request(op, identifier=idr)
+    reqs_obj = [vdr_gen_request(op, identifier=idr)
                 for op in [write_conf_op(key, val)]]
-    reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
-    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    sdk_get_and_check_replies(looper, sent_reqs, timeout=10)
+    reqs = vdr_sign_request_objects(looper, sdk_wallet, reqs_obj)
+    sent_reqs = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    vdr_get_and_check_replies(looper, sent_reqs, timeout=10)
 
 
 def read(key, looper, sdk_pool_handle, sdk_wallet):
     _, idr = sdk_wallet
-    reqs_obj = [sdk_gen_request(op, identifier=idr)
+    reqs_obj = [vdr_gen_request(op, identifier=idr)
                 for op in [read_conf_op(key)]]
-    reqs = sdk_sign_request_objects(looper, sdk_wallet, reqs_obj)
-    sent_reqs = sdk_send_signed_requests(sdk_pool_handle, reqs)
-    (req, resp), = sdk_get_and_check_replies(looper, sent_reqs, timeout=10)
+    reqs = vdr_sign_request_objects(looper, sdk_wallet, reqs_obj)
+    sent_reqs = vdr_send_signed_requests(sdk_pool_handle, reqs, looper)
+    (req, resp), = vdr_get_and_check_replies(looper, sent_reqs, timeout=10)
     return json.loads(resp['result'][DATA])[key]
 
 
@@ -55,7 +55,7 @@ def testNodeBootstrapClass():
 
 @pytest.fixture(scope="module")
 def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creation,
-                                     sdk_pool_handle, sdk_wallet_client, sdk_wallet_steward,
+                                     vdr_pool_handle, vdr_wallet_client, vdr_wallet_steward,
                                      txnPoolNodeSet, tdir, tconf, allPluginsPath, request, setup):
     def post_node_creation(node):
         write_rh = WriteConfHandler(node.db_manager)
@@ -70,19 +70,19 @@ def sdk_node_created_after_some_txns(looper, testNodeClass, do_post_node_creatio
         return node
 
     txnCount = getValueFromModule(request, "txnCount", 5)
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               txnCount)
     new_steward_name = randomString()
     new_node_name = "Epsilon"
-    new_steward_wallet_handle, new_node = sdk_add_new_steward_and_node(
-        looper, sdk_pool_handle, sdk_wallet_steward,
+    new_steward_wallet_handle, new_node = vdr_add_new_steward_and_node(
+        looper, vdr_pool_handle, vdr_wallet_steward,
         new_steward_name, new_node_name, tdir, tconf, nodeClass=testNodeClass,
         allPluginsPath=allPluginsPath, autoStart=True,
         do_post_node_creation=post_node_creation)
-    sdk_pool_refresh(looper, sdk_pool_handle)
-    yield looper, new_node, sdk_pool_handle, new_steward_wallet_handle
+    vdr_pool_refresh(looper, vdr_pool_handle)
+    yield looper, new_node, vdr_pool_handle, new_steward_wallet_handle
 
 
 @pytest.fixture(scope="module")
@@ -93,8 +93,8 @@ def setup(testNodeClass, txnPoolNodeSet):
         ca._query_types.add(READ_CONF)
 
 
-def test_config_ledger_txns(looper, setup, txnPoolNodeSet, sdk_wallet_client,
-                            sdk_pool_handle):
+def test_config_ledger_txns(looper, setup, txnPoolNodeSet, vdr_wallet_client,
+                            vdr_pool_handle):
     """
     Do some writes and reads on the config ledger
     """
@@ -112,34 +112,34 @@ def test_config_ledger_txns(looper, setup, txnPoolNodeSet, sdk_wallet_client,
 
     # Do a write txn
     key, val = 'test_key', 'test_val'
-    write(key, val, looper, sdk_pool_handle, sdk_wallet_client)
+    write(key, val, looper, vdr_pool_handle, vdr_wallet_client)
 
     for node in txnPoolNodeSet:
         assert len(node.getLedger(CONFIG_LEDGER_ID)) == (old_config_ledger_size + 1)
 
     state_root_hashes.add(state_roots_serializer.serialize(state.committedHeadHash))
 
-    assert read(key, looper, sdk_pool_handle, sdk_wallet_client) == val
+    assert read(key, looper, vdr_pool_handle, vdr_wallet_client) == val
     old_config_ledger_size += 1
 
     key, val = 'test_key', 'test_val1'
-    write(key, val, looper, sdk_pool_handle, sdk_wallet_client)
+    write(key, val, looper, vdr_pool_handle, vdr_wallet_client)
     for node in txnPoolNodeSet:
         assert len(node.getLedger(CONFIG_LEDGER_ID)) == (old_config_ledger_size + 1)
 
     state_root_hashes.add(state_roots_serializer.serialize(state.committedHeadHash))
 
-    assert read(key, looper, sdk_pool_handle, sdk_wallet_client) == val
+    assert read(key, looper, vdr_pool_handle, vdr_wallet_client) == val
     old_config_ledger_size += 1
 
     key, val = 'test_key1', 'test_val11'
-    write(key, val, looper, sdk_pool_handle, sdk_wallet_client)
+    write(key, val, looper, vdr_pool_handle, vdr_wallet_client)
     for node in txnPoolNodeSet:
         assert len(node.getLedger(CONFIG_LEDGER_ID)) == (old_config_ledger_size + 1)
 
     state_root_hashes.add(state_roots_serializer.serialize(state.committedHeadHash))
 
-    assert read(key, looper, sdk_pool_handle, sdk_wallet_client) == val
+    assert read(key, looper, vdr_pool_handle, vdr_wallet_client) == val
 
     for node in txnPoolNodeSet:
         # Not all batches might have BLS-sig but at least one of them will have
@@ -161,8 +161,8 @@ def keys():
 
 @pytest.fixture(scope="module")
 def some_config_txns_done(looper, setup, txnPoolNodeSet, keys,
-                          sdk_wallet_client, sdk_pool_handle):
-    return send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys)
+                          vdr_wallet_client, vdr_pool_handle):
+    return send_some_config_txns(looper, vdr_pool_handle, vdr_wallet_client, keys)
 
 
 def start_stopped_node(stopped_node, looper, tconf,
@@ -183,20 +183,20 @@ def start_stopped_node(stopped_node, looper, tconf,
 
 
 def test_new_node_catchup_config_ledger(looper, some_config_txns_done,
-                                        txnPoolNodeSet, sdk_new_node_caught_up):
+                                        txnPoolNodeSet, vdr_new_node_caught_up):
     """
     A new node catches up the config ledger too
     """
-    assert len(sdk_new_node_caught_up.getLedger(CONFIG_LEDGER_ID)) >= \
+    assert len(vdr_new_node_caught_up.getLedger(CONFIG_LEDGER_ID)) >= \
            len(some_config_txns_done)
 
 
 def test_restarted_node_catches_up_config_ledger_txns(looper,
                                                       some_config_txns_done,
                                                       txnPoolNodeSet,
-                                                      sdk_wallet_client,
-                                                      sdk_pool_handle,
-                                                      sdk_new_node_caught_up,
+                                                      vdr_wallet_client,
+                                                      vdr_pool_handle,
+                                                      vdr_new_node_caught_up,
                                                       keys,
                                                       tconf,
                                                       tdir,
@@ -205,14 +205,14 @@ def test_restarted_node_catches_up_config_ledger_txns(looper,
     A node is stopped, a few config ledger txns happen,
     the stopped node is started and catches up the config ledger
     """
-    new_node = sdk_new_node_caught_up
+    new_node = vdr_new_node_caught_up
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, new_node, stopNode=True)
     looper.removeProdable(new_node)
 
     # Do some config txns; using a fixture as a method, passing some arguments
     # as None as they only make sense for the fixture (pre-requisites)
-    send_some_config_txns(looper, sdk_pool_handle, sdk_wallet_client, keys)
+    send_some_config_txns(looper, vdr_pool_handle, vdr_wallet_client, keys)
 
     # Make sure new node got out of sync
     for node in txnPoolNodeSet[:-1]:

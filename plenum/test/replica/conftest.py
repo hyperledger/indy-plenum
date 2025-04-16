@@ -15,7 +15,7 @@ from plenum.server.propagator import Requests
 from plenum.server.quorums import Quorums
 from plenum.server.replica import Replica
 from plenum.test.conftest import getValueFromModule
-from plenum.test.helper import MockTimestamp, sdk_random_request_objects, create_pre_prepare_params, \
+from plenum.test.helper import MockTimestamp, vdr_random_request_objects, create_pre_prepare_params, \
     create_prepare_from_pre_prepare
 from plenum.test.testing_utils import FakeSomething
 from plenum.test.bls.conftest import fake_state_root_hash, fake_multi_sig, fake_multi_sig_value
@@ -104,7 +104,7 @@ def mock_timestamp():
 
 @pytest.fixture()
 def fake_requests():
-    return sdk_random_request_objects(10, identifier="fake_did",
+    return vdr_random_request_objects(10, identifier="fake_did",
                                       protocol_version=CURRENT_PROTOCOL_VERSION)
 
 

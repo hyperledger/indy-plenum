@@ -2,7 +2,7 @@ import pytest
 
 from plenum.test import waits
 from plenum.test.delayers import cDelay, chk_delay, icDelay, nv_delay
-from plenum.test.helper import sdk_send_random_and_check, waitForViewChange
+from plenum.test.helper import vdr_send_random_and_check, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules
 from plenum.test.view_change_service.helper import trigger_view_change
@@ -31,8 +31,8 @@ def tconf(tconf):
 def test_watermarks_after_view_change(tdir, tconf,
                                       looper,
                                       txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_client):
+                                      vdr_pool_handle,
+                                      vdr_wallet_client):
     """
     Delay commit, checkpoint, InstanceChange and ViewChangeDone messages for lagging_node.
     Start ViewChange.
@@ -50,9 +50,9 @@ def test_watermarks_after_view_change(tdir, tconf,
                           expectedViewNo=start_view_no + 1,
                           customTimeout=waits.expectedPoolViewChangeStartedTimeout(len(txnPoolNodeSet)))
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet[:-1])
-        sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                                  sdk_wallet_client, 6)
+        vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                                  vdr_wallet_client, 6)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, 1)
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

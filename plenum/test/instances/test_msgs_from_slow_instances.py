@@ -1,5 +1,5 @@
 import pytest
-from plenum.test.helper import sdk_send_random_request
+from plenum.test.helper import vdr_send_random_request
 
 from stp_core.loop.eventually import eventually
 from plenum.common.messages.node_messages import Commit
@@ -26,10 +26,10 @@ def configNodeSet(txnPoolNodeSet):
 
 
 def testMsgFromInstanceDelay(configNodeSet, looper,
-                             sdk_pool_handle, sdk_wallet_client):
+                             vdr_pool_handle, vdr_wallet_client):
     A, B, C, D = configNodeSet
 
-    sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+    vdr_send_random_request(looper, vdr_pool_handle, vdr_wallet_client)
 
     def getCommits(node: TestNode, instId: int):
         replica = node.replicas[instId]  # type: Replica

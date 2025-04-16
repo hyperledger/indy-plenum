@@ -6,8 +6,8 @@ from plenum.common.constants import TXN_METADATA, TXN_METADATA_SEQ_NO
 from plenum.test.ledger.conftest import NUM_BATCHES, TXNS_IN_BATCH, create_txns
 
 
-def test_ledger_appendTxns_args(ledger, looper, sdk_wallet_client):
-    txns = create_txns(looper, sdk_wallet_client)
+def test_ledger_appendTxns_args(ledger, looper, vdr_wallet_client):
+    txns = create_txns(looper, vdr_wallet_client)
 
     # None seq_no
     txns[0][TXN_METADATA][TXN_METADATA_SEQ_NO] = None

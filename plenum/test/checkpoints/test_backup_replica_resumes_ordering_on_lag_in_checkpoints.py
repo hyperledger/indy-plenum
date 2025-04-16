@@ -7,7 +7,7 @@ from plenum.server.replica import Replica
 from plenum.test import waits
 from plenum.test.checkpoints.helper import check_num_quorumed_received_checkpoints, check_num_unstable_checkpoints
 from plenum.test.delayers import cDelay, chk_delay, msg_rep_delay
-from plenum.test.helper import sdk_send_random_requests, assertExp, sdk_send_random_and_check, assert_eq, get_pp_seq_no, \
+from plenum.test.helper import vdr_send_random_requests, assertExp, vdr_send_random_and_check, assert_eq, get_pp_seq_no, \
     check_last_ordered_3pc_backup
 from stp_core.loop.eventually import eventually
 
@@ -30,18 +30,18 @@ def tconf(tconf):
 
 def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
         looper, chkFreqPatched, reqs_for_checkpoint,
-        one_replica_and_others_in_backup_instance,
-        sdk_pool_handle, sdk_wallet_client, view_change_done, txnPoolNodeSet):
+        vdr_one_replica_and_others_in_backup_instance,
+        vdr_pool_handle, vdr_wallet_client, vdr_view_change_done, txnPoolNodeSet):
     """
     Verifies resumption of ordering 3PC-batches on a backup replica
     on detection of a lag in checkpoints
     """
-    slow_replica, other_replicas = one_replica_and_others_in_backup_instance
+    slow_replica, other_replicas = vdr_one_replica_and_others_in_backup_instance
     view_no = slow_replica.viewNo
     batches_count = slow_replica.last_ordered_3pc[1]
 
     # Send a request and ensure that the replica orders the batch for it
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
     batches_count += 1
     low_watermark = slow_replica.h
 
@@ -58,7 +58,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
 
     # Send a request for which the replica will not be able to order the batch
     # due to an insufficient count of Commits
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
     looper.runFor(waits.expectedTransactionExecutionTime(nodeCount))
 
     # Recover reception of Commits
@@ -68,7 +68,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     # Send requests but in a quantity insufficient
     # for catch-up number of checkpoints
     reqs_until_checkpoints = reqs_for_checkpoint - other_replicas[0].last_ordered_3pc[1]
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client,
                              Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
                              reqs_until_checkpoints)
     looper.runFor(waits.expectedTransactionExecutionTime(nodeCount))
@@ -98,8 +98,8 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     check_num_quorumed_received_checkpoints(slow_replica, 1)
 
     # Send more requests to reach catch-up number of checkpoints
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, reqs_for_checkpoint)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, reqs_for_checkpoint)
     batches_count += 1
     batches_count += reqs_until_checkpoints
     batches_count += reqs_for_checkpoint
@@ -130,7 +130,7 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
     check_num_quorumed_received_checkpoints(slow_replica, 0)
 
     # Send a request and ensure that the replica orders the batch for it
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
     batches_count += 1
 
     looper.run(
@@ -145,8 +145,8 @@ def test_backup_replica_resumes_ordering_on_lag_in_checkpoints(
 
 def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
         looper, chkFreqPatched, reqs_for_checkpoint,
-        one_replica_and_others_in_backup_instance,
-        sdk_pool_handle, sdk_wallet_client, view_change_done, txnPoolNodeSet):
+        vdr_one_replica_and_others_in_backup_instance,
+        vdr_pool_handle, vdr_wallet_client, vdr_view_change_done, txnPoolNodeSet):
     """
     Verifies resumption of ordering 3PC-batches on a backup replica
     on detection of a lag in checkpoints in case it is detected after
@@ -156,14 +156,14 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     def check_last_ordered(replica, lo):
         assert replica.last_ordered_3pc == lo
 
-    slow_replica, other_replicas = one_replica_and_others_in_backup_instance
+    slow_replica, other_replicas = vdr_one_replica_and_others_in_backup_instance
     view_no = slow_replica.viewNo
     check_last_ordered_3pc_backup(slow_replica.node, other_replicas[0].node)
     batches_count = slow_replica.last_ordered_3pc[1]
     low_watermark = slow_replica.h
 
     # Send a request and ensure that the replica orders the batch for it
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
     batches_count += 1
 
     looper.run(
@@ -183,7 +183,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
 
     # Send a request for which the replica will not be able to order the batch
     # due to an insufficient count of Commits
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
     looper.runFor(waits.expectedTransactionExecutionTime(nodeCount))
 
     # Receive further Commits from now on
@@ -197,7 +197,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     # Send requests but in a quantity insufficient
     # for catch-up number of checkpoints
     reqs_until_checkpoints = reqs_for_checkpoint - other_replicas[0].last_ordered_3pc[1]
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client,
                              Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP *
                              reqs_until_checkpoints)
     looper.runFor(waits.expectedTransactionExecutionTime(nodeCount))
@@ -206,10 +206,10 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     slow_replica.node.nodeIbStasher.delay(chk_delay(instId=1))
 
     # Send more requests to reach catch-up number of checkpoints
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client,
                              reqs_for_checkpoint)
     # Send a request that starts a new checkpoint
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
     looper.runFor(waits.expectedTransactionExecutionTime(nodeCount))
 
     # Ensure that the replica has not ordered any batches
@@ -244,7 +244,7 @@ def test_backup_replica_resumes_ordering_on_lag_if_checkpoints_belate(
     check_num_quorumed_received_checkpoints(slow_replica, 0)
 
     # Send a request and ensure that the replica orders the batch for it
-    sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 1)
     batches_count += 1
 
     looper.run(

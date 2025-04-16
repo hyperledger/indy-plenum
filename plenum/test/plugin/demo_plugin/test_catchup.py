@@ -15,13 +15,13 @@ from plenum.test.pool_transactions.helper import \
 
 
 def test_new_node_catchup_plugin_ledger(txn_pool_node_set_post_creation, looper, some_requests,
-                                        sdk_new_node_caught_up):
+                                        vdr_new_node_caught_up):
     """
     A new node catches up the demo plugin's ledger too
     """
-    assert len(sdk_new_node_caught_up.getLedger(AUCTION_LEDGER_ID)) > 0
+    assert len(vdr_new_node_caught_up.getLedger(AUCTION_LEDGER_ID)) > 0
     for node in txn_pool_node_set_post_creation[:-1]:
-        assert len(sdk_new_node_caught_up.getLedger(AUCTION_LEDGER_ID)) == \
+        assert len(vdr_new_node_caught_up.getLedger(AUCTION_LEDGER_ID)) == \
                len(node.getLedger(AUCTION_LEDGER_ID))
 
 
@@ -53,19 +53,19 @@ def some_demo_txns(looper, sdk_wallet_steward, sdk_pool_handle):
 @pytest.mark.skip(reason="INDY-1297. Node does not catch up on reconnection anymore.")
 def test_disconnected_node_catchup_plugin_ledger_txns(looper,
                                                       txnPoolNodeSet,
-                                                      sdk_wallet_client,
-                                                      sdk_pool_handle,
-                                                      sdk_new_node_caught_up):
+                                                      vdr_wallet_client,
+                                                      vdr_pool_handle,
+                                                      vdr_new_node_caught_up):
     """
     A node gets disconnected, a few config ledger txns happen,
     the disconnected node comes back up and catches up the config ledger
     """
-    new_node = sdk_new_node_caught_up
+    new_node = vdr_new_node_caught_up
     disconnect_node_and_ensure_disconnected(
         looper, txnPoolNodeSet, new_node, stopNode=False)
 
     # Do some demo txns;
-    some_demo_txns(looper, sdk_wallet_client, sdk_pool_handle)
+    some_demo_txns(looper, vdr_wallet_client, vdr_pool_handle)
 
     # Make sure new node got out of sync
     waitNodeDataInequality(looper, new_node, *txnPoolNodeSet[:-1])

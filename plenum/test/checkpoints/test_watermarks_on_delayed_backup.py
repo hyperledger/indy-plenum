@@ -4,7 +4,7 @@ import sys
 
 from plenum.common.messages.node_messages import PrePrepare
 from plenum.common.stashing_router import DISCARD
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 from plenum.test.test_node import getNonPrimaryReplicas
 
 logger = getLogger()
@@ -19,7 +19,7 @@ def test_watermarks_restored_after_stable(
         looper,
         chkFreqPatched,
         txnPoolNodeSet,
-        sdk_pool_handle, sdk_wallet_client):
+        vdr_pool_handle, vdr_wallet_client):
     """
     A backup replica doesn't participate in consensus, and hence doesn't update watermarks.
     Then if it gets a quorum of stashed checkpoints (in fact Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1 checkpoints
@@ -35,7 +35,7 @@ def test_watermarks_restored_after_stable(
     # 2. send the number of requests which is less than Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1
     # quorumed checkpoints,
     # but sufficient for one watermark change (on a non-broken replica).
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                                          num_reqs=1 * 9, num_batches=9)
     assert broken_replica.last_ordered_3pc == (0, 0)
     assert broken_replica.h == 0
@@ -47,7 +47,7 @@ def test_watermarks_restored_after_stable(
     # 3. send requests to reach Replica.STASHED_CHECKPOINTS_BEFORE_CATCHUP + 1
     # quorumed checkpoints.
     # The broken replica should adjust last_ordered_3pc and shift watermarks.
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                                          num_reqs=1, num_batches=1)
     assert broken_replica.last_ordered_3pc == (0, 10)
     assert broken_replica.h == 10
@@ -59,7 +59,7 @@ def test_watermarks_restored_after_stable(
     # 4. Repair broken replica and make sure that it participates in consensus
     # (after watermarks were corrected).
     repair_broken_replica(broken_replica)
-    sdk_send_batches_of_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client,
+    vdr_send_batches_of_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client,
                                          num_reqs=7, num_batches=7)
     assert broken_replica.last_ordered_3pc == (0, 17)
     assert broken_replica.h == 15

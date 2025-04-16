@@ -1,14 +1,14 @@
 import pytest
 from plenum.common.exceptions import RequestNackedException
-from plenum.test.helper import sdk_get_and_check_replies
+from plenum.test.helper import vdr_get_and_check_replies
 from plenum.common.constants import VALIDATOR
 from plenum.test.pool_transactions.helper import prepare_new_node_data, \
-    prepare_node_request, sdk_sign_and_send_prepared_request
+    vdr_prepare_node_request, vdr_sign_and_send_prepared_request
 
 
 def test_add_node_with_invalid_key_proof(looper,
-                                         sdk_pool_handle,
-                                         sdk_wallet_steward,
+                                         vdr_pool_handle,
+                                         vdr_wallet_steward,
                                          tdir, tconf,
                                          allPluginsPath):
     new_node_name = "NewNode"
@@ -18,9 +18,9 @@ def test_add_node_with_invalid_key_proof(looper,
     key_proof = 'AAAAA' + key_proof[5:]
 
     # filling node request
-    _, steward_did = sdk_wallet_steward
+    _, steward_did = vdr_wallet_steward
     node_request = looper.loop.run_until_complete(
-        prepare_node_request(steward_did,
+        vdr_prepare_node_request(steward_did,
                              new_node_name=new_node_name,
                              clientIp=clientIp,
                              clientPort=clientPort,
@@ -32,14 +32,14 @@ def test_add_node_with_invalid_key_proof(looper,
                              key_proof=key_proof))
 
     # sending request using 'sdk_' functions
-    request_couple = sdk_sign_and_send_prepared_request(looper,
-                                                        sdk_wallet_steward,
-                                                        sdk_pool_handle,
+    request_couple = vdr_sign_and_send_prepared_request(looper,
+                                                        vdr_wallet_steward,
+                                                        vdr_pool_handle,
                                                         node_request)
 
     # waitng for replies
     with pytest.raises(RequestNackedException) as e:
-        sdk_get_and_check_replies(looper, [request_couple])
+        vdr_get_and_check_replies(looper, [request_couple])
     assert "Proof of possession {} " \
            "is incorrect for BLS key {}".format(key_proof, bls_key) \
            in e._excinfo[1].args[0]

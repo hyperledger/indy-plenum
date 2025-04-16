@@ -4,9 +4,9 @@ from plenum.common.util import max_3PC_key, getNoInstances, getMaxFailures
 from plenum.server.node import Node
 from plenum.test import waits
 from plenum.test.delayers import icDelay, cDelay, pDelay, nv_delay
-from plenum.test.helper import sdk_send_random_request, sdk_get_reply, waitForViewChange
+from plenum.test.helper import vdr_send_random_request, vdr_get_reply, waitForViewChange
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.pool_transactions.helper import disconnect_node_and_ensure_disconnected
 from plenum.test.stasher import delay_rules, delay_rules_without_processing
 from plenum.test.test_node import getRequiredInstances, ensureElectionsDone, checkNodesConnected
@@ -111,7 +111,7 @@ def do_view_change_with_pending_request_and_one_fast_node(fast_node,
     with delay_rules(slow_stashers, cDelay()):
         with delay_rules(fast_stasher, cDelay()):
             # Send request
-            request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+            request = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
             # Wait until this request is prepared on N-f nodes
             looper.run(eventually(check_last_prepared_certificate_on_quorum, nodes, (lpc[0], lpc[1] + 1)))
@@ -124,7 +124,7 @@ def do_view_change_with_pending_request_and_one_fast_node(fast_node,
         looper.run(eventually(check_view_change_done, nodes, view_no + 1, timeout=60))
 
     # Finish request gracefully
-    sdk_get_reply(looper, request)
+    vdr_get_reply(looper, request)
 
 
 def do_view_change_with_unaligned_prepare_certificates(
@@ -142,7 +142,7 @@ def do_view_change_with_unaligned_prepare_certificates(
     with delay_rules(slow_stashers, pDelay()):
         with delay_rules(all_stashers, cDelay()):
             # Send request
-            request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+            request = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
             # Wait until this request is prepared on fast nodes
             looper.run(eventually(check_last_prepared_certificate, fast_nodes, (0, 1)))
@@ -157,10 +157,10 @@ def do_view_change_with_unaligned_prepare_certificates(
         looper.run(eventually(check_view_change_done, nodes, 1, timeout=60))
 
     # Finish request gracefully
-    sdk_get_reply(looper, request)
+    vdr_get_reply(looper, request)
 
     ensure_all_nodes_have_same_data(looper, nodes)
-    sdk_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
 
 
 def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
@@ -180,7 +180,7 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
         with delay_rules(slow_stasher, icDelay()):
             with delay_rules(stashers, cDelay()):
                 # Send request
-                request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+                request = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
                 # Wait until this request is prepared on N-f nodes
                 looper.run(eventually(check_last_prepared_certificate_on_quorum, nodes, (lpc[0], lpc[1] + 1)))
@@ -215,7 +215,7 @@ def do_view_change_with_delay_on_one_node(slow_node, nodes, looper,
                                            timeout=waits.expectedPoolElectionTimeout(len(nodes)))
 
     # Finish request gracefully
-    sdk_get_reply(looper, request)
+    vdr_get_reply(looper, request)
 
 
 def do_view_change_with_propagate_primary_on_one_delayed_node(
@@ -236,7 +236,7 @@ def do_view_change_with_propagate_primary_on_one_delayed_node(
         with delay_rules(slow_stasher, nv_delay()):
             with delay_rules(stashers, cDelay()):
                 # Send request
-                request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+                request = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
                 # Wait until this request is prepared on N-f nodes
                 looper.run(eventually(check_last_prepared_certificate_on_quorum, nodes, (lpc[0], lpc[1] + 1)))
@@ -272,7 +272,7 @@ def do_view_change_with_propagate_primary_on_one_delayed_node(
     # started propagate primary to the same view.
 
     # Finish request gracefully
-    sdk_get_reply(looper, request)
+    vdr_get_reply(looper, request)
 
 
 def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes, nodes_to_restart,
@@ -299,7 +299,7 @@ def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes
     # Delay commits on `slow_nodes`
     with delay_rules_without_processing(slow_stashers, cDelay()):
 
-        request = sdk_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
+        request = vdr_send_random_request(looper, sdk_pool_handle, sdk_wallet_client)
 
         # Check that all of the nodes except the slows one ordered the request
         looper.run(eventually(check_last_ordered, fast_nodes, (old_view_no, old_last_ordered[1] + 1)))
@@ -340,5 +340,5 @@ def do_view_change_with_delayed_commits_and_node_restarts(fast_nodes, slow_nodes
     )
     ensureElectionsDone(looper=looper, nodes=nodes)
     ensure_all_nodes_have_same_data(looper, nodes)
-    sdk_get_reply(looper, request)
-    sdk_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)
+    vdr_get_reply(looper, request)
+    vdr_ensure_pool_functional(looper, nodes, sdk_wallet_client, sdk_pool_handle)

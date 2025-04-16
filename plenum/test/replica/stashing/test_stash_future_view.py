@@ -1,7 +1,7 @@
 from plenum.common.constants import COMMIT, PREPREPARE, PREPARE
 from plenum.server.replica_validator_enums import STASH_VIEW_3PC
 from plenum.test.delayers import msg_rep_delay, nv_delay
-from plenum.test.helper import waitForViewChange, sdk_send_random_and_check
+from plenum.test.helper import waitForViewChange, vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import ensureElectionsDone
@@ -10,8 +10,8 @@ from stp_core.loop.eventually import eventually
 
 
 def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper, tconf,
-                                                         sdk_pool_handle,
-                                                         sdk_wallet_steward):
+                                                         vdr_pool_handle,
+                                                         vdr_wallet_steward):
     """
     1. Delay ViewChangeDone messages for the slow_node.
     2. Start view change on all nodes.
@@ -35,10 +35,10 @@ def test_process_three_phase_msg_and_stashed_future_view(txnPoolNodeSet, looper,
             ensureElectionsDone(looper=looper,
                                 nodes=fast_nodes,
                                 instances_list=range(fast_nodes[0].requiredNumberOfInstances))
-            sdk_send_random_and_check(looper,
+            vdr_send_random_and_check(looper,
                                       txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_steward,
+                                      vdr_pool_handle,
+                                      vdr_wallet_steward,
                                       1)
             assert slow_node.view_change_in_progress
             # 1 - pre-prepare msg

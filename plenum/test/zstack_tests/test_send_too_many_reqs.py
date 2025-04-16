@@ -3,7 +3,7 @@ import types
 import pytest
 
 from plenum.common.exceptions import PoolLedgerTimeoutException
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from stp_core.common.log import getlogger
 
 logger = getlogger()
@@ -26,13 +26,13 @@ def limitTestRunningTime():
 @pytest.mark.skip(reason="Too much request. Needs for checking future implementation")
 def test_send_too_much_reqs(looper,
                             txnPoolNodeSet,
-                            sdk_pool_handle,
-                            sdk_wallet_steward):
+                            vdr_pool_handle,
+                            vdr_wallet_steward):
     for _ in range(TXN_COUNT):
-        sdk_send_random_and_check(looper,
+        vdr_send_random_and_check(looper,
                                   txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_steward,
+                                  vdr_pool_handle,
+                                  vdr_wallet_steward,
                                   1)
 
 
@@ -58,17 +58,17 @@ def patched_pool_set(txnPoolNodeSet):
 @pytest.mark.skip(reason="Too much request. Needs for checking future implementation")
 def test_send_with_clientstack_restarts(looper,
                                         patched_pool_set,
-                                        sdk_pool_handle,
-                                        sdk_wallet_steward):
+                                        vdr_pool_handle,
+                                        vdr_wallet_steward):
 
     success_txns = 0
     failed_txns = 0
     for _ in range(int(TXN_COUNT)):
         try:
-            sdk_send_random_and_check(looper,
+            vdr_send_random_and_check(looper,
                                       patched_pool_set,
-                                      sdk_pool_handle,
-                                      sdk_wallet_steward,
+                                      vdr_pool_handle,
+                                      vdr_wallet_steward,
                                       1)
         except PoolLedgerTimeoutException:
             failed_txns += 1

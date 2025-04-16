@@ -3,9 +3,8 @@
 ##Pre-Install
 
         sudo apt-get update && sudo apt-get install -y apt-transport-https ca-certificates
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88 || sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys CE7709D068DB5E88
-        sudo echo "deb https://repo.sovrin.org/deb bionic master" >> /etc/apt/sources.list
-        sudo echo "deb https://repo.sovrin.org/deb bionic stable" >> /etc/apt/sources.list
+        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 || sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 9692C00E657DDE61
+        sudo echo "deb https://hyperledger.jfrog.io/artifactory/indy bionic master" >> /etc/apt/sources.list
         sudo echo "deb http://security.ubuntu.com/ubuntu bionic-security main" >> /etc/apt/sources.list
 
         sudo apt-get update && sudo apt-get install -y \
@@ -72,7 +71,9 @@
             python-dateutil==2.6.1 \
             python-rocksdb==0.7.0 \
             python-ursa==0.1.1 \
-            python3-indy==1.13.0 \
+            indy_vdr==0.4.0.dev5 \
+            aries-askar==0.2.7 \
+            indy-credx==0.3.1 \
             pyzmq==22.3.0 --install-option=--zmq=bundled \
             rlp==0.6.0 \
             semver==2.13.0 \

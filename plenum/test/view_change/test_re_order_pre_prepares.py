@@ -4,9 +4,9 @@ from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.common.messages.internal_messages import ViewChangeStarted, NewViewCheckpointsApplied
 from plenum.server.consensus.utils import preprepare_to_batch_id
 from plenum.test.delayers import cDelay, pDelay
-from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits
+from plenum.test.helper import vdr_send_random_and_check, max_3pc_batch_limits
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.stasher import delay_rules_without_processing
 
 
@@ -17,14 +17,14 @@ def tconf(tconf):
 
 
 def test_re_order_pre_prepares(looper, txnPoolNodeSet,
-                               sdk_wallet_client, sdk_pool_handle):
+                               vdr_wallet_client, vdr_pool_handle):
     # 1. drop Prepares and Commits on 4thNode
     # Order a couple of requests on Nodes 1-3
     lagging_node = txnPoolNodeSet[-1]
     other_nodes = txnPoolNodeSet[:-1]
     with delay_rules_without_processing(lagging_node.nodeIbStasher, cDelay(), pDelay()):
-        sdk_send_random_and_check(looper, txnPoolNodeSet,
-                                  sdk_pool_handle, sdk_wallet_client, 3)
+        vdr_send_random_and_check(looper, txnPoolNodeSet,
+                                  vdr_pool_handle, vdr_wallet_client, 3)
         assert all(n.master_last_ordered_3PC == (0, 3) for n in other_nodes)
 
     # 2. simulate view change start so that
@@ -61,5 +61,5 @@ def test_re_order_pre_prepares(looper, txnPoolNodeSet,
     waitNodeDataEquality(looper, lagging_node, *other_nodes)
     assert lagging_node.master_last_ordered_3PC == (0, 4)
 
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle)
 

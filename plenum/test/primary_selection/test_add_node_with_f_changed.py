@@ -3,7 +3,7 @@ from stp_core.common.log import getlogger
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.common.util import randomString
 from plenum.test.test_node import checkNodesConnected
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import vdr_add_new_steward_and_node
 from plenum.test import waits
 
 logger = getlogger()
@@ -19,7 +19,7 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
     node_name = name or randomString(5)
     new_steward_name = "testClientSteward" + randomString(3)
     new_steward_wallet_handle, new_node = \
-        sdk_add_new_steward_and_node(looper,
+        vdr_add_new_steward_and_node(looper,
                                      sdk_pool_handle,
                                      sdk_wallet_steward,
                                      new_steward_name,
@@ -36,37 +36,37 @@ def add_new_node(looper, nodes, sdk_pool_handle, sdk_wallet_steward,
 
 
 def test_add_node_with_f_changed(looper, txnPoolNodeSet, tdir, tconf,
-                                 allPluginsPath, sdk_pool_handle,
-                                 sdk_wallet_steward, limitTestRunningTime):
+                                 allPluginsPath, vdr_pool_handle,
+                                 vdr_wallet_steward, limitTestRunningTime):
     nodes = txnPoolNodeSet
     add_new_node(looper,
                  nodes,
-                 sdk_pool_handle,
-                 sdk_wallet_steward,
+                 vdr_pool_handle,
+                 vdr_wallet_steward,
                  tdir,
                  tconf,
                  allPluginsPath,
                  name="Node5")
     add_new_node(looper,
                  nodes,
-                 sdk_pool_handle,
-                 sdk_wallet_steward,
+                 vdr_pool_handle,
+                 vdr_wallet_steward,
                  tdir,
                  tconf,
                  allPluginsPath,
                  name="Node6")
     add_new_node(looper,
                  nodes,
-                 sdk_pool_handle,
-                 sdk_wallet_steward,
+                 vdr_pool_handle,
+                 vdr_wallet_steward,
                  tdir,
                  tconf,
                  allPluginsPath,
                  name="Node7")
     add_new_node(looper,
                  nodes,
-                 sdk_pool_handle,
-                 sdk_wallet_steward,
+                 vdr_pool_handle,
+                 vdr_wallet_steward,
                  tdir,
                  tconf,
                  allPluginsPath,

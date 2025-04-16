@@ -2,7 +2,7 @@ import json
 from copy import deepcopy
 
 import pytest
-from indy.ledger import build_acceptance_mechanisms_request
+from indy_vdr.ledger import build_acceptance_mechanisms_request
 
 from common.serializers.serialization import config_state_serializer
 from plenum.server.database_manager import DatabaseManager
@@ -24,9 +24,9 @@ from plenum.test.txn_author_agreement.helper import (
     TaaData, expected_state_data, expected_data,
     TaaAmlData, expected_aml_data)
 
-from plenum.test.helper import sdk_get_and_check_replies, get_handler_by_type_wm
+from plenum.test.helper import vdr_get_and_check_replies, get_handler_by_type_wm
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.pool_transactions.helper import sdk_sign_and_send_prepared_request
+from plenum.test.pool_transactions.helper import vdr_sign_and_send_prepared_request
 from .helper import (
     set_txn_author_agreement as _set_txn_author_agreement,
     get_txn_author_agreement as _get_txn_author_agreement,
@@ -75,9 +75,9 @@ def taa_aml_handler(write_manager):
 
 
 @pytest.fixture(scope='module')
-def aml_request_kwargs(sdk_wallet_trustee):
+def aml_request_kwargs(vdr_wallet_trustee):
     return dict(
-        identifier=sdk_wallet_trustee[1],
+        identifier=vdr_wallet_trustee[1],
         reqId=5,
         protocolVersion=CURRENT_PROTOCOL_VERSION,
         operation={
@@ -95,7 +95,7 @@ def aml_request_kwargs(sdk_wallet_trustee):
 # Note. sdk_pool_handle is necessary since it sets proper
 # Protocol Version for requests
 @pytest.fixture(scope="module")
-def taa_aml_request_module(looper, aml_request_kwargs, sdk_pool_handle):
+def taa_aml_request_module(looper, aml_request_kwargs, vdr_pool_handle):
     res = looper.loop.run_until_complete(
         build_acceptance_mechanisms_request(
             aml_request_kwargs['identifier'],
@@ -108,7 +108,7 @@ def taa_aml_request_module(looper, aml_request_kwargs, sdk_pool_handle):
 
 
 @pytest.fixture(scope="function")
-def taa_aml_request(looper, aml_request_kwargs, sdk_pool_handle):
+def taa_aml_request(looper, aml_request_kwargs, vdr_pool_handle):
     aml_request_kwargs = deepcopy(aml_request_kwargs)
     aml_request_kwargs['operation'][AML_VERSION] = randomString()
     aml_request_kwargs['operation'][AML_CONTEXT] = randomString()
@@ -126,23 +126,23 @@ def taa_aml_request(looper, aml_request_kwargs, sdk_pool_handle):
 @pytest.fixture(scope="module")
 def set_txn_author_agreement_aml(
         looper, txnPoolNodeSet, taa_aml_request_module,
-        sdk_pool_handle, sdk_wallet_trustee
+        vdr_pool_handle, vdr_wallet_trustee
 ):
-    req = sdk_sign_and_send_prepared_request(
-        looper, sdk_wallet_trustee, sdk_pool_handle, taa_aml_request_module)
-    return sdk_get_and_check_replies(looper, [req])[0]
+    req = vdr_sign_and_send_prepared_request(
+        looper, vdr_wallet_trustee, vdr_pool_handle, taa_aml_request_module)
+    return vdr_get_and_check_replies(looper, [req])[0]
 
 
 @pytest.fixture(scope='module')
 def set_txn_author_agreement(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_trustee
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_trustee
 ):
     def wrapped(text=None, version=None, retired=None, ratified=None):
         random_taa = gen_random_txn_author_agreement()
         text = random_taa[0] if text is None else text
         version = random_taa[1] if version is None else version
         ratified = get_utc_epoch() - 600 if ratified is None else ratified
-        res = _set_txn_author_agreement(looper, sdk_pool_handle, sdk_wallet_trustee, text, version, ratified, retired)
+        res = _set_txn_author_agreement(looper, vdr_pool_handle, vdr_wallet_trustee, text, version, ratified, retired)
         ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)
         return res
 
@@ -151,11 +151,11 @@ def set_txn_author_agreement(
 
 @pytest.fixture(scope='module')
 def get_txn_author_agreement(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client
 ):
     def wrapped(digest=None, version=None, timestamp=None):
         return _get_txn_author_agreement(
-            looper, sdk_pool_handle, sdk_wallet_client,
+            looper, vdr_pool_handle, vdr_wallet_client,
             digest=digest, version=version, timestamp=timestamp
         )
 

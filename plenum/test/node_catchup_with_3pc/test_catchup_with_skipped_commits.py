@@ -8,7 +8,7 @@ from plenum.common.messages.node_messages import Commit
 from plenum.common.util import compare_3PC_keys
 from plenum.server.catchup.node_leecher_service import NodeLeecherService
 from plenum.test.delayers import cr_delay, delay_3pc
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests, sdk_get_and_check_replies, \
+from plenum.test.helper import vdr_send_random_and_check, vdr_send_random_requests, vdr_get_and_check_replies, \
     max_3pc_batch_limits
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
 from plenum.test.stasher import delay_rules, start_delaying, stop_delaying_and_process
@@ -26,8 +26,8 @@ def tconf(tconf):
 def test_catchup_with_skipped_commits(tdir, tconf,
                                       looper,
                                       txnPoolNodeSet,
-                                      sdk_pool_handle,
-                                      sdk_wallet_client):
+                                      vdr_pool_handle,
+                                      vdr_wallet_client):
     lagging_node = txnPoolNodeSet[-1]
     lagging_stasher = lagging_node.nodeIbStasher
     other_nodes = txnPoolNodeSet[:-1]
@@ -47,7 +47,7 @@ def test_catchup_with_skipped_commits(tdir, tconf,
             assert compare_3PC_keys((view_no, pp_seq_no), node.master_replica.last_ordered_3pc) >= 0
 
     # Preload nodes with some transactions
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, 1)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, 1)
     for node in txnPoolNodeSet:
         assert node.master_replica.last_ordered_3pc == (0, 1)
 
@@ -57,7 +57,7 @@ def test_catchup_with_skipped_commits(tdir, tconf,
     start_delaying(lagging_stasher, delay_3pc(before=4, msgs=Commit))
 
     # Send more requests
-    reqs = sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, 6)
+    reqs = vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, 6)
 
     # Wait until pool ordered till (0, 3)
     looper.run(eventually(check_nodes_ordered_till, other_nodes, 0, 3))
@@ -82,7 +82,7 @@ def test_catchup_with_skipped_commits(tdir, tconf,
     looper.run(eventually(check_lagging_node_done_catchup))
 
     # Ensure that all requests were ordered
-    sdk_get_and_check_replies(looper, reqs)
+    vdr_get_and_check_replies(looper, reqs)
 
     # Ensure that all nodes will eventually have same data
     ensure_all_nodes_have_same_data(looper, txnPoolNodeSet)

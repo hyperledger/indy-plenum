@@ -9,17 +9,17 @@ import logging
 
 
 @pytest.fixture(params=[zmq.REQ])
-def zmq_connection(test_node, request, looper):
-    sock = create_zmq_connection(test_node, request.param)
+def zmq_connection(vdr_test_node, request, looper):
+    sock = create_zmq_connection(vdr_test_node, request.param)
 
     yield sock
     sock.close(linger=0)
     sock = None
-    test_node.stop()
-    looper.removeProdable(test_node)
+    vdr_test_node.stop()
+    looper.removeProdable(vdr_test_node)
 
 
-def test_send_using_not_dealer_socket(zmq_connection, test_node, looper, sdk_wallet_client, logsearch):
+def test_send_using_not_dealer_socket(zmq_connection, vdr_test_node, looper, vdr_wallet_client, logsearch):
     default_log_level = logging.root.level
     Logger.setLogLevel(logging.DEBUG)
     logs, _ = logsearch(files=['zstack.py'], msgs=['Got too many values for unpack'])
@@ -27,7 +27,7 @@ def test_send_using_not_dealer_socket(zmq_connection, test_node, looper, sdk_wal
     def check_reply():
         assert logs
 
-    looper.add(test_node)
+    looper.add(vdr_test_node)
     msg = "{ \"op\": \"LEDGER_STATUS\", \"txnSeqNo\": 0, \"merkleRoot\": \"\", \"ledgerId\": 0, \"ppSeqNo\": null, \"viewNo\": null, \"protocolVersion\": 2}"
     zmq_connection.send_string(msg)
     looper.run(eventually(check_reply))

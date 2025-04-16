@@ -16,8 +16,8 @@ def tconf(tconf):
 
 
 def test_view_change_not_happen_if_ic_is_discarded(looper, txnPoolNodeSet,
-                                                   sdk_pool_handle,
-                                                   sdk_wallet_client,
+                                                   vdr_pool_handle,
+                                                   vdr_wallet_client,
                                                    tconf, tdir, allPluginsPath):
     """
     1. panic_node (Delta) send InstanceChange for all nodes.

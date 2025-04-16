@@ -4,17 +4,17 @@ from plenum.server.replica_validator_enums import ALREADY_STABLE
 from plenum.test.checkpoints.helper import check_for_instance, check_stable_checkpoint
 from stp_core.loop.eventually import eventually
 from plenum.test.helper import checkDiscardMsg
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 
 def test_discard_checkpoint_msg_for_stable_checkpoint(chkFreqPatched,
                                                       tconf, looper,
                                                       txnPoolNodeSet,
-                                                      sdk_pool_handle,
-                                                      sdk_wallet_client,
+                                                      vdr_pool_handle,
+                                                      vdr_wallet_client,
                                                       reqs_for_checkpoint):
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, reqs_for_checkpoint)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, reqs_for_checkpoint)
     next_checkpoint = tconf.CHK_FREQ
     for inst_id in txnPoolNodeSet[0].replicas.keys():
         looper.run(eventually(check_for_instance, txnPoolNodeSet, inst_id,

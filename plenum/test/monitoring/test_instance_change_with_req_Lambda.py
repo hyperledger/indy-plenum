@@ -1,7 +1,7 @@
 import pytest
 
 from plenum.common.messages.node_messages import PrePrepare
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.helper import waitForViewChange
 from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getPrimaryReplica
@@ -37,9 +37,9 @@ def tconf(tconf):
 
 
 @pytest.fixture()
-def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 5)
+def setup(looper, tconf, txnPoolNodeSet, vdr_wallet_client, vdr_pool_handle):
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_client, 5)
     P = getPrimaryReplica(txnPoolNodeSet)
 
     # set LAMBDA smaller than the production config to make the test faster
@@ -65,8 +65,8 @@ def setup(looper, tconf, txnPoolNodeSet, sdk_wallet_client, sdk_pool_handle):
 
     P.outBoxTestStasher.delay(specificPrePrepare)
     # TODO select or create a timeout for this case in 'waits'
-    sdk_send_random_and_check(looper, txnPoolNodeSet,
-                              sdk_pool_handle, sdk_wallet_client, 5,
+    vdr_send_random_and_check(looper, txnPoolNodeSet,
+                              vdr_pool_handle, vdr_wallet_client, 5,
                               customTimeoutPerReq=tconf.TestRunningTimeLimitSec)
 
     return adict(nodes=txnPoolNodeSet, old_view_no=old_view_no)

@@ -2,9 +2,9 @@ import pytest
 
 from plenum.common.constants import DOMAIN_LEDGER_ID
 from plenum.test.delayers import delay_for_view
-from plenum.test.helper import checkViewNoForNodes, sdk_send_random_and_check, waitForViewChange, view_change_timeout
+from plenum.test.helper import checkViewNoForNodes, vdr_send_random_and_check, waitForViewChange, view_change_timeout
 from plenum.test.node_catchup.helper import ensure_all_nodes_have_same_data
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkProtocolInstanceSetup, ensureElectionsDone
 from plenum.test.view_change_service.helper import trigger_view_change
@@ -20,7 +20,7 @@ def tconf(tconf):
 
 
 def test_catchup_to_next_view_during_view_change_by_primary(txnPoolNodeSet, looper,
-                                                            sdk_pool_handle, sdk_wallet_steward):
+                                                            vdr_pool_handle, vdr_wallet_steward):
     '''
     1) Lagging node is a primary for view=1
     2) All nodes except the lagging one start a view change (to view=1)
@@ -48,8 +48,8 @@ def test_catchup_to_next_view_during_view_change_by_primary(txnPoolNodeSet, loop
             ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
             # order some txns
-            sdk_send_random_and_check(looper, txnPoolNodeSet,
-                                      sdk_pool_handle, sdk_wallet_steward, 5)
+            vdr_send_random_and_check(looper, txnPoolNodeSet,
+                                      vdr_pool_handle, vdr_wallet_steward, 5)
 
             assert initial_view_no == lagging_node.viewNo
             assert initial_last_ordered == lagging_node.master_last_ordered_3PC
@@ -67,4 +67,4 @@ def test_catchup_to_next_view_during_view_change_by_primary(txnPoolNodeSet, loop
     ensure_all_nodes_have_same_data(looper, nodes=other_nodes)
 
     # make sure that the pool is functional
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)

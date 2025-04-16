@@ -18,18 +18,15 @@ RUN sudo apt-get update -y && sudo apt-get install -y \
 # Update repository signing keys
 # --------------------------------------------------------------------------------------------------------
 # Hyperledger
-RUN sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61 && \
-    # Sovrin
-    sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys CE7709D068DB5E88
+RUN sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 9692C00E657DDE61
 # ========================================================================================================
 
 # Plenum
 #  - https://github.com/hyperledger/indy-plenum/issues/1546
 #  - Needed to pick up rocksdb=5.8.8
-RUN sudo add-apt-repository 'deb https://hyperledger.jfrog.io/artifactory/indy focal dev' && \
-    sudo add-apt-repository 'deb http://security.ubuntu.com/ubuntu bionic-security main' && \
-    sudo add-apt-repository 'deb https://repo.sovrin.org/deb bionic master'  && \
-    sudo add-apt-repository 'deb https://repo.sovrin.org/sdk/deb bionic master'
+RUN echo "deb http://security.ubuntu.com/ubuntu bionic-security main"  >> /etc/apt/sources.list && \
+    echo "deb https://hyperledger.jfrog.io/artifactory/indy bionic master" >> /etc/apt/sources.list && \
+    echo "deb https://hyperledger.jfrog.io/artifactory/indy focal dev"  >> /etc/apt/sources.list
 
 RUN sudo apt-get update -y && sudo apt-get install -y \
     # Python

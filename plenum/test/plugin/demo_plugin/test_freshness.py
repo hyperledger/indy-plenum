@@ -17,9 +17,9 @@ def tconf(tconf):
 
 
 def test_update_bls_multi_sig_for_auction_ledger_by_timeout(looper, tconf, txnPoolNodeSet,
-                                                            sdk_pool_handle, sdk_wallet_steward):
+                                                            vdr_pool_handle, vdr_wallet_steward):
     # 1. Update auction ledger
-    send_auction_txn(looper, sdk_pool_handle, sdk_wallet_steward)
+    send_auction_txn(looper, vdr_pool_handle, vdr_wallet_steward)
 
     # 2. Wait for the first freshness update
     looper.run(eventually(

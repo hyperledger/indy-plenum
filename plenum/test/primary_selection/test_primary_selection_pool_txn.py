@@ -1,7 +1,7 @@
 import pytest
 
-from plenum.test.node_request.helper import sdk_ensure_pool_functional
-from plenum.test.pool_transactions.helper import sdk_add_2_nodes
+from plenum.test.node_request.helper import vdr_ensure_pool_functional
+from plenum.test.pool_transactions.helper import vdr_add_2_nodes
 from plenum.test.primary_selection.helper import check_newly_added_nodes
 
 
@@ -17,21 +17,21 @@ from plenum.test.primary_selection.helper import check_newly_added_nodes
 
 
 def test_primary_selection_non_genesis_node(sdk_one_node_added, looper,
-                                            txnPoolNodeSet, sdk_pool_handle,
-                                            sdk_wallet_steward):
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet,
-                               sdk_wallet_steward,
-                               sdk_pool_handle)
+                                            txnPoolNodeSet, vdr_pool_handle,
+                                            vdr_wallet_steward):
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet,
+                               vdr_wallet_steward,
+                               vdr_pool_handle)
 
 
 @pytest.fixture(scope='module')
 def two_more_nodes_added(sdk_one_node_added, looper, txnPoolNodeSet,
-                         sdk_pool_handle, sdk_wallet_steward,
+                         vdr_pool_handle, vdr_wallet_steward,
                          tdir, tconf, allPluginsPath):
     # check_accepted_view_change_sent(one_node_added, txnPoolNodeSet)
 
-    new_nodes = sdk_add_2_nodes(looper, txnPoolNodeSet, sdk_pool_handle,
-                                sdk_wallet_steward,
+    new_nodes = vdr_add_2_nodes(looper, txnPoolNodeSet, vdr_pool_handle,
+                                vdr_wallet_steward,
                                 tdir, tconf, allPluginsPath)
 
     check_newly_added_nodes(looper, txnPoolNodeSet, new_nodes)
@@ -45,11 +45,11 @@ def test_primary_selection_increase_f(
         two_more_nodes_added,
         looper,
         txnPoolNodeSet,
-        sdk_wallet_steward,
-        sdk_pool_handle):
+        vdr_wallet_steward,
+        vdr_pool_handle):
     # for n in two_more_nodes_added:
     #     check_accepted_view_change_sent(n, txnPoolNodeSet)
-    sdk_ensure_pool_functional(looper, txnPoolNodeSet, sdk_wallet_steward, sdk_pool_handle)
+    vdr_ensure_pool_functional(looper, txnPoolNodeSet, vdr_wallet_steward, vdr_pool_handle)
 
 # TODO: Add more tests to make one next primary crashed, malicious, ensure primary
 # selection happens after catchup

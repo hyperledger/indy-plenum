@@ -5,7 +5,7 @@ from plenum.common.request import Request
 from plenum.common.txn_util import reqToTxn, append_txn_metadata
 from plenum.common.types import OPERATION, f
 from plenum.common.util import SortedDict
-from plenum.test.helper import sdk_sign_request_from_dict, sdk_multisign_request_from_dict
+from plenum.test.helper import vdr_sign_request_from_dict, vdr_multisign_request_from_dict
 
 
 @pytest.fixture(params=['with_endorser', 'no_endorser'])
@@ -17,7 +17,7 @@ def endorser(request):
 
 @pytest.fixture(params=['all', 'sig_only', 'sigs_only', 'no_protocol_vers', 'custom_version',
                         'all_sdk', 'sig_only_sdk', 'sigs_only_sdk', 'no_protocol_vers_sdk'])
-def req_and_expected(request, looper, sdk_wallet_client, endorser):
+def req_and_expected(request, looper, vdr_wallet_client, endorser):
 
     op = {'type': '1',
           'something': 'nothing'}
@@ -33,12 +33,12 @@ def req_and_expected(request, looper, sdk_wallet_client, endorser):
     if request.param.endswith('_sdk'):
         request.param = request.param[:-4]
         if request.param == 'sigs_only':
-            req = sdk_multisign_request_from_dict(looper, sdk_wallet_client,
+            req = vdr_multisign_request_from_dict(looper, vdr_wallet_client,
                                                   op, reqId=1513945121191691,
                                                   taa_acceptance=taaa,
                                                   endorser=endorser)
         else:
-            req = sdk_sign_request_from_dict(looper, sdk_wallet_client,
+            req = vdr_sign_request_from_dict(looper, vdr_wallet_client,
                                              op, reqId=1513945121191691,
                                              taa_acceptance=taaa,
                                              endorser=endorser)

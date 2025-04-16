@@ -4,10 +4,10 @@ from stp_core.common.log import getlogger
 
 from plenum.test import waits
 from plenum.test.delayers import cpDelay
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node, \
-    sdk_pool_refresh
+from plenum.test.pool_transactions.helper import vdr_add_new_steward_and_node, \
+    vdr_pool_refresh
 from plenum.test.test_node import checkNodesConnected
 
 logger = getlogger()
@@ -20,7 +20,7 @@ whitelist = ['found legacy entry']  # logged errors to ignore
 @pytest.mark.skip(reason="SOV-551. Incomplete implementation")
 def testCatchupDelayedNodes(txnPoolNodeSet,
                             sdk_node_set_with_node_added_after_some_txns,
-                            sdk_wallet_steward,
+                            vdr_wallet_steward,
                             txnPoolCliNodeReg, tdirWithPoolTxns,
                             tconf, tdir,
                             allPluginsPath):
@@ -42,9 +42,9 @@ def testCatchupDelayedNodes(txnPoolNodeSet,
     nodeZName = "Theta"
     delayX = 45
     delayY = 2
-    stewardX, nodeX = sdk_add_new_steward_and_node(looper,
+    stewardX, nodeX = vdr_add_new_steward_and_node(looper,
                                                    sdk_pool_handle,
-                                                   sdk_wallet_steward,
+                                                   vdr_wallet_steward,
                                                    stewardXName,
                                                    nodeXName,
                                                    tdir,
@@ -52,9 +52,9 @@ def testCatchupDelayedNodes(txnPoolNodeSet,
                                                    autoStart=False,
                                                    allPluginsPath=allPluginsPath)
 
-    stewardY, nodeY = sdk_add_new_steward_and_node(looper,
+    stewardY, nodeY = vdr_add_new_steward_and_node(looper,
                                                    sdk_pool_handle,
-                                                   sdk_wallet_steward,
+                                                   vdr_wallet_steward,
                                                    stewardYName,
                                                    nodeYName,
                                                    tdir,
@@ -76,9 +76,9 @@ def testCatchupDelayedNodes(txnPoolNodeSet,
     nodeX.stop()
     nodeY.stop()
     logger.debug("Sending requests")
-    sdk_pool_refresh(looper, sdk_pool_handle)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 50)
+    vdr_pool_refresh(looper, sdk_pool_handle)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
+                              vdr_wallet_steward, 50)
     logger.debug("Starting the 2 stopped nodes, {} and {}".format(nodeX.name,
                                                                   nodeY.name))
     nodeX.start(looper.loop)

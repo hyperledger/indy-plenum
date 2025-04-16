@@ -7,7 +7,7 @@ from plenum.common.messages.fields import IterableField, \
     LedgerIdField, NonNegativeNumberField, MerkleRootField, TimestampField, LimitedLengthStringField
 from plenum.common.messages.node_messages import BatchCommitted
 from plenum.common.util import get_utc_epoch
-from plenum.test.helper import sdk_random_request_objects, generate_state_root
+from plenum.test.helper import vdr_random_request_objects, generate_state_root
 
 EXPECTED_ORDERED_FIELDS = OrderedDict([
     ("requests", IterableField),
@@ -30,7 +30,7 @@ EXPECTED_ORDERED_FIELDS = OrderedDict([
 
 def create_valid_batch_committed():
     reqs = [req.as_dict for req in
-            sdk_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
+            vdr_random_request_objects(10, identifier="1" * 16, protocol_version=CURRENT_PROTOCOL_VERSION)]
     return BatchCommitted(reqs,
                           DOMAIN_LEDGER_ID,
                           0,

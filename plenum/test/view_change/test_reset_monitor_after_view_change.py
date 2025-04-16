@@ -2,8 +2,8 @@ from plenum.common.messages.internal_messages import ReAppliedInNewView
 from plenum.test.testing_utils import FakeSomething
 
 
-def test_reset_monitor_after_view_change_events(create_node_and_not_start):
-    node = create_node_and_not_start
+def test_reset_monitor_after_view_change_events(vdr_create_node_and_not_start):
+    node = vdr_create_node_and_not_start
     node.view_changer = FakeSomething(propagate_primary=False,
                                       view_no=1)
 

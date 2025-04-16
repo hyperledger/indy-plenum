@@ -11,14 +11,14 @@ def tconf(tconf):
 
 def test_replica_removing_with_backup_degraded(looper,
                                                txnPoolNodeSet,
-                                               sdk_pool_handle,
-                                               sdk_wallet_client,
-                                               sdk_wallet_steward,
+                                               vdr_pool_handle,
+                                               vdr_wallet_client,
+                                               vdr_wallet_steward,
                                                tconf,
                                                tdir,
                                                allPluginsPath):
     do_test_replica_removing_with_backup_degraded(looper,
                                                   txnPoolNodeSet,
-                                                  sdk_pool_handle,
-                                                  sdk_wallet_client,
+                                                  vdr_pool_handle,
+                                                  vdr_wallet_client,
                                                   tconf)

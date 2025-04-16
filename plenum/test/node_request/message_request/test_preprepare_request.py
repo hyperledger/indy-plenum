@@ -7,7 +7,7 @@ from plenum.test.node_request.message_request.helper import split_nodes
 from plenum.test.spy_helpers import getAllReturnVals, get_count
 from stp_core.loop.eventually import eventually
 
-from plenum.test.helper import sdk_send_batches_of_random_and_check
+from plenum.test.helper import vdr_send_batches_of_random_and_check
 
 
 def count_requested_preprepare_resp(node):
@@ -25,7 +25,7 @@ def count_requested_preprepare_req(node):
 
 
 def test_node_request_preprepare(looper, txnPoolNodeSet,
-                                 sdk_wallet_client, sdk_pool_handle,
+                                 vdr_wallet_client, vdr_pool_handle,
                                  teardown):
     """
     Node requests PRE-PREPARE only once after getting PREPAREs.
@@ -36,10 +36,10 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
     slow_node.nodeIbStasher.delay(ppDelay(300, 0))
     slow_node.nodeIbStasher.delay(pDelay(300, 0))
 
-    sdk_send_batches_of_random_and_check(looper,
+    vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
-                                         sdk_pool_handle,
-                                         sdk_wallet_client,
+                                         vdr_pool_handle,
+                                         vdr_wallet_client,
                                          num_reqs=10,
                                          num_batches=5)
     slow_node.nodeIbStasher.drop_delayeds()
@@ -89,7 +89,7 @@ def test_node_request_preprepare(looper, txnPoolNodeSet,
 
 
 def test_no_preprepare_requested(looper, txnPoolNodeSet,
-                                 sdk_wallet_client, sdk_pool_handle,
+                                 vdr_wallet_client, vdr_pool_handle,
                                  teardown):
     """
     Node missing Propagates hence request not finalised, hence stashes
@@ -102,10 +102,10 @@ def test_no_preprepare_requested(looper, txnPoolNodeSet,
 
     old_count_resp = count_requested_preprepare_resp(slow_node)
 
-    sdk_send_batches_of_random_and_check(looper,
+    vdr_send_batches_of_random_and_check(looper,
                                          txnPoolNodeSet,
-                                         sdk_pool_handle,
-                                         sdk_wallet_client,
+                                         vdr_pool_handle,
+                                         vdr_wallet_client,
                                          num_reqs=4,
                                          num_batches=2)
 

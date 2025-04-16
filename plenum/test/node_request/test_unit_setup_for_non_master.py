@@ -5,9 +5,9 @@ import time
 
 from plenum.common.messages.node_messages import PrePrepare, Prepare
 from plenum.common.util import compare_3PC_keys
-from plenum.test.helper import sdk_send_random_and_check, init_discarded
+from plenum.test.helper import vdr_send_random_and_check, init_discarded
 from plenum.test.node_catchup.helper import waitNodeDataEquality
-from plenum.test.pool_transactions.helper import sdk_add_new_steward_and_node
+from plenum.test.pool_transactions.helper import vdr_add_new_steward_and_node
 from plenum.test.test_node import getNonPrimaryReplicas, checkNodesConnected
 from stp_core.common.log import getlogger
 from stp_core.loop.eventually import eventually
@@ -16,7 +16,7 @@ logger = getlogger()
 
 
 def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
-                                                         sdk_wallet_client):
+                                                         vdr_wallet_client):
     inst_id = 1
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
     replica._ordering_service.preparesWaitingForPrePrepare.clear()
@@ -29,7 +29,7 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       vdr_wallet_client)
     replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
     replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
@@ -43,7 +43,7 @@ def test_setup_last_ordered_for_non_master_after_catchup(txnPoolNodeSet,
 
 
 def test_setup_last_ordered_for_non_master_without_preprepare(txnPoolNodeSet,
-                                                              sdk_wallet_client):
+                                                              vdr_wallet_client):
     inst_id = 1
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
     replica._ordering_service.preparesWaitingForPrePrepare.clear()
@@ -56,7 +56,7 @@ def test_setup_last_ordered_for_non_master_without_preprepare(txnPoolNodeSet,
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       vdr_wallet_client)
     replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] = deque()
     for node in txnPoolNodeSet:
         replica._ordering_service.preparesWaitingForPrePrepare[replica.viewNo, ppSeqNo] \
@@ -67,7 +67,7 @@ def test_setup_last_ordered_for_non_master_without_preprepare(txnPoolNodeSet,
 
 def test_setup_last_ordered_for_non_master_without_quorum_of_prepares(
         txnPoolNodeSet,
-        sdk_wallet_client):
+        vdr_wallet_client):
     inst_id = 1
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
     replica._ordering_service.preparesWaitingForPrePrepare.clear()
@@ -80,7 +80,7 @@ def test_setup_last_ordered_for_non_master_without_quorum_of_prepares(
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       vdr_wallet_client)
     replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
     replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
@@ -92,7 +92,7 @@ def test_setup_last_ordered_for_non_master_without_quorum_of_prepares(
 
 
 def test_setup_last_ordered_for_non_master_for_master(txnPoolNodeSet,
-                                                      sdk_wallet_client):
+                                                      vdr_wallet_client):
     inst_id = 0
     replica = getNonPrimaryReplicas(txnPoolNodeSet, inst_id)[-1]
     replica._ordering_service.preparesWaitingForPrePrepare.clear()
@@ -105,7 +105,7 @@ def test_setup_last_ordered_for_non_master_for_master(txnPoolNodeSet,
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       vdr_wallet_client)
     replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
     replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))
@@ -118,7 +118,7 @@ def test_setup_last_ordered_for_non_master_for_master(txnPoolNodeSet,
 
 
 def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
-                                                           sdk_wallet_client):
+                                                           vdr_wallet_client):
     inst_id = 1
     last_ordered_3pc = (0, 12)
     timestamp = time.time()
@@ -132,7 +132,7 @@ def test_setup_last_ordered_for_non_master_without_catchup(txnPoolNodeSet,
                                        replica.viewNo,
                                        ppSeqNo,
                                        timestamp,
-                                       sdk_wallet_client)
+                                       vdr_wallet_client)
     replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] = deque()
     replica._ordering_service.prePreparesPendingPrevPP[replica.viewNo, ppSeqNo] \
         .append((preprepare, replica.primaryName))

@@ -11,7 +11,7 @@ from plenum.test.spy_helpers import getAllReturnVals
 from plenum.test.test_node import getNonPrimaryReplicas
 from plenum.common.txn_util import get_txn_time, get_payload_data
 
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 
 
 @pytest.fixture(scope="module")
@@ -22,16 +22,16 @@ def tconf(tconf):
     tconf.Max3PCBatchSize = oldMax3PCBatchSize
 
 
-def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client):
+def test_replicas_prepare_time(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client):
     last_domain_seq_no = txnPoolNodeSet[0].domainLedger.size + 1
 
     # Check that each replica's PREPARE time is same as the PRE-PREPARE time
     sent_batches = 5
     for i in range(sent_batches):
-        sdk_send_random_and_check(looper,
+        vdr_send_random_and_check(looper,
                                   txnPoolNodeSet,
-                                  sdk_pool_handle,
-                                  sdk_wallet_client,
+                                  vdr_pool_handle,
+                                  vdr_wallet_client,
                                   count=2)
         looper.runFor(1)
 
@@ -65,15 +65,15 @@ def test_replicas_prepare_time(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wall
 
 
 def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet,
-                                              sdk_wallet_client, sdk_pool_handle):
+                                              vdr_wallet_client, vdr_pool_handle):
     """
     One of the non-primary has an in-correct clock so it thinks PRE-PREPARE
     has incorrect time
     """
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               count=2)
     # send_reqs_to_nodes_and_verify_all_replies(looper, wallet1, client1, 2)
     # The replica having the bad clock
@@ -84,10 +84,10 @@ def test_non_primary_accepts_pre_prepare_time(looper, txnPoolNodeSet,
     old_acceptable_rvs = getAllReturnVals(
         confused_npr._ordering_service, confused_npr._ordering_service._is_pre_prepare_time_acceptable)
     old_susp_count = get_timestamp_suspicion_count(confused_npr.node)
-    sdk_send_random_and_check(looper,
+    vdr_send_random_and_check(looper,
                               txnPoolNodeSet,
-                              sdk_pool_handle,
-                              sdk_wallet_client,
+                              vdr_pool_handle,
+                              vdr_wallet_client,
                               count=2)
 
     assert get_timestamp_suspicion_count(confused_npr.node) > old_susp_count

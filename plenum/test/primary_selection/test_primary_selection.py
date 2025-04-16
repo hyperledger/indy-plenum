@@ -2,7 +2,7 @@ import operator
 
 import pytest
 
-from plenum.test.helper import sdk_send_random_and_check
+from plenum.test.helper import vdr_send_random_and_check
 from plenum.test.primary_selection.helper import \
     check_rank_consistent_across_each_node
 from plenum.test.view_change.helper import ensure_view_change
@@ -23,7 +23,7 @@ def primaryReplicas(txnPoolNodeSet):
 
 # noinspection PyIncorrectDocstring
 def testPrimarySelectionAfterPoolReady(
-        looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_steward):
+        looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_steward):
     """
     Once the pool is ready(node has connected to at least 3 other nodes),
     appropriate primary replicas should be selected.
@@ -66,8 +66,8 @@ def testPrimarySelectionAfterPoolReady(
     # Check if every protocol instance has one and only one primary and any node
     #  has no more than one primary
     checkProtocolInstanceSetup(looper, txnPoolNodeSet, retryWait=1)
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_steward, 5)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_steward, 5)
 
 
 @pytest.fixture(scope='module')

@@ -5,7 +5,7 @@ from plenum.common.constants import TXN_TYPE, DATA, \
 from plenum.common.request import Request
 from plenum.common.types import f
 from plenum.common.util import getTimeBasedId
-from plenum.test.helper import sdk_sign_and_submit_req_obj, sdk_get_and_check_replies
+from plenum.test.helper import vdr_sign_and_submit_req_obj, vdr_get_and_check_replies, vdr_gen_request
 
 TEST_NODE_NAME = 'Alpha'
 INFO_FILENAME = '{}_info.json'.format(TEST_NODE_NAME.lower())
@@ -27,20 +27,18 @@ def node(txnPoolNodeSet):
 
 @pytest.fixture
 def read_txn_and_get_latest_info(looper,
-                                 sdk_pool_handle,
-                                 sdk_wallet_client, node):
-    _, did = sdk_wallet_client
+                                 vdr_pool_handle,
+                                 vdr_wallet_client, node):
+    _, did = vdr_wallet_client
     def read_wrapped(txn_type):
         op = {
             TXN_TYPE: txn_type,
             f.LEDGER_ID.nm: DOMAIN_LEDGER_ID,
             DATA: 1
         }
-        req = Request(identifier=did,
-                      operation=op, reqId=getTimeBasedId(),
-                      protocolVersion=CURRENT_PROTOCOL_VERSION)
-        sdk_get_and_check_replies(looper, [sdk_sign_and_submit_req_obj(
-            looper, sdk_pool_handle, sdk_wallet_client, req)])
+        req = vdr_gen_request(op, CURRENT_PROTOCOL_VERSION, did, reqId=getTimeBasedId())
+        vdr_get_and_check_replies(looper, [vdr_sign_and_submit_req_obj(
+            looper, vdr_pool_handle, vdr_wallet_client, req)])
 
         return node._info_tool.info
 

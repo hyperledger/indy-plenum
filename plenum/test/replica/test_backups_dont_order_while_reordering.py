@@ -3,7 +3,7 @@ import pytest
 from plenum.server.replica_helper import generateName
 from plenum.server.replicas import MASTER_REPLICA_INDEX
 from plenum.test.delayers import pDelay, cDelay, msg_req_delay, msg_rep_delay, old_view_pp_request_delay, ppDelay
-from plenum.test.helper import sdk_send_random_and_check, sdk_send_random_requests
+from plenum.test.helper import vdr_send_random_and_check, vdr_send_random_requests
 from plenum.test.stasher import delay_rules_without_processing, delay_rules
 from plenum.test.test_node import check_not_in_view_change
 from plenum.test.view_change.helper import ensure_view_change
@@ -31,8 +31,8 @@ def check_req_queue(node, expected_req_count):
 
 
 def test_backups_dont_order_while_reordering(txnPoolNodeSet,
-                                             sdk_pool_handle,
-                                             sdk_wallet_client,
+                                             vdr_pool_handle,
+                                             vdr_wallet_client,
                                              looper):
     """
     This test needs to show that for now we stop ordering on backups
@@ -61,7 +61,7 @@ def test_backups_dont_order_while_reordering(txnPoolNodeSet,
                                         msg_req_delay(),
                                         msg_rep_delay(),
                                         ppDelay(instId=MASTER_REPLICA_INDEX)):
-        sdk_send_random_requests(looper, sdk_pool_handle, sdk_wallet_client, REQS_FOR_REORDERING)
+        vdr_send_random_requests(looper, vdr_pool_handle, vdr_wallet_client, REQS_FOR_REORDERING)
         looper.run(eventually(check_pp_count, delayed_node, REQS_FOR_REORDERING, BACKUP_INST_ID))
         assert delayed_node.master_replica.last_ordered_3pc[1] == master_pp_seq_no_before
         with delay_rules([n.nodeIbStasher for n in txnPoolNodeSet], old_view_pp_request_delay()):
@@ -82,6 +82,6 @@ def test_backups_dont_order_while_reordering(txnPoolNodeSet,
 
             looper.run(eventually(check_backup_primaries))
 
-            sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle, sdk_wallet_client, REQS_FOR_REORDERING)
+            vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle, vdr_wallet_client, REQS_FOR_REORDERING)
             for node in txnPoolNodeSet:
                 assert node.replicas._replicas[BACKUP_INST_ID].last_ordered_3pc[1] == 0

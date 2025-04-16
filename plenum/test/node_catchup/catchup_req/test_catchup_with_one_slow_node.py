@@ -7,7 +7,7 @@ from plenum.test.delayers import cqDelay, cpDelay
 from plenum.test.logging.conftest import logsearch
 from plenum.test.pool_transactions.helper import \
     disconnect_node_and_ensure_disconnected
-from plenum.test.helper import sdk_send_random_and_check, max_3pc_batch_limits, assertExp
+from plenum.test.helper import vdr_send_random_and_check, max_3pc_batch_limits, assertExp
 from plenum.test.node_catchup.helper import waitNodeDataEquality
 from plenum.test.stasher import delay_rules
 from plenum.test.test_node import checkNodesConnected
@@ -29,8 +29,8 @@ def tconf(tconf):
 def test_catchup_with_one_slow_node(tdir, tconf,
                                     looper,
                                     txnPoolNodeSet,
-                                    sdk_pool_handle,
-                                    sdk_wallet_client,
+                                    vdr_pool_handle,
+                                    vdr_wallet_client,
                                     allPluginsPath,
                                     logsearch):
     '''
@@ -63,8 +63,8 @@ def test_catchup_with_one_slow_node(tdir, tconf,
     looper.removeProdable(lagging_node)
 
     # Send more requests to active nodes
-    sdk_send_random_and_check(looper, txnPoolNodeSet, sdk_pool_handle,
-                              sdk_wallet_client, len(non_lagging_nodes) * 3)
+    vdr_send_random_and_check(looper, txnPoolNodeSet, vdr_pool_handle,
+                              vdr_wallet_client, len(non_lagging_nodes) * 3)
     waitNodeDataEquality(looper, *non_lagging_nodes)
 
     # Stop Gamma
