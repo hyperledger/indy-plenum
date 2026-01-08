@@ -32,10 +32,10 @@ jobs:
       fail-fast: false
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           # pip cache on the plenum-build image is not in the default location.
           # path: ~/.cache/pip
@@ -45,7 +45,7 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Download plenum deb build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: plenum-deb
 
@@ -77,7 +77,7 @@ jobs:
       - name: Upload Detailed Test Failure Results
         # The test runner only emits the detailed test results if the tests fail.
         if: (steps.plenum-test.outcome == 'failure') && failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: detailed-test-result-slice-${{ matrix.slice }}
           path: test-result-plenum-${{ matrix.slice }}.txt
@@ -97,10 +97,10 @@ jobs:
       fail-fast: false
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           # pip cache on the plenum-build image is not in the default location.
           # path: ~/.cache/pip
@@ -110,7 +110,7 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Download plenum deb build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: plenum-deb
 

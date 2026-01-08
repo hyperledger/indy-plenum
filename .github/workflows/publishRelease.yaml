@@ -31,7 +31,7 @@ jobs:
       publish: ${{ steps.workflow-setup.outputs.publish }}
     steps:
       - name: checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: get-release-info
         id: get-release-info
         uses: hyperledger-indy/indy-shared-gha/.github/actions/get-release-info@v2.0.3
@@ -48,10 +48,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download Plenum deb Artifacts from Github Action Artifacts
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v12
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: releasepr.yaml
@@ -59,7 +59,7 @@ jobs:
           name: plenum-deb
           path: artifacts/plenum-deb
       - name: Download Plenum python Artifacts from Github Action Artifacts
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v12
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: releasepr.yaml
@@ -67,24 +67,24 @@ jobs:
           name: plenum-python
           path: artifacts/plenum-python
       - name: Download Plenum third party dependency Artifacts from Github Action Artifacts
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v12
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: releasepr.yaml
           workflow_conclusion: success
           name: third-party-dependencies
           path: artifacts/third-party-dependencies
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: third-party-dependencies
           path: artifacts/third-party-dependencies
           retention-days: 5
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: plenum-deb
           path: artifacts/plenum-deb
           retention-days: 5
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: plenum-python
           path: artifacts/plenum-python
@@ -133,7 +133,7 @@ jobs:
     needs: [release-infos, publish_artifacts, convertPyVersion]
     steps:
       - name: Repository Dispatch
-        uses: peter-evans/repository-dispatch@v3
+        uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.BOT_PR_PAT }}
           repository: hyperledger-indy/indy-node
