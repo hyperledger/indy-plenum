@@ -342,6 +342,14 @@ def z85_to_friendly(z):
         return z
 
 
+def json_default_bytes_to_str(obj):
+    """``json.dumps`` default hook decoding bytes/bytearray as UTF-8."""
+    if isinstance(obj, (bytes, bytearray)):
+        return obj.decode()
+    raise TypeError('Object of type {} is not JSON '
+                    'serializable'.format(type(obj).__name__))
+
+
 def runWithLoop(loop, callback, *args, **kwargs):
     if loop.is_running():
         loop.call_soon(asyncio.ensure_future, callback(*args, **kwargs))

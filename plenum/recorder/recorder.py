@@ -1,13 +1,10 @@
 import os
 import time
+import json
 from typing import Callable
 
+from plenum.common.util import json_default_bytes_to_str
 from storage.kv_store_rocksdb_int_keys import KeyValueStorageRocksdbIntKeys
-
-try:
-    import ujson as json
-except ImportError:
-    import json
 
 
 class Recorder:
@@ -50,7 +47,8 @@ class Recorder:
             existing = json.loads(existing)
         except KeyError:
             existing = []
-        self.store.put(key, json.dumps([*existing, val]))
+        self.store.put(key, json.dumps([*existing, val],
+                                       default=json_default_bytes_to_str))
 
     def register_replay_target(self, id, target: Callable):
         assert id not in self.replay_targets

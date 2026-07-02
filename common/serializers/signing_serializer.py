@@ -90,6 +90,3 @@ class SigningSerializer:
             return res
 
         return res.encode('utf-8')
-
-        # topLevelKeysToIgnore = topLevelKeysToIgnore or []
-        # return ujson.dumps({k:obj[k] for k in obj.keys() if k not in topLevelKeysToIgnore}, sort_keys=True)

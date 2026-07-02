@@ -1,10 +1,5 @@
 from test_zmq.authenticator import MultiZapAuthenticator
-
-try:
-    import ujson as json
-except ImportError:
-    import json
-
+import json
 import os
 import shutil
 import sys
@@ -561,7 +556,7 @@ class ZStack():
     @staticmethod
     def serializeMsg(msg):
         if isinstance(msg, Mapping):
-            msg = json.dumps(msg)
+            msg = json.dumps(msg, separators=(',', ':'))
         if isinstance(msg, str):
             msg = msg.encode()
         assert isinstance(msg, bytes)
