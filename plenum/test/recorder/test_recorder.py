@@ -56,6 +56,19 @@ def test_add_to_recorder(recorder):
         i += 1
 
 
+def test_add_to_recorder_with_bytes(recorder):
+    msg1, frm1 = b'{"msg": "m1"}', b'f1'
+    msg2, to1 = b'{"msg": "m2"}', 't1'
+    recorder.add_incoming(msg1, frm1)
+    recorder.add_outgoing(msg2, to1)
+
+    all_msgs = []
+    for _, v in recorder.store.iterator(include_value=True):
+        all_msgs.extend(Recorder.get_parsed(v))
+    assert Recorder.filter_incoming(all_msgs) == [['{"msg": "m1"}', 'f1']]
+    assert Recorder.filter_outgoing(all_msgs) == [['{"msg": "m2"}', 't1']]
+
+
 def test_get_list_from_recorder(recorder):
     msg1, frm1 = 'm1', 'f1'
     msg2, frm2 = 'm2', 'f2'

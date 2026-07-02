@@ -868,7 +868,7 @@ class ZStack(NetworkInterface):
     @staticmethod
     def serializeMsg(msg):
         if isinstance(msg, Mapping):
-            msg = json.dumps(msg)
+            msg = json.dumps(msg, separators=(',', ':'))
         if isinstance(msg, str):
             msg = msg.encode()
         assert isinstance(msg, bytes)
